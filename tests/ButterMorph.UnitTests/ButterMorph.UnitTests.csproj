@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\ButterMorph.Core\ButterMorph.Core.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.DependencyInjection\ButterMorph.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Validation\ButterMorph.Validation.csproj" />
   </ItemGroup>
 
 </Project>

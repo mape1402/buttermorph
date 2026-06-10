@@ -4,6 +4,8 @@ using ButterMorph.Abstractions;
 using ButterMorph.Execution;
 using ButterMorph.Navigation;
 using ButterMorph.Transformations;
+using ButterMorph.Core;
+using ButterMorph.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -24,6 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<INavigationEngine, NavigationEngine>();
         services.AddTransient<IPathResolver, PathResolver>();
         services.AddTransient<ITransformationEngine, TransformationEngine>();
+        services.AddTransient<IValidationEngine, ValidationEngine>();
+        services.AddSingleton<IValidationRuleRegistry, ValidationRuleRegistry>();
 
         return services;
     }

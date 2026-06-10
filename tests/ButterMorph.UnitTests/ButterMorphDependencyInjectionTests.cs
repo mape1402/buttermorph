@@ -1,6 +1,5 @@
 namespace ButterMorph.UnitTests;
 
-using System;
 using ButterMorph.Abstractions;
 using ButterMorph.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +16,6 @@ public sealed class ButterMorphDependencyInjectionTests
     public void AddButterMorphResolvesEngineWhenRequiredEnginesAreRegistered()
     {
         ServiceCollection services = new();
-        services.AddSingleton<IValidationEngine, FakeValidationEngine>();
         services.AddButterMorph();
 
         using ServiceProvider provider = services.BuildServiceProvider();
@@ -44,17 +42,35 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
-    /// Confirms that dependency injection fails when the validation engine is missing.
+    /// Confirms that dependency injection resolves the validation engine.
     /// </summary>
     [Fact]
-    public void AddButterMorphRequiresValidationEngine()
+    public void AddButterMorphResolvesValidationEngine()
     {
         ServiceCollection services = new();
         services.AddButterMorph();
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IButterMorphEngine>());
+        IValidationEngine validationEngine = provider.GetRequiredService<IValidationEngine>();
+
+        Assert.NotNull(validationEngine);
+    }
+
+    /// <summary>
+    /// Confirms that dependency injection resolves the validation rule registry.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesValidationRuleRegistry()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IValidationRuleRegistry registry = provider.GetRequiredService<IValidationRuleRegistry>();
+
+        Assert.NotNull(registry);
     }
 
     /// <summary>
@@ -64,7 +80,6 @@ public sealed class ButterMorphDependencyInjectionTests
     public void AddButterMorphResolvesNavigationServices()
     {
         ServiceCollection services = new();
-        services.AddSingleton<IValidationEngine, FakeValidationEngine>();
         services.AddButterMorph();
 
         using ServiceProvider provider = services.BuildServiceProvider();
