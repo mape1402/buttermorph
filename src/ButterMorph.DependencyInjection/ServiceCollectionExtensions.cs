@@ -1,6 +1,8 @@
-using Microsoft.Extensions.DependencyInjection;
-
 namespace ButterMorph.DependencyInjection;
+
+using ButterMorph.Abstractions;
+using ButterMorph.Execution;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Provides service registration helpers for ButterMorph.
@@ -14,6 +16,10 @@ public static class ServiceCollectionExtensions
     /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddButterMorph(this IServiceCollection services)
     {
+        services.AddTransient<IButterMorphEngine, global::ButterMorph.ButterMorphEngine>();
+        services.AddTransient<IExecutionPipeline, ExecutionPipeline>();
+        services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
+
         return services;
     }
 }

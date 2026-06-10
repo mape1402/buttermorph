@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
+    <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Core\ButterMorph.Core.csproj" />
     <ProjectReference Include="..\ButterMorph.Execution\ButterMorph.Execution.csproj" />
     <ProjectReference Include="..\ButterMorph.Navigation\ButterMorph.Navigation.csproj" />
@@ -9,7 +10,6 @@
     <ProjectReference Include="..\ButterMorph.Transformations\ButterMorph.Transformations.csproj" />
     <ProjectReference Include="..\ButterMorph.Validation\ButterMorph.Validation.csproj" />
     <ProjectReference Include="..\ButterMorph.Dsl\ButterMorph.Dsl.csproj" />
-    <ProjectReference Include="..\ButterMorph.Json\ButterMorph.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

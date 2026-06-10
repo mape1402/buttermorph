@@ -11,7 +11,7 @@ public sealed class TransformationRequest
     public IDictionary<string, IStructureGraph> Sources { get; set; } = new Dictionary<string, IStructureGraph>();
 
     /// <summary>
-    /// Gets or sets the transformation definition.
+    /// Gets or sets the parsed transformation definition.
     /// </summary>
-    public string Definition { get; set; } = string.Empty;
+    public IDslDocument Definition { get; set; }
 }

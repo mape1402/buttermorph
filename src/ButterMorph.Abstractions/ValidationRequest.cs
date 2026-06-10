@@ -11,7 +11,7 @@ public sealed class ValidationRequest
     public IStructureGraph SourceGraph { get; set; }
 
     /// <summary>
-    /// Gets or sets the validation definition.
+    /// Gets or sets the parsed validation definition.
     /// </summary>
-    public string Definition { get; set; } = string.Empty;
+    public IDslDocument Definition { get; set; }
 }

@@ -3,8 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
     <ProjectReference Include="..\ButterMorph.Execution\ButterMorph.Execution.csproj" />
-    <ProjectReference Include="..\ButterMorph.DependencyInjection\ButterMorph.DependencyInjection.csproj" />
-    <ProjectReference Include="..\ButterMorph.Json\ButterMorph.Json.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
