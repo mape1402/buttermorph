@@ -10,5 +10,5 @@ public interface IFunction
     /// </summary>
     /// <param name="context">The function execution context.</param>
     /// <returns>The function result.</returns>
-    object Execute(FunctionExecutionContext context);
+    IFunctionResult Execute(FunctionExecutionContext context);
 }

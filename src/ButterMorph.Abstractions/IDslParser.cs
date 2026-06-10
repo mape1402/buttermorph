@@ -6,9 +6,9 @@ namespace ButterMorph.Abstractions;
 public interface IDslParser
 {
     /// <summary>
-    /// Parses a DSL definition into a syntax representation.
+    /// Parses a DSL definition into a DSL document.
     /// </summary>
-    /// <param name="definition">The DSL definition text.</param>
-    /// <returns>The parsed syntax representation.</returns>
-    object Parse(string definition);
+    /// <param name="definition">The DSL definition.</param>
+    /// <returns>The parsed DSL document.</returns>
+    IDslDocument Parse(IDslDefinition definition);
 }

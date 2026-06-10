@@ -10,5 +10,5 @@ public interface IStructureWriter
     /// </summary>
     /// <param name="graph">The internal structure graph.</param>
     /// <returns>The external output representation.</returns>
-    object Write(IStructureGraph graph);
+    IStructureOutput Write(IStructureGraph graph);
 }

@@ -13,5 +13,5 @@ public sealed class FunctionExecutionContext
     /// <summary>
     /// Gets or sets the function arguments.
     /// </summary>
-    public IReadOnlyList<object> Arguments { get; set; } = new List<object>();
+    public IReadOnlyList<IFunctionArgument> Arguments { get; set; } = new List<IFunctionArgument>();
 }

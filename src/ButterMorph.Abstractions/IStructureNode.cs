@@ -13,14 +13,9 @@ public interface IStructureNode
     string Name { get; }
 
     /// <summary>
-    /// Gets the node type name.
+    /// Gets the structural node kind.
     /// </summary>
-    string NodeType { get; }
-
-    /// <summary>
-    /// Gets the node value.
-    /// </summary>
-    object Value { get; }
+    StructureNodeKind Kind { get; }
 
     /// <summary>
     /// Gets the child nodes.

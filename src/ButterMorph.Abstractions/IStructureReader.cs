@@ -8,7 +8,7 @@ public interface IStructureReader
     /// <summary>
     /// Reads source input into a structure graph.
     /// </summary>
-    /// <param name="source">The external source input.</param>
+    /// <param name="input">The external structure input.</param>
     /// <returns>The internal structure graph.</returns>
-    IStructureGraph Read(object source);
+    IStructureGraph Read(IStructureInput input);
 }

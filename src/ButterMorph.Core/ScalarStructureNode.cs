@@ -3,9 +3,9 @@ using ButterMorph.Abstractions;
 namespace ButterMorph.Core;
 
 /// <summary>
-/// Represents a node in the canonical internal structure graph.
+/// Represents a scalar node in the canonical internal structure graph.
 /// </summary>
-public sealed class StructureNode : IStructureNode
+public sealed class ScalarStructureNode : IScalarStructureNode
 {
     /// <summary>
     /// Gets or sets the node name.
@@ -13,9 +13,14 @@ public sealed class StructureNode : IStructureNode
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the structural node kind.
+    /// Gets the structural node kind.
     /// </summary>
-    public StructureNodeKind Kind { get; set; }
+    public StructureNodeKind Kind => StructureNodeKind.Scalar;
+
+    /// <summary>
+    /// Gets or sets the scalar value held by the node.
+    /// </summary>
+    public IScalarValue Value { get; set; }
 
     /// <summary>
     /// Gets or sets the child nodes.
