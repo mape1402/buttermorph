@@ -3,6 +3,7 @@ namespace ButterMorph.DependencyInjection;
 using ButterMorph.Abstractions;
 using ButterMorph.Execution;
 using ButterMorph.Navigation;
+using ButterMorph.Transformations;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -22,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
         services.AddTransient<INavigationEngine, NavigationEngine>();
         services.AddTransient<IPathResolver, PathResolver>();
+        services.AddTransient<ITransformationEngine, TransformationEngine>();
 
         return services;
     }

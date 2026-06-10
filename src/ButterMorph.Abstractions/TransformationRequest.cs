@@ -8,7 +8,7 @@ public sealed class TransformationRequest
     /// <summary>
     /// Gets or sets the source graphs used by the transformation.
     /// </summary>
-    public IDictionary<string, IStructureGraph> Sources { get; set; } = new Dictionary<string, IStructureGraph>();
+    public IReadOnlyDictionary<string, IStructureGraph> Sources { get; set; } = new Dictionary<string, IStructureGraph>();
 
     /// <summary>
     /// Gets or sets the parsed transformation definition.

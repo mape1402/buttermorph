@@ -17,7 +17,6 @@ public sealed class ButterMorphDependencyInjectionTests
     public void AddButterMorphResolvesEngineWhenRequiredEnginesAreRegistered()
     {
         ServiceCollection services = new();
-        services.AddSingleton<ITransformationEngine, FakeTransformationEngine>();
         services.AddSingleton<IValidationEngine, FakeValidationEngine>();
         services.AddButterMorph();
 
@@ -29,18 +28,19 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
-    /// Confirms that dependency injection fails when the transformation engine is missing.
+    /// Confirms that dependency injection resolves the transformation engine.
     /// </summary>
     [Fact]
-    public void AddButterMorphRequiresTransformationEngine()
+    public void AddButterMorphResolvesTransformationEngine()
     {
         ServiceCollection services = new();
-        services.AddSingleton<IValidationEngine, FakeValidationEngine>();
         services.AddButterMorph();
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IButterMorphEngine>());
+        ITransformationEngine transformationEngine = provider.GetRequiredService<ITransformationEngine>();
+
+        Assert.NotNull(transformationEngine);
     }
 
     /// <summary>
@@ -50,7 +50,6 @@ public sealed class ButterMorphDependencyInjectionTests
     public void AddButterMorphRequiresValidationEngine()
     {
         ServiceCollection services = new();
-        services.AddSingleton<ITransformationEngine, FakeTransformationEngine>();
         services.AddButterMorph();
 
         using ServiceProvider provider = services.BuildServiceProvider();
@@ -65,7 +64,6 @@ public sealed class ButterMorphDependencyInjectionTests
     public void AddButterMorphResolvesNavigationServices()
     {
         ServiceCollection services = new();
-        services.AddSingleton<ITransformationEngine, FakeTransformationEngine>();
         services.AddSingleton<IValidationEngine, FakeValidationEngine>();
         services.AddButterMorph();
 
