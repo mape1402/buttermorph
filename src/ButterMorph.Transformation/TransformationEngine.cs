@@ -1,4 +1,4 @@
-namespace ButterMorph.Transformations;
+namespace ButterMorph.Transformation;
 
 using System;
 using System.Collections.Generic;

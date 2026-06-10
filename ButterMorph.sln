@@ -23,7 +23,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Json", "src\But
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Navigation", "src\ButterMorph.Navigation\ButterMorph.Navigation.csproj", "{2072A22E-827E-4F72-85A0-2856A063EC53}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Transformations", "src\ButterMorph.Transformations\ButterMorph.Transformations.csproj", "{C32C0681-853F-418F-94FE-42226A86710A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Transformation", "src\ButterMorph.Transformation\ButterMorph.Transformation.csproj", "{C32C0681-853F-418F-94FE-42226A86710A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Validation", "src\ButterMorph.Validation\ButterMorph.Validation.csproj", "{0499CF79-87E0-4D05-99AA-FCF4AD503695}"
 EndProject

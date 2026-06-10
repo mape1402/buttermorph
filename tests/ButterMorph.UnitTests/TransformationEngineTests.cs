@@ -6,7 +6,7 @@ using ButterMorph.Abstractions;
 using ButterMorph.Core;
 using ButterMorph.Execution;
 using ButterMorph.Navigation;
-using ButterMorph.Transformations;
+using ButterMorph.Transformation;
 
 /// <summary>
 /// Verifies minimal transformation engine behavior.

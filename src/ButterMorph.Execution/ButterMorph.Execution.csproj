@@ -3,7 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
     <ProjectReference Include="..\ButterMorph.Core\ButterMorph.Core.csproj" />
-    <ProjectReference Include="..\ButterMorph.Transformations\ButterMorph.Transformations.csproj" />
+    <ProjectReference Include="..\ButterMorph.Transformation\ButterMorph.Transformation.csproj" />
     <ProjectReference Include="..\ButterMorph.Validation\ButterMorph.Validation.csproj" />
   </ItemGroup>
 
