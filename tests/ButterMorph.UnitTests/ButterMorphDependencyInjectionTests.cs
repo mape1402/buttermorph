@@ -57,4 +57,24 @@ public sealed class ButterMorphDependencyInjectionTests
 
         Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IButterMorphEngine>());
     }
+
+    /// <summary>
+    /// Confirms that dependency injection resolves navigation services.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesNavigationServices()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton<ITransformationEngine, FakeTransformationEngine>();
+        services.AddSingleton<IValidationEngine, FakeValidationEngine>();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        INavigationEngine navigationEngine = provider.GetRequiredService<INavigationEngine>();
+        IPathResolver pathResolver = provider.GetRequiredService<IPathResolver>();
+
+        Assert.NotNull(navigationEngine);
+        Assert.NotNull(pathResolver);
+    }
 }
