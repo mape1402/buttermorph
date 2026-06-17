@@ -42,6 +42,38 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
+    /// Confirms that dependency injection resolves the transformation expression evaluator.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesTransformationExpressionEvaluator()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ITransformationExpressionEvaluator evaluator = provider.GetRequiredService<ITransformationExpressionEvaluator>();
+
+        Assert.NotNull(evaluator);
+    }
+
+    /// <summary>
+    /// Confirms that dependency injection resolves the function registry.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesFunctionRegistry()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IFunctionRegistry registry = provider.GetRequiredService<IFunctionRegistry>();
+
+        Assert.NotNull(registry);
+    }
+
+    /// <summary>
     /// Confirms that dependency injection resolves the validation engine.
     /// </summary>
     [Fact]

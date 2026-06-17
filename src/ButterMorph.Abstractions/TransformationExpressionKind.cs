@@ -16,7 +16,32 @@ public enum TransformationExpressionKind
     ScalarLiteral,
 
     /// <summary>
+    /// Represents an expression that contains scalar literal values.
+    /// </summary>
+    ScalarCollectionLiteral,
+
+    /// <summary>
     /// Represents an expression that calls a registered function.
     /// </summary>
-    FunctionCall
+    FunctionCall,
+
+    /// <summary>
+    /// Represents an expression that selects between two branches.
+    /// </summary>
+    Conditional,
+
+    /// <summary>
+    /// Represents an expression that projects a source collection.
+    /// </summary>
+    CollectionProjection,
+
+    /// <summary>
+    /// Represents an expression that builds a map-shaped node.
+    /// </summary>
+    Object,
+
+    /// <summary>
+    /// Represents an expression that builds an ordered node.
+    /// </summary>
+    Array
 }

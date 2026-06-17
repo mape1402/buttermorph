@@ -5,6 +5,7 @@ using System.Linq;
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
 using ButterMorph.Execution;
+using ButterMorph.Functions;
 using ButterMorph.Navigation;
 using ButterMorph.Transformation;
 
@@ -91,10 +92,10 @@ public sealed class TransformationEngineTests
     }
 
     /// <summary>
-    /// Confirms that non-scalar source nodes produce diagnostics.
+    /// Confirms that source nodes can be assigned as target subtrees.
     /// </summary>
     [Fact]
-    public void TransformReturnsDiagnosticWhenSourceIsNotScalar()
+    public void TransformMapsSourceNodeToTargetObject()
     {
         TransformationEngine engine = CreateEngine();
         TransformationRequest request = CreateRequest(
@@ -107,16 +108,17 @@ public sealed class TransformationEngineTests
         ]);
 
         TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Customer.Name");
 
-        Assert.False(result.Succeeded);
-        AssertDiagnostic(result, "BMTR003");
+        Assert.True(result.Succeeded);
+        Assert.Equal("Ada", target.Value.RawValue);
     }
 
     /// <summary>
-    /// Confirms that target array syntax is rejected in transformation v1.
+    /// Confirms that target array syntax builds ordered target nodes.
     /// </summary>
     [Fact]
-    public void TransformReturnsDiagnosticForTargetArraySyntax()
+    public void TransformMapsScalarToTargetArrayPath()
     {
         TransformationEngine engine = CreateEngine();
         TransformationRequest request = CreateRequest(
@@ -129,9 +131,10 @@ public sealed class TransformationEngineTests
         ]);
 
         TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Orders[0].Name");
 
-        Assert.False(result.Succeeded);
-        AssertDiagnostic(result, "BMTR004");
+        Assert.True(result.Succeeded);
+        Assert.Equal("Ada", target.Value.RawValue);
     }
 
     /// <summary>
@@ -181,10 +184,10 @@ public sealed class TransformationEngineTests
     }
 
     /// <summary>
-    /// Confirms that unsupported source expressions produce diagnostics.
+    /// Confirms that scalar literal expressions can be assigned.
     /// </summary>
     [Fact]
-    public void TransformReturnsDiagnosticWhenSourceExpressionIsUnsupported()
+    public void TransformMapsScalarLiteralToTarget()
     {
         TransformationEngine engine = CreateEngine();
         TransformationRequest request = CreateRequest(
@@ -205,15 +208,145 @@ public sealed class TransformationEngineTests
         ]);
 
         TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Customer.Name");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Ada", target.Value.RawValue);
+    }
+
+    /// <summary>
+    /// Confirms that scalar collections can be assigned to target arrays.
+    /// </summary>
+    [Fact]
+    public void TransformMapsScalarCollectionToTargetArray()
+    {
+        TransformationEngine engine = CreateEngine();
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = new ScalarCollectionLiteralExpression
+                {
+                    Values =
+                    [
+                        CreateScalarValue("A"),
+                        CreateScalarValue("B")
+                    ]
+                },
+                TargetPath = "Tags"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
+        IScalarStructureNode first = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Tags[0]");
+        IScalarStructureNode second = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Tags[1]");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("A", first.Value.RawValue);
+        Assert.Equal("B", second.Value.RawValue);
+    }
+
+    /// <summary>
+    /// Confirms that collection results cannot be assigned directly to indexed targets.
+    /// </summary>
+    [Fact]
+    public void TransformReturnsDiagnosticWhenCollectionTargetsIndexedPath()
+    {
+        TransformationEngine engine = CreateEngine();
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = new ScalarCollectionLiteralExpression
+                {
+                    Values =
+                    [
+                        CreateScalarValue("A")
+                    ]
+                },
+                TargetPath = "Tags[0]"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
 
         Assert.False(result.Succeeded);
         AssertDiagnostic(result, "BMTR006");
     }
 
+    /// <summary>
+    /// Confirms that function scalar results can be assigned to target paths.
+    /// </summary>
+    [Fact]
+    public void TransformMapsFunctionResultToTarget()
+    {
+        FunctionRegistry registry = new();
+        registry.Register("capture", new CapturingFunction(new ScalarFunctionResult
+        {
+            Value = CreateScalarValue("FunctionValue")
+        }));
+        TransformationEngine engine = CreateEngine(registry);
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = new FunctionCallExpression
+                {
+                    FunctionKey = "capture",
+                    Arguments = []
+                },
+                TargetPath = "Customer.Value"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Customer.Value");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("FunctionValue", target.Value.RawValue);
+    }
+
+    /// <summary>
+    /// Confirms that projections can map source arrays to target arrays.
+    /// </summary>
+    [Fact]
+    public void TransformMapsProjectionToTargetArray()
+    {
+        TransformationEngine engine = CreateEngine();
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = new CollectionProjectionExpression
+                {
+                    SourceExpression = CreatePathExpression("$source.Orders"),
+                    ItemAlias = "order",
+                    BodyExpression = CreatePathExpression("order.Id")
+                },
+                TargetPath = "OrderIds"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "OrderIds[0]");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("A1", target.Value.RawValue);
+    }
+
     // Creates the transformation engine with real navigation dependencies.
     private static TransformationEngine CreateEngine()
     {
-        return new TransformationEngine(new NavigationEngine(new PathResolver()), new ExecutionContextFactory());
+        return CreateEngine(new FunctionRegistry());
+    }
+
+    // Creates the transformation engine with a function registry.
+    private static TransformationEngine CreateEngine(IFunctionRegistry functionRegistry)
+    {
+        PathResolver pathResolver = new();
+        NavigationEngine navigationEngine = new(pathResolver);
+        TransformationExpressionEvaluator evaluator = new(navigationEngine, pathResolver, functionRegistry);
+        return new TransformationEngine(evaluator, new ExecutionContextFactory());
     }
 
     // Creates a transformation request with test sources and mappings.
@@ -248,6 +381,17 @@ public sealed class TransformationEngineTests
         return new PathExpression
         {
             Path = path
+        };
+    }
+
+    // Creates a string scalar value for transformation tests.
+    private static IScalarValue CreateScalarValue(string rawValue)
+    {
+        return new ScalarValue
+        {
+            DataType = "String",
+            RawValue = rawValue,
+            IsNull = false
         };
     }
 

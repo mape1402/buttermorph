@@ -55,4 +55,56 @@ public sealed class SchemaModelTests
         Assert.Equal("Customer name", child.Metadata["label"]);
         Assert.Equal("crm", schema.Metadata["source"]);
     }
+
+    /// <summary>
+    /// Confirms that transformation documents preserve schemas, validations, and metadata.
+    /// </summary>
+    [Fact]
+    public void TransformationDocumentPreservesDesignMetadata()
+    {
+        StructureSchema sourceSchema = new()
+        {
+            Name = "Source",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object
+            }
+        };
+        StructureSchema targetSchema = new()
+        {
+            Name = "Target",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object
+            }
+        };
+        ValidationRule validation = new()
+        {
+            Path = "Name",
+            RuleKey = "required"
+        };
+        TransformationDocument document = new()
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["source"] = sourceSchema
+            },
+            TargetSchema = targetSchema,
+            Validations =
+            [
+                validation
+            ],
+            Metadata = new Dictionary<string, string>
+            {
+                ["owner"] = "ui"
+            }
+        };
+
+        Assert.Same(sourceSchema, document.SourceSchemas["source"]);
+        Assert.Same(targetSchema, document.TargetSchema);
+        Assert.Same(validation, Assert.Single(document.Validations));
+        Assert.Equal("ui", document.Metadata["owner"]);
+    }
 }

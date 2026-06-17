@@ -1,10 +1,11 @@
 namespace ButterMorph.DependencyInjection;
 
 using ButterMorph.Abstractions;
+using ButterMorph.Core;
 using ButterMorph.Execution;
+using ButterMorph.Functions;
 using ButterMorph.Navigation;
 using ButterMorph.Transformation;
-using ButterMorph.Core;
 using ButterMorph.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,6 +26,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
         services.AddTransient<INavigationEngine, NavigationEngine>();
         services.AddTransient<IPathResolver, PathResolver>();
+        services.AddSingleton<IFunctionRegistry, FunctionRegistry>();
+        services.AddTransient<ITransformationExpressionEvaluator, TransformationExpressionEvaluator>();
         services.AddTransient<ITransformationEngine, TransformationEngine>();
         services.AddTransient<IValidationEngine, ValidationEngine>();
         services.AddSingleton<IValidationRuleRegistry, ValidationRuleRegistry>();
