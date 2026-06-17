@@ -1,16 +1,16 @@
-using ButterMorph.Abstractions;
-
 namespace ButterMorph.Core;
 
+using ButterMorph.Abstractions;
+
 /// <summary>
-/// Represents a mapping between a source path and a target path.
+/// Represents a mapping between a source expression and a target path.
 /// </summary>
 public sealed class TransformationMapping : ITransformationMapping
 {
     /// <summary>
-    /// Gets or sets the source navigation path.
+    /// Gets or sets the source transformation expression.
     /// </summary>
-    public string SourcePath { get; set; } = string.Empty;
+    public ITransformationExpression SourceExpression { get; set; } = new PathExpression();
 
     /// <summary>
     /// Gets or sets the target assignment path.

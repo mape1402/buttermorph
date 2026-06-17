@@ -24,7 +24,7 @@ public sealed class TransformationEngineTests
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer.Name",
+                SourceExpression = CreatePathExpression("$source.Customer.Name"),
                 TargetPath = "Customer.FullName"
             }
         ]);
@@ -49,12 +49,12 @@ public sealed class TransformationEngineTests
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer.Name",
+                SourceExpression = CreatePathExpression("$source.Customer.Name"),
                 TargetPath = "Customer.FullName"
             },
             new TransformationMapping
             {
-                SourcePath = "$source.Orders[0].Id",
+                SourceExpression = CreatePathExpression("$source.Orders[0].Id"),
                 TargetPath = "Customer.FirstOrderId"
             }
         ]);
@@ -72,14 +72,14 @@ public sealed class TransformationEngineTests
     /// Confirms that missing source paths produce diagnostics.
     /// </summary>
     [Fact]
-    public void TransformReturnsDiagnosticWhenSourcePathIsMissing()
+    public void TransformReturnsDiagnosticWhenSourceExpressionPathIsMissing()
     {
         TransformationEngine engine = CreateEngine();
         TransformationRequest request = CreateRequest(
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer.Unknown",
+                SourceExpression = CreatePathExpression("$source.Customer.Unknown"),
                 TargetPath = "Customer.Unknown"
             }
         ]);
@@ -101,7 +101,7 @@ public sealed class TransformationEngineTests
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer",
+                SourceExpression = CreatePathExpression("$source.Customer"),
                 TargetPath = "Customer"
             }
         ]);
@@ -123,7 +123,7 @@ public sealed class TransformationEngineTests
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer.Name",
+                SourceExpression = CreatePathExpression("$source.Customer.Name"),
                 TargetPath = "Orders[0].Name"
             }
         ]);
@@ -145,12 +145,12 @@ public sealed class TransformationEngineTests
         [
             new TransformationMapping
             {
-                SourcePath = "$source.Customer.Name",
+                SourceExpression = CreatePathExpression("$source.Customer.Name"),
                 TargetPath = "Customer.Name"
             },
             new TransformationMapping
             {
-                SourcePath = "$source.Orders[0].Id",
+                SourceExpression = CreatePathExpression("$source.Orders[0].Id"),
                 TargetPath = "Customer.Name"
             }
         ]);
@@ -178,6 +178,36 @@ public sealed class TransformationEngineTests
 
         Assert.False(result.Succeeded);
         AssertDiagnostic(result, "BMTR001");
+    }
+
+    /// <summary>
+    /// Confirms that unsupported source expressions produce diagnostics.
+    /// </summary>
+    [Fact]
+    public void TransformReturnsDiagnosticWhenSourceExpressionIsUnsupported()
+    {
+        TransformationEngine engine = CreateEngine();
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = new ScalarLiteralExpression
+                {
+                    Value = new ScalarValue
+                    {
+                        DataType = "String",
+                        RawValue = "Ada",
+                        IsNull = false
+                    }
+                },
+                TargetPath = "Customer.Name"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
+
+        Assert.False(result.Succeeded);
+        AssertDiagnostic(result, "BMTR006");
     }
 
     // Creates the transformation engine with real navigation dependencies.
@@ -209,6 +239,15 @@ public sealed class TransformationEngineTests
         return new Dictionary<string, IStructureGraph>
         {
             ["source"] = NavigationTestGraphFactory.CreateCustomerGraph()
+        };
+    }
+
+    // Creates a path expression for transformation tests.
+    private static IPathExpression CreatePathExpression(string path)
+    {
+        return new PathExpression
+        {
+            Path = path
         };
     }
 

@@ -87,14 +87,20 @@ public sealed class TransformationEngine : ITransformationEngine
         AssignScalar(root, mapping.TargetPath, sourceNode.Value, diagnostics);
     }
 
-    // Resolves and validates that a mapping source is scalar.
+    // Resolves and validates that a mapping source expression produces a scalar.
     private bool TryResolveSource(IExecutionContext context, ITransformationMapping mapping, List<DiagnosticEntry> diagnostics, out IScalarStructureNode sourceNode)
     {
         sourceNode = new ScalarStructureNode();
 
+        if (mapping.SourceExpression is not IPathExpression pathExpression)
+        {
+            diagnostics.Add(CreateDiagnostic("BMTR006", $"Source expression kind '{mapping.SourceExpression.Kind}' is not supported by transformation v1.", mapping.TargetPath));
+            return false;
+        }
+
         try
         {
-            IStructureNode node = _navigationEngine.Select(context, mapping.SourcePath);
+            IStructureNode node = _navigationEngine.Select(context, pathExpression.Path);
 
             if (node is IScalarStructureNode scalarNode)
             {
@@ -102,12 +108,12 @@ public sealed class TransformationEngine : ITransformationEngine
                 return true;
             }
 
-            diagnostics.Add(CreateDiagnostic("BMTR003", $"Source path '{mapping.SourcePath}' must resolve to a scalar node.", mapping.SourcePath));
+            diagnostics.Add(CreateDiagnostic("BMTR003", $"Source path '{pathExpression.Path}' must resolve to a scalar node.", pathExpression.Path));
             return false;
         }
         catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
         {
-            diagnostics.Add(CreateDiagnostic("BMTR002", exception.Message, mapping.SourcePath));
+            diagnostics.Add(CreateDiagnostic("BMTR002", exception.Message, pathExpression.Path));
             return false;
         }
     }
