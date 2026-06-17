@@ -78,6 +78,18 @@ internal sealed class AstBuilder
             return _expressions.Function(function.FunctionKey, BuildExpressions(function.Arguments));
         }
 
+        if (node is ScalarCollectionNode scalarCollection)
+        {
+            List<IScalarValue> values = [];
+
+            foreach (LiteralNode valueNode in scalarCollection.Values)
+            {
+                values.Add(BuildScalarValue(valueNode));
+            }
+
+            return _expressions.ScalarCollection(values);
+        }
+
         if (node is ConditionNode condition)
         {
             return _expressions.When(
@@ -112,6 +124,16 @@ internal sealed class AstBuilder
         }
 
         throw new InvalidOperationException($"Unsupported DSL node '{node.GetType().Name}'.");
+    }
+
+    private static IScalarValue BuildScalarValue(LiteralNode literal)
+    {
+        return new ScalarValue
+        {
+            DataType = literal.DataType,
+            RawValue = literal.RawValue,
+            IsNull = literal.IsNull
+        };
     }
 
     private IReadOnlyCollection<ITransformationExpression> BuildExpressions(IReadOnlyCollection<AstNode> nodes)

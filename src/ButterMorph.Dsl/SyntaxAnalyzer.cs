@@ -55,11 +55,12 @@ internal sealed class SyntaxAnalyzer
     {
         while (!Check(TokenKind.RightBrace) && !IsAtEnd())
         {
-            Token name = Consume(TokenKind.Identifier, "Expected target member name.");
+            Token name = ConsumeTargetPath("Expected target member name.");
             string targetPath = CombinePath(prefix, name.Value);
 
-            if (Match(TokenKind.LeftBrace))
+            if (Check(TokenKind.LeftBrace) && name.Kind == TokenKind.Identifier)
             {
+                Advance();
                 ParseTargetEntries(document, targetPath);
                 Consume(TokenKind.RightBrace, "Expected nested target block end.");
             }
@@ -248,6 +249,23 @@ internal sealed class SyntaxAnalyzer
             };
         }
 
+        if (string.Equals(identifier.Value, "scalars", StringComparison.Ordinal))
+        {
+            ScalarCollectionNode collection = new();
+
+            foreach (AstNode argument in arguments)
+            {
+                if (argument is not LiteralNode literal)
+                {
+                    throw Error(identifier, "Scalar collection literal accepts only scalar literal arguments.");
+                }
+
+                collection.Values.Add(literal);
+            }
+
+            return collection;
+        }
+
         FunctionCallNode node = new()
         {
             FunctionKey = identifier.Value
@@ -312,6 +330,16 @@ internal sealed class SyntaxAnalyzer
         }
 
         throw Error(Current, "Expected metadata value.");
+    }
+
+    private Token ConsumeTargetPath(string message)
+    {
+        if (Check(TokenKind.Path) || Check(TokenKind.Identifier))
+        {
+            return Advance();
+        }
+
+        throw Error(Current, message);
     }
 
     private Token ConsumePathLike(string message)

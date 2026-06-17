@@ -90,6 +90,22 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
+    /// Confirms that dependency injection resolves the DSL exporter.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesDslExporter()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IDslExporter exporter = provider.GetRequiredService<IDslExporter>();
+
+        Assert.NotNull(exporter);
+    }
+
+    /// <summary>
     /// Confirms that dependency injection resolves the validation engine.
     /// </summary>
     [Fact]
