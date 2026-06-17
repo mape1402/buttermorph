@@ -1,0 +1,130 @@
+@page "/buttermorph/designer"
+@model ButterMorph.Web.Razor.DesignerModel
+@{
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>ButterMorph Mapping Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js"></script>
+</head>
+<body>
+    <main class="bm-shell">
+        <nav class="bm-nav">
+            <a href="/buttermorph">Home</a>
+            <a href="/buttermorph/schemas">Schemas</a>
+            <a href="/buttermorph/dsl">DSL</a>
+        </nav>
+        <section class="bm-page-title">
+            <p class="bm-kicker">Step 2</p>
+            <h1>Design mappings</h1>
+            <p>The output schema drives the work: every target field is listed below. Write the expression that should fill each field, copy source paths from the left, then save once.</p>
+        </section>
+        <p class="bm-message">@Model.Message</p>
+        <section class="bm-designer-layout">
+            <div class="bm-card">
+                <h2>Source schema</h2>
+                @if (Model.SourceNodes.Count == 0)
+                {
+                    <p class="bm-empty">No source schema loaded. Go to Schemas and load the demo schemas.</p>
+                }
+                <p class="bm-help">Copy a source path, or click it while focused inside a target expression field.</p>
+                <table>
+                    <thead><tr><th>Path</th><th>Kind</th><th>Type</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var node in Model.SourceNodes)
+                    {
+                        <tr>
+                            <td style="padding-left:@(node.Depth * 16)px">@node.Path</td>
+                            <td>@node.Kind</td>
+                            <td>@node.DataType</td>
+                            <td>
+                                <button type="button" class="bm-copy-source" data-path="@node.Path">Use</button>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="bm-card">
+                <h2>Output field mappings</h2>
+                @if (Model.TargetFields.Count == 0)
+                {
+                    <p class="bm-empty">No target fields loaded. Go to Schemas and load the demo schemas first.</p>
+                }
+                <form method="post" asp-page-handler="SaveTargetMappings">
+                    <table class="bm-mapping-table">
+                        <thead><tr><th>Output field</th><th>Type</th><th>Expression</th></tr></thead>
+                        <tbody>
+                        @foreach (var field in Model.TargetFields)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@field.DisplayName</strong>
+                                    <span>@field.TargetPath</span>
+                                    <input type="hidden" name="TargetPaths" value="@field.TargetPath" />
+                                </td>
+                                <td>@field.DataType</td>
+                                <td>
+                                    <input class="bm-expression-input" name="Expressions" value="@field.Expression" placeholder="@field.Placeholder" />
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                    <div class="bm-actions">
+                        <button type="submit">Save output mappings</button>
+                        <button type="submit" asp-page-handler="Analyze" class="bm-button-secondary">Analyze</button>
+                        <a class="bm-button bm-button-secondary" href="/buttermorph/dsl">Open DSL</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+        <section class="bm-card">
+            <h2>Current mappings</h2>
+            @if (Model.Mappings.Count == 0)
+            {
+                <p class="bm-empty">No mappings yet. Fill output expressions above and save.</p>
+            }
+            <table>
+                <thead><tr><th>Target</th><th>Expression</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var mapping in Model.Mappings)
+                {
+                    <tr>
+                        <td>@mapping.TargetPath</td>
+                        <td>@mapping.Expression</td>
+                        <td>
+                            <form method="post" asp-page-handler="RemoveMapping">
+                                <input type="hidden" name="TargetPath" value="@mapping.TargetPath" />
+                                <button type="submit">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </section>
+        <section class="bm-card">
+            <h2>Diagnostics</h2>
+            <form method="post" asp-page-handler="Analyze">
+                <button type="submit">Analyze</button>
+            </form>
+            <ul>
+            @foreach (var diagnostic in Model.Diagnostics)
+            {
+                <li><strong>@diagnostic.Code</strong> @diagnostic.Path - @diagnostic.Message</li>
+            }
+            </ul>
+            @if (Model.Diagnostics.Count == 0)
+            {
+                <p class="bm-empty">No diagnostics to show.</p>
+            }
+        </section>
+    </main>
+</body>
+</html>

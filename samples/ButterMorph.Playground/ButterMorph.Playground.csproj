@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ButterMorph.DependencyInjection\ButterMorph.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Design\ButterMorph.Design.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Web.Razor\ButterMorph.Web.Razor.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Functions\ButterMorph.Functions.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Core\ButterMorph.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

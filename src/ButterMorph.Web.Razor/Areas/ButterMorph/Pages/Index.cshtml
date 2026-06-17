@@ -1,0 +1,40 @@
+@page "/buttermorph"
+@model ButterMorph.Web.Razor.IndexModel
+@{
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>ButterMorph Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css" />
+</head>
+<body>
+    <main class="bm-shell">
+        <section class="bm-hero">
+            <p class="bm-kicker">Reusable Razor Pages UI</p>
+            <h1>ButterMorph Designer</h1>
+            <p>Load schemas, map source paths into target paths, analyze the mapping document and export DSL from one embeddable UI.</p>
+        </section>
+        <nav class="bm-nav">
+            <a href="/buttermorph/schemas">1. Load schemas</a>
+            <a href="/buttermorph/designer">2. Design mappings</a>
+            <a href="/buttermorph/dsl">3. Import / export DSL</a>
+        </nav>
+        <section class="bm-grid">
+            <article class="bm-card">
+                <h2>Start with schemas</h2>
+                <p>Use the sample schemas or paste your own JSON Schema definitions.</p>
+                <a class="bm-button" href="/buttermorph/schemas">Open schemas</a>
+            </article>
+            <article class="bm-card">
+                <h2>Create mappings</h2>
+                <p>Add path-to-path mappings and inspect source/target schema trees.</p>
+                <a class="bm-button" href="/buttermorph/designer">Open designer</a>
+            </article>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,37 @@
+@page "/buttermorph/dsl"
+@model ButterMorph.Web.Razor.DslModel
+@{
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>ButterMorph DSL</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css" />
+</head>
+<body>
+    <main class="bm-shell">
+        <nav class="bm-nav">
+            <a href="/buttermorph">Home</a>
+            <a href="/buttermorph/schemas">Schemas</a>
+            <a href="/buttermorph/designer">Designer</a>
+        </nav>
+        <section class="bm-page-title">
+            <p class="bm-kicker">Step 3</p>
+            <h1>DSL</h1>
+            <p>Export the current session to ButterMorph DSL or paste DSL back into the designer.</p>
+        </section>
+        <p class="bm-message">@Model.Message</p>
+        <form method="post" asp-antiforgery="true" class="bm-card">
+            <textarea name="DslContent" rows="24">@Model.DslContent</textarea>
+            <div class="bm-actions">
+                <button type="submit" asp-page-handler="Import">Import DSL</button>
+                <button type="submit" asp-page-handler="Export">Export DSL</button>
+                <a class="bm-button bm-button-secondary" href="/buttermorph/designer">Back to designer</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>
