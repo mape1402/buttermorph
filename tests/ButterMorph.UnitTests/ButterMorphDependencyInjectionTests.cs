@@ -138,4 +138,22 @@ public sealed class ButterMorphDependencyInjectionTests
         Assert.NotNull(navigationEngine);
         Assert.NotNull(pathResolver);
     }
+
+    /// <summary>
+    /// Confirms that dependency injection resolves semantic services.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesSemanticServices()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ISchemaPathResolver pathResolver = provider.GetRequiredService<ISchemaPathResolver>();
+        ITransformationSemanticAnalyzer analyzer = provider.GetRequiredService<ITransformationSemanticAnalyzer>();
+
+        Assert.NotNull(pathResolver);
+        Assert.NotNull(analyzer);
+    }
 }

@@ -1,14 +1,14 @@
-namespace ButterMorph.Functions;
+namespace ButterMorph.Core;
 
 using ButterMorph.Abstractions;
 
 /// <summary>
-/// Describes a DSL function registration.
+/// Describes one validation rule for design-time discovery.
 /// </summary>
-public sealed class FunctionDescriptor : IFunctionDescriptor
+public sealed class ValidationRuleDescriptor : IValidationRuleDescriptor
 {
     /// <summary>
-    /// Gets or sets the unique function key.
+    /// Gets or sets the unique validation rule key.
     /// </summary>
     public string Key { get; set; } = string.Empty;
 
@@ -18,24 +18,24 @@ public sealed class FunctionDescriptor : IFunctionDescriptor
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the function description.
+    /// Gets or sets the validation rule description.
     /// </summary>
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the produced value kind.
+    /// Gets or sets the target value kind accepted by the rule.
     /// </summary>
     public FunctionValueKind ValueKind { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the function is required by the catalog.
+    /// Gets or sets a value indicating whether the rule is required by the catalog.
     /// </summary>
     public bool IsRequired { get; set; }
 
     /// <summary>
-    /// Gets or sets the function parameters.
+    /// Gets or sets the rule parameters.
     /// </summary>
-    public IReadOnlyCollection<IFunctionParameterDescriptor> Parameters { get; set; } = [];
+    public IReadOnlyCollection<IValidationRuleParameterDescriptor> Parameters { get; set; } = [];
 
     /// <summary>
     /// Gets or sets UI and tooling metadata.

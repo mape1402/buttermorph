@@ -7,6 +7,7 @@
     <ProjectReference Include="..\ButterMorph.Execution\ButterMorph.Execution.csproj" />
     <ProjectReference Include="..\ButterMorph.Navigation\ButterMorph.Navigation.csproj" />
     <ProjectReference Include="..\ButterMorph.Functions\ButterMorph.Functions.csproj" />
+    <ProjectReference Include="..\ButterMorph.Semantics\ButterMorph.Semantics.csproj" />
     <ProjectReference Include="..\ButterMorph.Transformation\ButterMorph.Transformation.csproj" />
     <ProjectReference Include="..\ButterMorph.Validation\ButterMorph.Validation.csproj" />
     <ProjectReference Include="..\ButterMorph.Dsl\ButterMorph.Dsl.csproj" />

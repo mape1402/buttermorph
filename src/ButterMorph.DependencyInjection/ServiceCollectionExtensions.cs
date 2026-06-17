@@ -6,6 +6,7 @@ using ButterMorph.Dsl;
 using ButterMorph.Execution;
 using ButterMorph.Functions;
 using ButterMorph.Navigation;
+using ButterMorph.Semantics;
 using ButterMorph.Transformation;
 using ButterMorph.Validation;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
         services.AddTransient<INavigationEngine, NavigationEngine>();
         services.AddTransient<IPathResolver, PathResolver>();
+        services.AddTransient<ISchemaPathResolver, SchemaPathResolver>();
+        services.AddTransient<ITransformationSemanticAnalyzer, TransformationSemanticAnalyzer>();
         services.AddSingleton<IFunctionRegistry, FunctionRegistry>();
         services.AddTransient<ITransformationExpressionEvaluator, TransformationExpressionEvaluator>();
         services.AddTransient<ITransformationEngine, TransformationEngine>();
