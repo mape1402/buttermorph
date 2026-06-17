@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json\ButterMorph.Json.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Core\ButterMorph.Core.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.DependencyInjection\ButterMorph.DependencyInjection.csproj" />

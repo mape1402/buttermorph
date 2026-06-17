@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.UnitTests", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Modeling", "src\ButterMorph.Modeling\ButterMorph.Modeling.csproj", "{3D9E71BC-B4B2-486D-8D98-9798CA4C8E7A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButterMorph.Json.Schema", "src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj", "{58124C89-C15D-424F-8483-883E2DCFED14}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -227,6 +229,18 @@ Global
 		{3D9E71BC-B4B2-486D-8D98-9798CA4C8E7A}.Release|x64.Build.0 = Release|Any CPU
 		{3D9E71BC-B4B2-486D-8D98-9798CA4C8E7A}.Release|x86.ActiveCfg = Release|Any CPU
 		{3D9E71BC-B4B2-486D-8D98-9798CA4C8E7A}.Release|x86.Build.0 = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|x64.Build.0 = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Debug|x86.Build.0 = Debug|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|x64.ActiveCfg = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|x64.Build.0 = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|x86.ActiveCfg = Release|Any CPU
+		{58124C89-C15D-424F-8483-883E2DCFED14}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -247,5 +261,6 @@ Global
 		{AD4CFE7C-15B5-4C8E-8C7C-EE9023851BD2} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3450C0DA-716D-4861-B0A7-E085133A044C} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{3D9E71BC-B4B2-486D-8D98-9798CA4C8E7A} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{58124C89-C15D-424F-8483-883E2DCFED14} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
