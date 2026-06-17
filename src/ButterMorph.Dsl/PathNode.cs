@@ -1,8 +1,7 @@
 namespace ButterMorph.Dsl;
 
-/// <summary>
-/// Represents a navigation path in the DSL abstract syntax tree.
-/// </summary>
-public sealed class PathNode
+// Represents a path expression in the internal syntax tree.
+internal sealed class PathNode : AstNode
 {
+    internal string Path { get; set; } = string.Empty;
 }

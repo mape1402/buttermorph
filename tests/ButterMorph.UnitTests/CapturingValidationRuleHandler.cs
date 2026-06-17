@@ -19,6 +19,11 @@ internal sealed class CapturingValidationRuleHandler : IValidationRuleHandler
     public string CapturedPath { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Gets the rule received during validation.
+    /// </summary>
+    public IValidationRule CapturedRule { get; private set; } = new ValidationRule();
+
+    /// <summary>
     /// Validates a rule context.
     /// </summary>
     /// <param name="context">The validation rule context.</param>
@@ -27,6 +32,7 @@ internal sealed class CapturingValidationRuleHandler : IValidationRuleHandler
     {
         CapturedNode = context.Node;
         CapturedPath = context.Path;
+        CapturedRule = context.Rule;
         return [];
     }
 }

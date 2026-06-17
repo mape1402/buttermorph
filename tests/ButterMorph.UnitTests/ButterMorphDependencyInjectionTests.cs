@@ -74,6 +74,22 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
+    /// Confirms that dependency injection resolves the DSL parser.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesDslParser()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IDslParser parser = provider.GetRequiredService<IDslParser>();
+
+        Assert.NotNull(parser);
+    }
+
+    /// <summary>
     /// Confirms that dependency injection resolves the validation engine.
     /// </summary>
     [Fact]

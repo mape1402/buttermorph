@@ -2,6 +2,7 @@ namespace ButterMorph.DependencyInjection;
 
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
+using ButterMorph.Dsl;
 using ButterMorph.Execution;
 using ButterMorph.Functions;
 using ButterMorph.Navigation;
@@ -22,6 +23,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddButterMorph(this IServiceCollection services)
     {
         services.AddTransient<IButterMorphEngine, global::ButterMorph.ButterMorphEngine>();
+        services.AddTransient<IDslParser, DslParser>();
         services.AddTransient<IExecutionPipeline, ExecutionPipeline>();
         services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
         services.AddTransient<INavigationEngine, NavigationEngine>();

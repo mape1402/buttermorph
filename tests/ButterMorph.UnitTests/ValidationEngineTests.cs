@@ -165,8 +165,7 @@ public sealed class ValidationEngineTests
         {
             Path = path,
             RuleKey = ruleKey,
-            ExpectedDataType = string.Empty,
-            ExpectedValue = string.Empty
+            Arguments = []
         };
     }
 

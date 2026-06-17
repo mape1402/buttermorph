@@ -1,8 +1,6 @@
 namespace ButterMorph.Dsl;
 
-/// <summary>
-/// Represents a base DSL abstract syntax tree node.
-/// </summary>
-public class AstNode
+// Base type for internal DSL syntax nodes.
+internal abstract class AstNode
 {
 }

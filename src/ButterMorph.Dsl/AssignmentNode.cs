@@ -1,8 +1,9 @@
 namespace ButterMorph.Dsl;
 
-/// <summary>
-/// Represents an assignment in the DSL abstract syntax tree.
-/// </summary>
-public sealed class AssignmentNode
+// Represents one target assignment parsed from a target block.
+internal sealed class AssignmentNode : AstNode
 {
+    internal string TargetPath { get; set; } = string.Empty;
+
+    internal AstNode Expression { get; set; } = new PathNode();
 }

@@ -1,8 +1,9 @@
 namespace ButterMorph.Dsl;
 
-/// <summary>
-/// Represents a function call in the DSL abstract syntax tree.
-/// </summary>
-public sealed class FunctionCallNode
+// Represents a function call expression in the internal syntax tree.
+internal sealed class FunctionCallNode : AstNode
 {
+    internal string FunctionKey { get; set; } = string.Empty;
+
+    internal List<AstNode> Arguments { get; } = [];
 }

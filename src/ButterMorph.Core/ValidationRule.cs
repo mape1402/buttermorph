@@ -18,12 +18,7 @@ public sealed class ValidationRule : IValidationRule
     public string RuleKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the expected scalar data type.
+    /// Gets or sets the rule argument expressions.
     /// </summary>
-    public string ExpectedDataType { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the expected scalar value.
-    /// </summary>
-    public string ExpectedValue { get; set; } = string.Empty;
+    public IReadOnlyCollection<ITransformationExpression> Arguments { get; set; } = [];
 }

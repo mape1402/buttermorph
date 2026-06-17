@@ -16,12 +16,7 @@ public interface IValidationRule
     string RuleKey { get; }
 
     /// <summary>
-    /// Gets the expected scalar data type.
+    /// Gets the rule argument expressions.
     /// </summary>
-    string ExpectedDataType { get; }
-
-    /// <summary>
-    /// Gets the expected scalar value.
-    /// </summary>
-    string ExpectedValue { get; }
+    IReadOnlyCollection<ITransformationExpression> Arguments { get; }
 }
