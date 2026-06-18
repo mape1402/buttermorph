@@ -39,6 +39,26 @@ public sealed class MappingDesignSession : IMappingDesignSession
     public ITransformationDocument Document => _document;
 
     /// <summary>
+    /// Loads an initial transformation document.
+    /// </summary>
+    /// <param name="document">The transformation document.</param>
+    /// <returns>The operation result.</returns>
+    public IMappingOperationResult LoadDocument(ITransformationDocument document)
+    {
+        _document = new TransformationDocument
+        {
+            Definition = document.Definition,
+            SourceSchemas = document.SourceSchemas,
+            TargetSchema = document.TargetSchema,
+            Mappings = document.Mappings,
+            Validations = document.Validations,
+            Metadata = document.Metadata
+        };
+
+        return Success();
+    }
+
+    /// <summary>
     /// Loads a source schema.
     /// </summary>
     /// <param name="key">The source key.</param>

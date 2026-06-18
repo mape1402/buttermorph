@@ -59,10 +59,13 @@
                         </div>
 
                         <div class="bm-dock-content bm-toolbox-content">
-                            <div class="bm-toolbox-actions">
-                                <button type="button" data-open-modal="source">Add source</button>
-                                <button type="button" data-open-modal="output">Load output</button>
-                            </div>
+                            @if (Model.ShowSchemaActions)
+                            {
+                                <div class="bm-toolbox-actions">
+                                    <button type="button" data-open-modal="source">Add source</button>
+                                    <button type="button" data-open-modal="output">Load output</button>
+                                </div>
+                            }
 
                             @if (Model.SourceSchemas.Count == 0)
                             {

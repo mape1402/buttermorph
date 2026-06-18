@@ -6,6 +6,7 @@ using ButterMorph.Json.Schema;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 /// <summary>
 /// Displays and edits mapping definitions.
@@ -24,6 +25,15 @@ public sealed class DesignerModel : PageModel
     // Imports JSON Schema content from toolbox forms.
     private readonly IJsonSchemaImporter _schemaImporter;
 
+    // Reads integration options for the reusable designer.
+    private readonly ButterMorphRazorDesignerOptions _options;
+
+    // Provides optional host application integration.
+    private readonly IEnumerable<IButterMorphDesignerHost> _designerHosts;
+
+    // Stores web-only state for designer contexts.
+    private static readonly DesignerContextStateStore ContextStates = new();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="DesignerModel"/> class.
     /// </summary>
@@ -31,16 +41,22 @@ public sealed class DesignerModel : PageModel
     /// <param name="schemaExplorer">The schema explorer.</param>
     /// <param name="dslExporter">The DSL exporter.</param>
     /// <param name="schemaImporter">The JSON Schema importer.</param>
+    /// <param name="options">The Razor designer options.</param>
+    /// <param name="designerHosts">The optional designer host integrations.</param>
     public DesignerModel(
         IMappingDesignSessionStore sessionStore,
         ISchemaExplorer schemaExplorer,
         IDslExporter dslExporter,
-        IJsonSchemaImporter schemaImporter)
+        IJsonSchemaImporter schemaImporter,
+        IOptions<ButterMorphRazorDesignerOptions> options,
+        IEnumerable<IButterMorphDesignerHost> designerHosts)
     {
         _sessionStore = sessionStore;
         _schemaExplorer = schemaExplorer;
         _dslExporter = dslExporter;
         _schemaImporter = schemaImporter;
+        _options = options.Value;
+        _designerHosts = designerHosts;
     }
 
     /// <summary>
@@ -138,10 +154,17 @@ public sealed class DesignerModel : PageModel
     public string Message { get; set; } = "Ready.";
 
     /// <summary>
+    /// Gets a value indicating whether schema action buttons should be shown.
+    /// </summary>
+    public bool ShowSchemaActions { get; private set; } = true;
+
+    /// <summary>
     /// Displays the designer.
     /// </summary>
-    public void OnGet()
+    /// <returns>The asynchronous page task.</returns>
+    public async Task OnGet()
     {
+        await PreloadHostState();
         LoadViewState();
     }
 
@@ -301,14 +324,22 @@ public sealed class DesignerModel : PageModel
     /// Saves all target field mappings.
     /// </summary>
     /// <returns>The page result.</returns>
-    public IActionResult OnPostSaveTargetMappings()
+    public async Task<IActionResult> OnPostSaveTargetMappings()
     {
         IReadOnlyCollection<DiagnosticEntry> diagnostics = SavePostedMappings();
 
         if (diagnostics.Count == 0)
         {
-            Message = "Mappings saved.";
             RunSemanticDiagnostics();
+
+            if (Diagnostics.Count == 0)
+            {
+                await SaveHostState();
+            }
+            else
+            {
+                Message = "Mappings saved with diagnostics.";
+            }
         }
         else
         {
@@ -375,7 +406,125 @@ public sealed class DesignerModel : PageModel
     }
 
     // Gets the current design session.
-    private IMappingDesignSession Session => _sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this));
+    private string SessionKey => DesignerSessionKeyResolver.Resolve(this, _options);
+
+    // Gets the host context key for the current request.
+    private string ContextKey => DesignerSessionKeyResolver.ResolveContextKey(this, _options);
+
+    // Gets web-only state for the current designer context.
+    private DesignerContextState ContextState => ContextStates.GetOrCreate(SessionKey, _options);
+
+    // Gets the current design session.
+    private IMappingDesignSession Session => _sessionStore.GetOrCreate(SessionKey);
+
+    // Applies host-provided state to the current session when available.
+    private async Task PreloadHostState()
+    {
+        DesignerContextState state = ContextState;
+        ShowSchemaActions = state.ShowSchemaActions;
+
+        if (!_options.UseHostPreload || state.HostPreloadApplied)
+        {
+            return;
+        }
+
+        IButterMorphDesignerHost host = FindHost();
+
+        if (host == null)
+        {
+            state.HostPreloadApplied = true;
+            return;
+        }
+
+        ButterMorphDesignerLoadResult result = await host.Load(new ButterMorphDesignerLoadRequest
+        {
+            ContextKey = ContextKey
+        });
+
+        state.ShowSchemaActions = result.ShowSchemaActions;
+        ShowSchemaActions = result.ShowSchemaActions;
+        ApplyHostLoadResult(result);
+
+        if (!string.IsNullOrWhiteSpace(result.Message))
+        {
+            Message = result.Message;
+        }
+
+        state.HostPreloadApplied = true;
+    }
+
+    // Saves the current session through the optional host integration.
+    private async Task SaveHostState()
+    {
+        IButterMorphDesignerHost host = FindHost();
+
+        if (host == null)
+        {
+            Message = "Mappings saved.";
+            return;
+        }
+
+        ButterMorphDesignerSaveResult result = await host.Save(new ButterMorphDesignerSaveRequest
+        {
+            ContextKey = ContextKey,
+            Document = Session.Document,
+            DslContent = Session.ExportDsl()
+        });
+
+        if (result.Succeeded)
+        {
+            Message = ResolveMessage(result.Message, "Mappings saved.");
+            return;
+        }
+
+        Diagnostics = result.Diagnostics;
+        Message = ResolveMessage(result.Message, "Mappings could not be saved.");
+    }
+
+    // Resolves fallback message text when a host does not provide one.
+    private static string ResolveMessage(string message, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return fallback;
+        }
+
+        return message;
+    }
+
+    // Applies schemas and document content returned by the host.
+    private void ApplyHostLoadResult(ButterMorphDesignerLoadResult result)
+    {
+        if (result.InitialDocument != null)
+        {
+            Session.LoadDocument(result.InitialDocument);
+        }
+
+        foreach (KeyValuePair<string, IStructureSchema> schema in result.SourceSchemas)
+        {
+            Session.LoadSourceSchema(schema.Key, schema.Value);
+        }
+
+        if (result.TargetSchema != null)
+        {
+            Session.LoadTargetSchema(result.TargetSchema);
+        }
+
+        RunSemanticDiagnostics();
+    }
+
+    // Gets the last registered host integration so consuming apps can override defaults.
+    private IButterMorphDesignerHost FindHost()
+    {
+        IButterMorphDesignerHost selectedHost = null;
+
+        foreach (IButterMorphDesignerHost host in _designerHosts)
+        {
+            selectedHost = host;
+        }
+
+        return selectedHost;
+    }
 
     // Reads schema content from uploaded file or pasted text.
     private async Task<string> ReadSchemaContent(string fileFieldName, string textContent)
@@ -397,6 +546,7 @@ public sealed class DesignerModel : PageModel
     // Loads UI state from the current session.
     private void LoadViewState()
     {
+        ShowSchemaActions = ContextState.ShowSchemaActions;
         ITransformationDocument document = Session.Document;
         List<SchemaTreeDisplayNode> sourceNodes = [];
         List<SourceSchemaDisplayModel> sourceSchemas = [];

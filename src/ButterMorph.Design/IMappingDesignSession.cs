@@ -13,6 +13,13 @@ public interface IMappingDesignSession
     ITransformationDocument Document { get; }
 
     /// <summary>
+    /// Loads an initial transformation document.
+    /// </summary>
+    /// <param name="document">The transformation document.</param>
+    /// <returns>The operation result.</returns>
+    IMappingOperationResult LoadDocument(ITransformationDocument document);
+
+    /// <summary>
     /// Loads a source schema.
     /// </summary>
     /// <param name="key">The source key.</param>

@@ -1,9 +1,14 @@
 namespace ButterMorph.UnitTests;
 
+using ButterMorph.Abstractions;
+using ButterMorph.Core;
+using ButterMorph.Web.Razor;
+using Microsoft.AspNetCore.Hosting;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Verifies the reusable Razor designer in the playground host.
@@ -140,6 +145,162 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("bm-status", html, StringComparison.Ordinal);
         Assert.DoesNotContain("&quot;properties&quot;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("value=\"source\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that host-provided schemas can preload the designer and hide schema actions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostPreloadsSchemasAndHidesSchemaActions()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                ShowSchemaActions = false
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=atlas-event-123");
+
+        Assert.Equal(1, host.LoadCalls);
+        Assert.Contains("customer", html, StringComparison.Ordinal);
+        Assert.Contains("Name", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-open-modal=\"source\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-open-modal=\"output\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that saving mappings calls the host integration.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostReceivesSavedMappingDocument()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                ShowSchemaActions = false
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=atlas-save-123");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=atlas-save-123&handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Name"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Name")
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, host.SaveCalls);
+        Assert.Equal("atlas-save-123", host.LastSaveRequest.ContextKey);
+        Assert.Single(host.LastSaveRequest.Document.Mappings);
+        Assert.Contains("$customer.Name", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that host save failures are shown and preserve the mapping.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostSaveFailureShowsMessage()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                ShowSchemaActions = false
+            },
+            SaveResult = new ButterMorphDesignerSaveResult
+            {
+                Succeeded = false,
+                Message = "Host save failed.",
+                Diagnostics =
+                [
+                    new DiagnosticEntry
+                    {
+                        Code = "HOST001",
+                        Message = "Host save failed.",
+                        Path = "Name",
+                        Severity = "Error"
+                    }
+                ]
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=atlas-save-fail");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=atlas-save-fail&handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Name"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Name")
+            ]));
+        string savedHtml = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, host.SaveCalls);
+        Assert.Contains("Host save failed.", savedHtml, StringComparison.Ordinal);
+        Assert.Contains("$customer.Name", savedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that different host context keys use different loaded schemas.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostContextKeysUseSeparateSessions()
+    {
+        FakeButterMorphDesignerHost host = new();
+        host.LoadResults["first"] = new ButterMorphDesignerLoadResult
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["firstSource"] = CreateDesignerSchema("First")
+            },
+            TargetSchema = CreateDesignerSchema("FirstTarget")
+        };
+        host.LoadResults["second"] = new ButterMorphDesignerLoadResult
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["secondSource"] = CreateDesignerSchema("Second")
+            },
+            TargetSchema = CreateDesignerSchema("SecondTarget")
+        };
+        HttpClient client = CreateHostClient(host);
+
+        string firstHtml = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=first");
+        string secondHtml = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=second");
+
+        Assert.Contains("firstSource", firstHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("secondSource", firstHtml, StringComparison.Ordinal);
+        Assert.Contains("secondSource", secondHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("firstSource", secondHtml, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -378,6 +539,42 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         }
 
         return html[valueStart..valueEnd];
+    }
+
+    // Creates a test client with a fake host integration.
+    private HttpClient CreateHostClient(FakeButterMorphDesignerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphDesignerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a simple schema with one scalar field.
+    private static IStructureSchema CreateDesignerSchema(string name)
+    {
+        return new StructureSchema
+        {
+            Name = name,
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object,
+                Children =
+                [
+                    new SchemaNode
+                    {
+                        Name = "Name",
+                        Kind = SchemaNodeKind.Scalar,
+                        DataType = "string"
+                    }
+                ]
+            }
+        };
     }
 
     // Creates the query separator without using forbidden nullable syntax characters.

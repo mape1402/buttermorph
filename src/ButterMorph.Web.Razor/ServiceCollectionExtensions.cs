@@ -14,7 +14,19 @@ public static class ServiceCollectionExtensions
     /// <returns>The configured service collection.</returns>
     public static IServiceCollection AddButterMorphRazorDesigner(this IServiceCollection services)
     {
+        return services.AddButterMorphRazorDesigner(_ => { });
+    }
+
+    /// <summary>
+    /// Adds reusable ButterMorph Razor designer services and pages.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">The designer options configuration.</param>
+    /// <returns>The configured service collection.</returns>
+    public static IServiceCollection AddButterMorphRazorDesigner(this IServiceCollection services, Action<ButterMorphRazorDesignerOptions> configure)
+    {
         services.AddRazorPages();
+        services.Configure(configure);
 
         return services;
     }

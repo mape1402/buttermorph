@@ -9,6 +9,7 @@ builder.Services.AddButterMorph();
 builder.Services.AddButterMorphDesign();
 builder.Services.AddButterMorphJsonSchema();
 builder.Services.AddButterMorphRazorDesigner();
+builder.Services.AddSingleton<IButterMorphDesignerHost, PlaygroundDesignerHost>();
 
 WebApplication app = builder.Build();
 
