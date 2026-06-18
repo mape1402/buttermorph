@@ -40,16 +40,28 @@ document.addEventListener("DOMContentLoaded", function () {
     const box = document.querySelector("[data-message-box='true']");
     const text = document.querySelector("[data-message-text='true']");
     const count = document.querySelector("[data-diagnostics-count='true']");
+    const message = readValue(response, "message") || "";
+    const diagnosticsCount = readValue(response, "diagnosticsCount") || 0;
+    const succeeded = readValue(response, "succeeded");
+    if (succeeded && message.length === 0 && diagnosticsCount === 0) {
+      hideMessage();
+      return;
+    }
     if (box) {
       box.classList.remove("bm-message-hidden");
-      box.classList.toggle("bm-message-error", !readValue(response, "succeeded"));
+      box.classList.toggle("bm-message-error", !succeeded);
     }
     if (text) {
-      text.textContent = readValue(response, "message");
+      text.textContent = message;
     }
     if (count) {
-      const diagnosticsCount = readValue(response, "diagnosticsCount");
       count.textContent = diagnosticsCount > 0 ? diagnosticsCount + " diagnostics" : "Ready";
+    }
+  }
+  function hideMessage() {
+    const box = document.querySelector("[data-message-box='true']");
+    if (box) {
+      box.classList.add("bm-message-hidden");
     }
   }
   function readValue(source, key) {
@@ -99,10 +111,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function syncVisual() {
     postForm("SyncVisual", collectVisualMappings()).then(function (response) {
-      updateMessage(response);
       if (readValue(response, "succeeded") && dslEditor) {
         dslEditor.value = readValue(response, "dslContent");
+        hideMessage();
+        return;
       }
+      updateMessage(response);
     });
   }
   function syncDsl() {
@@ -115,6 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
     postForm("SyncDsl", formData).then(function (response) {
       if (readValue(response, "succeeded")) {
         updateVisualMappings(readValue(response, "mappings"));
+        hideMessage();
         return;
       }
       updateMessage(response);
@@ -177,16 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
         openDockFlyout();
       }
     });
-    button.addEventListener("mouseenter", openDockFlyout);
-    button.addEventListener("focus", openDockFlyout);
   });
-  if (leftDock) {
-    leftDock.addEventListener("mouseleave", function () {
-      if (isLeftDockAuto()) {
-        closeDockFlyout();
-      }
-    });
-  }
   document.querySelectorAll("[data-open-modal]").forEach(function (button) {
     button.addEventListener("click", function () {
       openModal(button.getAttribute("data-open-modal"));

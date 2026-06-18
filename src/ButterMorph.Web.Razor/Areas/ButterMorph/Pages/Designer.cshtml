@@ -25,7 +25,7 @@
             </div>
         </header>
 
-        <section class="bm-message-box" data-message-box="true">
+        <section class="bm-message-box @(((string.IsNullOrWhiteSpace(Model.Message) || Model.Message == "Ready.") && Model.Diagnostics.Count == 0) ? "bm-message-hidden" : string.Empty)" data-message-box="true">
             <span data-message-text="true">@Model.Message</span>
             @if (Model.Diagnostics.Count > 0)
             {

@@ -270,9 +270,7 @@ button:hover,
   display: none;
 }
 
-.bm-workbench[data-left-dock-mode="auto"] .bm-left-dock.bm-dock-flyout-open .bm-dock-panel-host,
-.bm-workbench[data-left-dock-mode="auto"] .bm-left-dock:hover .bm-dock-panel-host,
-.bm-workbench[data-left-dock-mode="auto"] .bm-left-dock:focus-within .bm-dock-panel-host {
+.bm-workbench[data-left-dock-mode="auto"] .bm-left-dock.bm-dock-flyout-open .bm-dock-panel-host {
   box-shadow: 14px 0 32px rgba(20, 20, 40, 0.32);
   display: block;
   height: 100%;
@@ -465,6 +463,30 @@ textarea:focus {
   border-color: var(--bm-sidebar-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
   outline: none;
+}
+
+input[type="file"] {
+  background-color: #f8f8ff;
+  color: var(--bm-muted);
+  cursor: pointer;
+  padding: 0.28rem;
+}
+
+input[type="file"]::file-selector-button {
+  background-color: var(--bm-primary);
+  border: 1px solid rgba(26, 26, 46, 0.15);
+  border-radius: var(--bm-radius-sm);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  margin-right: 0.65rem;
+  min-height: 28px;
+  padding: 0.25rem 0.75rem;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background-color: var(--bm-primary-hover);
 }
 
 textarea,

@@ -69,6 +69,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
         Assert.Contains("bm-dock-flyout-open", script, StringComparison.Ordinal);
+        Assert.Contains("hideMessage", script, StringComparison.Ordinal);
+        Assert.Contains("::file-selector-button", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -126,6 +130,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
         Assert.Contains("Source name", html, StringComparison.Ordinal);
+        Assert.Contains("bm-message-hidden", html, StringComparison.Ordinal);
         Assert.True(
             html.IndexOf("data-modal=\"source\"", StringComparison.Ordinal) > html.IndexOf("</section>", html.IndexOf("bm-dock-panel bm-toolbox", StringComparison.Ordinal), StringComparison.Ordinal));
         Assert.DoesNotContain("Current mappings", html, StringComparison.Ordinal);
@@ -160,6 +165,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(string.Empty, ReadString(json, "message"));
         Assert.Contains("$source.Customer.Name", ReadString(json, "dslContent"), StringComparison.Ordinal);
     }
 
@@ -186,6 +192,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(string.Empty, ReadString(json, "message"));
         Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
     }
 

@@ -254,7 +254,7 @@ public sealed class DesignerModel : PageModel
 
         if (diagnostics.Count == 0)
         {
-            Message = "Mappings synchronized.";
+            Message = string.Empty;
             RunSemanticDiagnostics();
             return new JsonResult(CreateSyncResponse(true, Message));
         }
@@ -280,7 +280,7 @@ public sealed class DesignerModel : PageModel
         }
 
         Diagnostics = result.Diagnostics;
-        Message = CreateMessage(result, "DSL synchronized.");
+        Message = CreateMessage(result, string.Empty);
         return new JsonResult(CreateSyncResponse(false, Message));
     }
 
