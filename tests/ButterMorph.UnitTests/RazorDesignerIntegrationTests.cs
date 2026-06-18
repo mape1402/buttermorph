@@ -51,9 +51,24 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         HttpClient client = _factory.CreateClient();
 
-        HttpResponseMessage response = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.css");
+        HttpResponseMessage cssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.css");
+        HttpResponseMessage scriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.js");
+        string css = await cssResponse.Content.ReadAsStringAsync();
+        string script = await scriptResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
+        Assert.Contains("data-left-dock-mode=\"auto\"", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-tabs", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-tab", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-panel-host", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-panel", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-titlebar", css, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-flyout-open", css, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesigner.LeftDockMode", script, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
+        Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-flyout-open", script, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -97,12 +112,22 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/designer");
 
-        Assert.Contains("bm-toolbox", html, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-panel bm-toolbox", html, StringComparison.Ordinal);
+        Assert.Contains("bm-left-dock", html, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-tabs", html, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-tab", html, StringComparison.Ordinal);
+        Assert.Contains("bm-dock-panel-host", html, StringComparison.Ordinal);
         Assert.Contains("bm-designer-surface", html, StringComparison.Ordinal);
         Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-left-dock-mode=\"pinned\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-panel=\"sources\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-pin=\"sources\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-tab=\"sources\"", html, StringComparison.Ordinal);
         Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
         Assert.Contains("Source name", html, StringComparison.Ordinal);
+        Assert.True(
+            html.IndexOf("data-modal=\"source\"", StringComparison.Ordinal) > html.IndexOf("</section>", html.IndexOf("bm-dock-panel bm-toolbox", StringComparison.Ordinal), StringComparison.Ordinal));
         Assert.DoesNotContain("Current mappings", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Analyzer", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Import DSL", html, StringComparison.Ordinal);
@@ -213,6 +238,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("atlasCustomer", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("<article class=\"bm-source-card\">", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("<details class=\"bm-source-group\">", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("name=\"SourceName\" value=\"\"", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("<textarea name=\"SourceSchemaText\" rows=\"9\"></textarea>", loadedHtml, StringComparison.Ordinal);

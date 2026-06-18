@@ -9,11 +9,11 @@
 <head>
     <meta charset="utf-8" />
     <title>ButterMorph Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=sources-collapse-1" />
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=sources-collapse-1"></script>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=dock-repair-1" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=dock-repair-1"></script>
 </head>
 <body>
-    <main class="bm-workbench" data-active-view="@Model.ActiveView">
+    <main class="bm-workbench" data-active-view="@Model.ActiveView" data-left-dock-mode="pinned">
         <header class="bm-topbar">
             <div>
                 <p class="bm-kicker">ButterMorph</p>
@@ -39,78 +39,57 @@
         </section>
 
         <section class="bm-workspace">
-            <aside class="bm-toolbox">
-                <div class="bm-panel-title">
-                    <h2>Sources</h2>
+            <aside class="bm-left-dock" data-left-dock="true">
+                <div class="bm-dock-tabs" role="tablist" aria-label="Designer tool windows">
+                    <button type="button"
+                            class="bm-dock-tab"
+                            data-dock-tab="sources"
+                            role="tab"
+                            aria-selected="true"
+                            title="Sources">
+                        Sources
+                    </button>
                 </div>
 
-                <div class="bm-toolbox-actions">
-                    <button type="button" data-open-modal="source">Add source</button>
-                    <button type="button" data-open-modal="output">Load output</button>
-                </div>
-
-                <div class="bm-modal-backdrop" data-modal="source" aria-hidden="true">
-                    <div class="bm-modal" role="dialog" aria-modal="true" aria-label="Add source">
-                        <div class="bm-modal-header">
-                            <h2>Add source</h2>
-                            <button type="button" class="bm-modal-close" data-close-modal="true">&times;</button>
+                <div class="bm-dock-panel-host" data-dock-panel-host="true">
+                    <section class="bm-dock-panel bm-toolbox" data-dock-panel="sources" tabindex="-1">
+                        <div class="bm-dock-titlebar bm-panel-title">
+                            <h2>Sources</h2>
+                            <button type="button" class="bm-dock-pin bm-toolbox-pin" data-dock-pin="sources" aria-pressed="true" title="Auto hide panel">&#128204;</button>
                         </div>
-                    <form method="post" asp-page-handler="LoadSourceSchema" enctype="multipart/form-data" class="bm-stack-form">
-                        <label>
-                            Source name
-                            <input name="SourceName" value="@Model.SourceName" />
-                        </label>
-                        <label>
-                            Choose file
-                            <input type="file" name="SourceSchemaFile" accept=".json,application/json" />
-                        </label>
-                        <label>
-                            Paste schema
-                            <textarea name="SourceSchemaText" rows="9">@Model.SourceSchemaText</textarea>
-                        </label>
-                        <button type="submit">Load source</button>
-                    </form>
-                    </div>
-                </div>
 
-                <div class="bm-modal-backdrop" data-modal="output" aria-hidden="true">
-                    <div class="bm-modal" role="dialog" aria-modal="true" aria-label="Load output schema">
-                        <div class="bm-modal-header">
-                            <h2>Load output schema</h2>
-                            <button type="button" class="bm-modal-close" data-close-modal="true">&times;</button>
-                        </div>
-                    <form method="post" asp-page-handler="LoadTargetSchema" enctype="multipart/form-data" class="bm-stack-form">
-                        <label>
-                            Choose file
-                            <input type="file" name="OutputSchemaFile" accept=".json,application/json" />
-                        </label>
-                        <label>
-                            Paste schema
-                            <textarea name="OutputSchemaText" rows="9">@Model.OutputSchemaText</textarea>
-                        </label>
-                        <button type="submit">Load target</button>
-                    </form>
-                    </div>
-                </div>
+                        <div class="bm-dock-content bm-toolbox-content">
+                            <div class="bm-toolbox-actions">
+                                <button type="button" data-open-modal="source">Add source</button>
+                                <button type="button" data-open-modal="output">Load output</button>
+                            </div>
 
-                @if (Model.SourceSchemas.Count == 0)
-                {
-                    <p class="bm-empty">No sources loaded. Add a source schema.</p>
-                }
-
-                <div class="bm-source-list">
-                    @foreach (var source in Model.SourceSchemas)
-                    {
-                        <details class="bm-source-group">
-                            <summary class="bm-source-group-header">
-                                <span class="bm-node-name">@source.Key</span>
-                            </summary>
-                            @foreach (var child in source.Root.Children)
+                            @if (Model.SourceSchemas.Count == 0)
                             {
-                                <partial name="_SourceNode" model="child" />
+                                <p class="bm-empty">No sources loaded. Add a source schema.</p>
                             }
-                        </details>
-                    }
+
+                            <div class="bm-source-list">
+                                @foreach (var source in Model.SourceSchemas)
+                                {
+                                    <article class="bm-source-card">
+                                        <details class="bm-source-group">
+                                            <summary class="bm-source-group-header">
+                                                <span class="bm-node-name">@source.Key</span>
+                                                <span class="bm-source-badge">Source</span>
+                                            </summary>
+                                            <div class="bm-source-tree">
+                                                @foreach (var child in source.Root.Children)
+                                                {
+                                                    <partial name="_SourceNode" model="child" />
+                                                }
+                                            </div>
+                                        </details>
+                                    </article>
+                                }
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </aside>
 
@@ -151,6 +130,50 @@
                 </form>
             </section>
         </section>
+
+        <div class="bm-modal-backdrop" data-modal="source" aria-hidden="true">
+            <div class="bm-modal" role="dialog" aria-modal="true" aria-label="Add source">
+                <div class="bm-modal-header">
+                    <h2>Add source</h2>
+                    <button type="button" class="bm-modal-close" data-close-modal="true">&times;</button>
+                </div>
+                <form method="post" asp-page-handler="LoadSourceSchema" enctype="multipart/form-data" class="bm-stack-form">
+                    <label>
+                        Source name
+                        <input name="SourceName" value="@Model.SourceName" />
+                    </label>
+                    <label>
+                        Choose file
+                        <input type="file" name="SourceSchemaFile" accept=".json,application/json" />
+                    </label>
+                    <label>
+                        Paste schema
+                        <textarea name="SourceSchemaText" rows="9">@Model.SourceSchemaText</textarea>
+                    </label>
+                    <button type="submit">Load source</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="bm-modal-backdrop" data-modal="output" aria-hidden="true">
+            <div class="bm-modal" role="dialog" aria-modal="true" aria-label="Load output schema">
+                <div class="bm-modal-header">
+                    <h2>Load output schema</h2>
+                    <button type="button" class="bm-modal-close" data-close-modal="true">&times;</button>
+                </div>
+                <form method="post" asp-page-handler="LoadTargetSchema" enctype="multipart/form-data" class="bm-stack-form">
+                    <label>
+                        Choose file
+                        <input type="file" name="OutputSchemaFile" accept=".json,application/json" />
+                    </label>
+                    <label>
+                        Paste schema
+                        <textarea name="OutputSchemaText" rows="9">@Model.OutputSchemaText</textarea>
+                    </label>
+                    <button type="submit">Load target</button>
+                </form>
+            </div>
+        </div>
     </main>
 </body>
 </html>
