@@ -3,6 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Abstractions;
 using ButterMorph.Design;
 using ButterMorph.Json.Schema;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -67,22 +68,22 @@ public sealed class DesignerModel : PageModel
     public List<string> Expressions { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the source key for toolbox schema loading.
+    /// Gets or sets the source display name.
     /// </summary>
     [BindProperty]
-    public string SourceKey { get; set; } = "source";
+    public string SourceName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the source JSON Schema content.
+    /// Gets or sets the pasted source schema text.
     /// </summary>
     [BindProperty]
-    public string SourceSchemaJson { get; set; } = SampleSchemas.Source;
+    public string SourceSchemaText { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the target JSON Schema content.
+    /// Gets or sets the pasted output schema text.
     /// </summary>
     [BindProperty]
-    public string TargetSchemaJson { get; set; } = SampleSchemas.Target;
+    public string OutputSchemaText { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the DSL editor content.
@@ -134,7 +135,7 @@ public sealed class DesignerModel : PageModel
     /// <summary>
     /// Gets or sets the status message.
     /// </summary>
-    public string Message { get; set; } = "Load schemas from the toolbox, map fields visually or switch to DSL.";
+    public string Message { get; set; } = "Ready.";
 
     /// <summary>
     /// Displays the designer.
@@ -158,71 +159,40 @@ public sealed class DesignerModel : PageModel
     }
 
     /// <summary>
-    /// Adds a sample path mapping.
-    /// </summary>
-    /// <returns>The page result.</returns>
-    public IActionResult OnPostSampleMapping()
-    {
-        SourcePath = "$source.Customer.Name";
-        TargetPath = "Customer.Name";
-        IMappingOperationResult result = Session.AddPathMapping(SourcePath, TargetPath);
-        Message = CreateMessage(result, "Sample mapping added.");
-        LoadViewState();
-
-        return Page();
-    }
-
-    /// <summary>
-    /// Loads demo schemas into the designer.
-    /// </summary>
-    /// <returns>The page result.</returns>
-    public IActionResult OnPostLoadDemo()
-    {
-        JsonSchemaConversionResult sourceResult = _schemaImporter.Import(new JsonSchemaImportRequest
-        {
-            Name = SourceKey,
-            JsonSchema = SourceSchemaJson
-        });
-        JsonSchemaConversionResult targetResult = _schemaImporter.Import(new JsonSchemaImportRequest
-        {
-            Name = "Target",
-            JsonSchema = TargetSchemaJson
-        });
-
-        if (sourceResult.Succeeded && targetResult.Succeeded)
-        {
-            Session.LoadSourceSchema(SourceKey, sourceResult.Schema);
-            Session.LoadTargetSchema(targetResult.Schema);
-            Message = "Demo schemas loaded.";
-        }
-        else
-        {
-            Message = "Demo schemas could not be loaded.";
-            Diagnostics = CombineDiagnostics(sourceResult.Diagnostics, targetResult.Diagnostics);
-        }
-
-        RunSemanticDiagnostics();
-        LoadViewState();
-
-        return Page();
-    }
-
-    /// <summary>
     /// Loads a source schema from the toolbox.
     /// </summary>
     /// <returns>The page result.</returns>
-    public IActionResult OnPostLoadSourceSchema()
+    public async Task<IActionResult> OnPostLoadSourceSchema()
     {
+        string schemaText = await ReadSchemaContent("SourceSchemaFile", SourceSchemaText);
+
+        if (string.IsNullOrWhiteSpace(SourceName))
+        {
+            Message = "Source name is required.";
+            LoadViewState();
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(schemaText))
+        {
+            Message = "Source schema file or text is required.";
+            LoadViewState();
+            return Page();
+        }
+
         JsonSchemaConversionResult result = _schemaImporter.Import(new JsonSchemaImportRequest
         {
-            Name = SourceKey,
-            JsonSchema = SourceSchemaJson
+            Name = SourceName,
+            JsonSchema = schemaText
         });
 
         if (result.Succeeded)
         {
-            Session.LoadSourceSchema(SourceKey, result.Schema);
-            Message = "Source schema loaded.";
+            Session.LoadSourceSchema(SourceName, result.Schema);
+            Message = "Source '" + SourceName + "' loaded.";
+            SourceName = string.Empty;
+            SourceSchemaText = string.Empty;
+            RunSemanticDiagnostics();
         }
         else
         {
@@ -230,7 +200,6 @@ public sealed class DesignerModel : PageModel
             Diagnostics = result.Diagnostics;
         }
 
-        RunSemanticDiagnostics();
         LoadViewState();
 
         return Page();
@@ -240,18 +209,29 @@ public sealed class DesignerModel : PageModel
     /// Loads the target schema from the toolbox.
     /// </summary>
     /// <returns>The page result.</returns>
-    public IActionResult OnPostLoadTargetSchema()
+    public async Task<IActionResult> OnPostLoadTargetSchema()
     {
+        string schemaText = await ReadSchemaContent("OutputSchemaFile", OutputSchemaText);
+
+        if (string.IsNullOrWhiteSpace(schemaText))
+        {
+            Message = "Output schema file or text is required.";
+            LoadViewState();
+            return Page();
+        }
+
         JsonSchemaConversionResult result = _schemaImporter.Import(new JsonSchemaImportRequest
         {
             Name = "Target",
-            JsonSchema = TargetSchemaJson
+            JsonSchema = schemaText
         });
 
         if (result.Succeeded)
         {
             Session.LoadTargetSchema(result.Schema);
             Message = "Target schema loaded.";
+            OutputSchemaText = string.Empty;
+            RunSemanticDiagnostics();
         }
         else
         {
@@ -259,10 +239,49 @@ public sealed class DesignerModel : PageModel
             Diagnostics = result.Diagnostics;
         }
 
-        RunSemanticDiagnostics();
         LoadViewState();
 
         return Page();
+    }
+
+    /// <summary>
+    /// Synchronizes visual mapping changes into the current DSL content.
+    /// </summary>
+    /// <returns>The synchronization response.</returns>
+    public IActionResult OnPostSyncVisual()
+    {
+        IReadOnlyCollection<DiagnosticEntry> diagnostics = SavePostedMappings();
+
+        if (diagnostics.Count == 0)
+        {
+            Message = "Mappings synchronized.";
+            RunSemanticDiagnostics();
+            return new JsonResult(CreateSyncResponse(true, Message));
+        }
+
+        Diagnostics = diagnostics;
+        Message = "Some mappings could not be synchronized.";
+        return new JsonResult(CreateSyncResponse(false, Message));
+    }
+
+    /// <summary>
+    /// Synchronizes DSL content into visual mapping fields.
+    /// </summary>
+    /// <returns>The synchronization response.</returns>
+    public IActionResult OnPostSyncDsl()
+    {
+        IMappingOperationResult result = Session.ImportDsl(DslContent);
+
+        if (result.Succeeded)
+        {
+            Message = string.Empty;
+            RunSemanticDiagnostics();
+            return new JsonResult(CreateSyncResponse(true, Message));
+        }
+
+        Diagnostics = result.Diagnostics;
+        Message = CreateMessage(result, "DSL synchronized.");
+        return new JsonResult(CreateSyncResponse(false, Message));
     }
 
     /// <summary>
@@ -284,35 +303,11 @@ public sealed class DesignerModel : PageModel
     /// <returns>The page result.</returns>
     public IActionResult OnPostSaveTargetMappings()
     {
-        List<DiagnosticEntry> diagnostics = [];
-        int count = Math.Min(TargetPaths.Count, Expressions.Count);
-        int savedCount = 0;
-
-        for (int index = 0; index < count; index++)
-        {
-            string targetPath = TargetPaths[index];
-            string expressionText = Expressions[index];
-            Session.RemoveMapping(targetPath);
-
-            if (string.IsNullOrWhiteSpace(expressionText))
-            {
-                continue;
-            }
-
-            IMappingOperationResult result = Session.AddExpressionTextMapping(expressionText, targetPath);
-
-            if (result.Succeeded)
-            {
-                savedCount++;
-                continue;
-            }
-
-            diagnostics.AddRange(result.Diagnostics);
-        }
+        IReadOnlyCollection<DiagnosticEntry> diagnostics = SavePostedMappings();
 
         if (diagnostics.Count == 0)
         {
-            Message = "Target mappings saved for " + savedCount.ToString(System.Globalization.CultureInfo.InvariantCulture) + " fields.";
+            Message = "Mappings saved.";
             RunSemanticDiagnostics();
         }
         else
@@ -380,7 +375,24 @@ public sealed class DesignerModel : PageModel
     }
 
     // Gets the current design session.
-    private IMappingDesignSession Session => _sessionStore.GetOrCreate(DesignerSessionKeys.DefaultSessionKey);
+    private IMappingDesignSession Session => _sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this));
+
+    // Reads schema content from uploaded file or pasted text.
+    private async Task<string> ReadSchemaContent(string fileFieldName, string textContent)
+    {
+        foreach (IFormFile file in Request.Form.Files)
+        {
+            if (!string.Equals(file.Name, fileFieldName, StringComparison.Ordinal) || file.Length <= 0)
+            {
+                continue;
+            }
+
+            using StreamReader reader = new(file.OpenReadStream());
+            return await reader.ReadToEndAsync();
+        }
+
+        return textContent.Trim();
+    }
 
     // Loads UI state from the current session.
     private void LoadViewState()
@@ -444,6 +456,34 @@ public sealed class DesignerModel : PageModel
         }
 
         return expressions;
+    }
+
+    // Saves posted target mappings into the current document.
+    private IReadOnlyCollection<DiagnosticEntry> SavePostedMappings()
+    {
+        List<DiagnosticEntry> diagnostics = [];
+        int count = Math.Min(TargetPaths.Count, Expressions.Count);
+
+        for (int index = 0; index < count; index++)
+        {
+            string targetPath = TargetPaths[index];
+            string expressionText = Expressions[index];
+            Session.RemoveMapping(targetPath);
+
+            if (string.IsNullOrWhiteSpace(expressionText))
+            {
+                continue;
+            }
+
+            IMappingOperationResult result = Session.AddExpressionTextMapping(expressionText, targetPath);
+
+            if (!result.Succeeded)
+            {
+                diagnostics.AddRange(result.Diagnostics);
+            }
+        }
+
+        return diagnostics;
     }
 
     // Creates a path to diagnostic messages lookup.
@@ -556,8 +596,7 @@ public sealed class DesignerModel : PageModel
     // Creates a source path placeholder based on the target path.
     private static string CreatePlaceholder(string targetPath)
     {
-        string normalizedPath = targetPath.Replace("[0]", string.Empty, StringComparison.Ordinal);
-        return "$source." + normalizedPath;
+        return string.Empty;
     }
 
     // Exports a single mapping expression by wrapping it in a temporary document.
@@ -605,6 +644,27 @@ public sealed class DesignerModel : PageModel
         }
 
         return "Operation failed.";
+    }
+
+    // Creates a live synchronization response.
+    private DesignerSyncResponse CreateSyncResponse(bool succeeded, string message)
+    {
+        ITransformationDocument document = Session.Document;
+        string dslContent = DslContent;
+
+        if (succeeded)
+        {
+            dslContent = Session.ExportDsl();
+        }
+
+        return new DesignerSyncResponse
+        {
+            Succeeded = succeeded,
+            Message = message,
+            DslContent = dslContent,
+            Mappings = CreateExpressionDictionary(document),
+            DiagnosticsCount = Diagnostics.Count
+        };
     }
 
     // Runs semantic diagnostics without exposing analyzer workflow in the UI.

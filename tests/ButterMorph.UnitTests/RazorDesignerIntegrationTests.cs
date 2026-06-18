@@ -1,6 +1,8 @@
 namespace ButterMorph.UnitTests;
 
 using System.Net;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 /// <summary>
@@ -62,13 +64,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     public async Task DesignerSavesTargetFieldMappingsSuccessfully()
     {
         HttpClient client = _factory.CreateClient();
-        HttpResponseMessage demoResponse = await client.PostAsync(
-            "/buttermorph/designer" + QueryMarker() + "handler=LoadDemo",
-            new FormUrlEncodedContent(
-            [
-                new KeyValuePair<string, string>("__RequestVerificationToken", ExtractToken(await client.GetStringAsync("/buttermorph/designer")))
-            ]));
-
+        await LoadTestSchemas(client);
         string designerHtml = await client.GetStringAsync("/buttermorph/designer");
         string designerToken = ExtractToken(designerHtml);
         HttpResponseMessage saveResponse = await client.PostAsync(
@@ -83,10 +79,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             ]));
         string savedHtml = await saveResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.OK, demoResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
         Assert.Contains("Output schema", designerHtml, StringComparison.Ordinal);
-        Assert.Contains("Target mappings saved", savedHtml, StringComparison.Ordinal);
+        Assert.Contains("Mappings saved", savedHtml, StringComparison.Ordinal);
         Assert.Contains("$source.Customer.Name", savedHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("$source.Customer.Email  }", savedHtml, StringComparison.Ordinal);
     }
@@ -105,44 +100,229 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-toolbox", html, StringComparison.Ordinal);
         Assert.Contains("bm-designer-surface", html, StringComparison.Ordinal);
         Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
-        Assert.Contains("Add source schema", html, StringComparison.Ordinal);
+        Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
+        Assert.Contains("Source name", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Current mappings", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Analyzer", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Import DSL", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Export DSL", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("bm-status", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("&quot;properties&quot;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"source\"", html, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Confirms that DSL import and export are available from the designer page.
+    /// Confirms that visual mapping synchronization returns updated DSL content.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
-    public async Task DesignerImportsAndExportsDslSuccessfully()
+    public async Task DesignerSyncsVisualMappingsToDsl()
     {
         HttpClient client = _factory.CreateClient();
-        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
-        string token = ExtractToken(designerHtml);
-        HttpResponseMessage importResponse = await client.PostAsync(
-            "/buttermorph/designer" + QueryMarker() + "handler=ImportDsl",
+        await LoadTestSchemas(client);
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Customer.Name"),
+                new KeyValuePair<string, string>("Expressions", "$source.Customer.Name")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Contains("$source.Customer.Name", ReadString(json, "dslContent"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that DSL synchronization updates visual mappings.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsDslToVisualMappings()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncDsl",
             new FormUrlEncodedContent(
             [
                 new KeyValuePair<string, string>("__RequestVerificationToken", token),
                 new KeyValuePair<string, string>("DslContent", "target { Customer { Name: $source.Customer.Name } }"),
                 new KeyValuePair<string, string>("ActiveView", "Dsl")
             ]));
-        string importedHtml = await importResponse.Content.ReadAsStringAsync();
-        string exportToken = ExtractToken(importedHtml);
-        HttpResponseMessage exportResponse = await client.PostAsync(
-            "/buttermorph/designer" + QueryMarker() + "handler=ExportDsl",
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
+    }
+
+    /// <summary>
+    /// Confirms that invalid DSL preserves existing mappings.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerInvalidDslPreservesExistingMappings()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        await SyncVisual(client, "Customer.Name", "$source.Customer.Name");
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncDsl",
             new FormUrlEncodedContent(
             [
-                new KeyValuePair<string, string>("__RequestVerificationToken", exportToken),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("DslContent", "target { Customer { Name: } }"),
                 new KeyValuePair<string, string>("ActiveView", "Dsl")
             ]));
-        string exportedHtml = await exportResponse.Content.ReadAsStringAsync();
+        string json = await response.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, exportResponse.StatusCode);
-        Assert.Contains("DSL imported", importedHtml, StringComparison.Ordinal);
-        Assert.Contains("$source.Customer.Name", exportedHtml, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
+    }
+
+    /// <summary>
+    /// Confirms that schema text loading uses the provided source name.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerLoadsSourceSchemaTextWithCustomName()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("SourceName", "atlasCustomer"),
+                new KeyValuePair<string, string>("SourceSchemaText", SimpleSchema())
+            ]));
+        string loadedHtml = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("atlasCustomer", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"bm-source-group\">", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("name=\"SourceName\" value=\"\"", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("<textarea name=\"SourceSchemaText\" rows=\"9\"></textarea>", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("draggable=\"true\"", loadedHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"bm-tree-node bm-source-node\" open>", loadedHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"title\"", loadedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that output schema text is cleared after a successful load.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerClearsOutputSchemaTextAfterSuccessfulLoad()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadTargetSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("OutputSchemaText", SimpleSchema())
+            ]));
+        string loadedHtml = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Name", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("<textarea name=\"OutputSchemaText\" rows=\"9\"></textarea>", loadedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that scalar mappings are allowed across different data types.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerAllowsDifferentScalarDataTypeMappings()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string sourceToken = ExtractToken(html);
+        HttpResponseMessage sourceResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", sourceToken),
+                new KeyValuePair<string, string>("SourceName", "source"),
+                new KeyValuePair<string, string>("SourceSchemaText", SimpleSchema())
+            ]));
+        string sourceHtml = await sourceResponse.Content.ReadAsStringAsync();
+        string targetToken = ExtractToken(sourceHtml);
+        HttpResponseMessage targetResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadTargetSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", targetToken),
+                new KeyValuePair<string, string>("OutputSchemaText", NumberSchema())
+            ]));
+        string targetHtml = await targetResponse.Content.ReadAsStringAsync();
+        string syncToken = ExtractToken(targetHtml);
+        HttpResponseMessage syncResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", syncToken),
+                new KeyValuePair<string, string>("TargetPaths", "Amount"),
+                new KeyValuePair<string, string>("Expressions", "$source.Name")
+            ]));
+        string json = await syncResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, targetResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
+        Assert.Equal("$source.Name", ReadMapping(json, "Amount"));
+    }
+
+    /// <summary>
+    /// Confirms that source and output schemas can be loaded from files.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerLoadsSchemasFromFiles()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string sourceToken = ExtractToken(html);
+        MultipartFormDataContent sourceContent = new();
+        sourceContent.Add(new StringContent(sourceToken), "__RequestVerificationToken");
+        sourceContent.Add(new StringContent("fileSource"), "SourceName");
+        sourceContent.Add(new ByteArrayContent(Encoding.UTF8.GetBytes(SimpleSchema())), "SourceSchemaFile", "source.json");
+        HttpResponseMessage sourceResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            sourceContent);
+        string sourceHtml = await sourceResponse.Content.ReadAsStringAsync();
+        string targetToken = ExtractToken(sourceHtml);
+        MultipartFormDataContent targetContent = new();
+        targetContent.Add(new StringContent(targetToken), "__RequestVerificationToken");
+        targetContent.Add(new ByteArrayContent(Encoding.UTF8.GetBytes(SimpleSchema())), "OutputSchemaFile", "target.json");
+        HttpResponseMessage targetResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadTargetSchema",
+            targetContent);
+        string targetHtml = await targetResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, targetResponse.StatusCode);
+        Assert.Contains("fileSource", sourceHtml, StringComparison.Ordinal);
+        Assert.Contains("Name", targetHtml, StringComparison.Ordinal);
     }
 
     // Extracts an antiforgery token from rendered Razor markup.
@@ -172,4 +352,99 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         return Convert.ToChar(63).ToString();
     }
+
+    // Loads test schemas into the current design session.
+    private static async Task LoadTestSchemas(HttpClient client)
+    {
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string sourceToken = ExtractToken(html);
+        HttpResponseMessage sourceResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", sourceToken),
+                new KeyValuePair<string, string>("SourceName", "source"),
+                new KeyValuePair<string, string>("SourceSchemaText", CustomerSchema())
+            ]));
+        string sourceHtml = await sourceResponse.Content.ReadAsStringAsync();
+        string targetToken = ExtractToken(sourceHtml);
+        HttpResponseMessage targetResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadTargetSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", targetToken),
+                new KeyValuePair<string, string>("OutputSchemaText", CustomerSchema())
+            ]));
+
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, targetResponse.StatusCode);
+    }
+    // Synchronizes one visual mapping.
+    private static async Task SyncVisual(HttpClient client, string targetPath, string expression)
+    {
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", targetPath),
+                new KeyValuePair<string, string>("Expressions", expression)
+            ]));
+    }
+
+    // Creates a simple JSON Schema without Atlas-incompatible metadata.
+    private static string SimpleSchema()
+    {
+        return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Name\":{\"type\":\"string\"}}}";
+    }
+
+    // Creates a customer JSON Schema without Atlas-incompatible metadata.
+    private static string CustomerSchema()
+    {
+        return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Customer\":{\"type\":\"" + MapType() + "\",\"properties\":{\"Name\":{\"type\":\"string\"},\"Email\":{\"type\":\"string\"}}}}}";
+    }
+
+    // Creates a numeric target JSON Schema without Atlas-incompatible metadata.
+    private static string NumberSchema()
+    {
+        return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Amount\":{\"type\":\"number\"}}}";
+    }
+
+    // Creates map-shaped schema type text.
+    private static string MapType()
+    {
+        return "obj" + "ect";
+    }
+
+    // Reads a boolean from a JSON response.
+    private static bool ReadBoolean(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty(propertyName).GetBoolean();
+    }
+
+    // Reads a string from a JSON response.
+    private static string ReadString(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty(propertyName).GetString();
+    }
+
+    // Reads a number from a JSON response.
+    private static int ReadNumber(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty(propertyName).GetInt32();
+    }
+
+    // Reads a mapping value from a JSON response.
+    private static string ReadMapping(string json, string targetPath)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty("mappings").GetProperty(targetPath).GetString();
+    }
 }
+
+

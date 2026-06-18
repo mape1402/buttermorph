@@ -31,19 +31,19 @@ public sealed class SchemasModel : PageModel
     /// Gets or sets the source key.
     /// </summary>
     [BindProperty]
-    public string SourceKey { get; set; } = "source";
+    public string SourceKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the source JSON Schema text.
     /// </summary>
     [BindProperty]
-    public string SourceSchemaJson { get; set; } = SampleSchemas.Source;
+    public string SourceSchemaJson { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the target JSON Schema text.
     /// </summary>
     [BindProperty]
-    public string TargetSchemaJson { get; set; } = SampleSchemas.Target;
+    public string TargetSchemaJson { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the status message.
@@ -64,7 +64,7 @@ public sealed class SchemasModel : PageModel
 
         if (result.Succeeded)
         {
-            _sessionStore.GetOrCreate(DesignerSessionKeys.DefaultSessionKey).LoadSourceSchema(SourceKey, result.Schema);
+            _sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this)).LoadSourceSchema(SourceKey, result.Schema);
             Message = "Source schema loaded.";
         }
         else
@@ -89,44 +89,12 @@ public sealed class SchemasModel : PageModel
 
         if (result.Succeeded)
         {
-            _sessionStore.GetOrCreate(DesignerSessionKeys.DefaultSessionKey).LoadTargetSchema(result.Schema);
+            _sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this)).LoadTargetSchema(result.Schema);
             Message = "Target schema loaded.";
         }
         else
         {
             Message = "Target schema could not be loaded.";
-        }
-
-        return Page();
-    }
-
-    /// <summary>
-    /// Loads demo source and target schemas.
-    /// </summary>
-    /// <returns>The page result.</returns>
-    public IActionResult OnPostDemo()
-    {
-        JsonSchemaConversionResult sourceResult = _schemaImporter.Import(new JsonSchemaImportRequest
-        {
-            Name = SourceKey,
-            JsonSchema = SourceSchemaJson
-        });
-        JsonSchemaConversionResult targetResult = _schemaImporter.Import(new JsonSchemaImportRequest
-        {
-            Name = "Target",
-            JsonSchema = TargetSchemaJson
-        });
-
-        if (sourceResult.Succeeded && targetResult.Succeeded)
-        {
-            IMappingDesignSession session = _sessionStore.GetOrCreate(DesignerSessionKeys.DefaultSessionKey);
-            session.LoadSourceSchema(SourceKey, sourceResult.Schema);
-            session.LoadTargetSchema(targetResult.Schema);
-            Message = "Demo schemas loaded. Open the designer and add a mapping.";
-        }
-        else
-        {
-            Message = "Demo schemas could not be loaded.";
         }
 
         return Page();

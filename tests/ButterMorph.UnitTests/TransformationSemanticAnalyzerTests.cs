@@ -95,6 +95,33 @@ public sealed class TransformationSemanticAnalyzerTests
     }
 
     /// <summary>
+    /// Confirms that scalar data type differences do not block mappings.
+    /// </summary>
+    [Fact]
+    public void AnalyzeAllowsDifferentScalarDataTypes()
+    {
+        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
+        ITransformationDocument document = new TransformationDocument
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["source"] = CreateSourceSchema()
+            },
+            TargetSchema = CreateNumberTargetSchema(),
+            Mappings =
+            [
+                CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Amount")
+            ],
+            Validations = []
+        };
+
+        SemanticAnalysisResult result = analyzer.Analyze(document);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
     /// Confirms that missing function descriptors are reported.
     /// </summary>
     [Fact]
@@ -412,6 +439,37 @@ public sealed class TransformationSemanticAnalyzerTests
                                 Name = "$item",
                                 Kind = SchemaNodeKind.Scalar,
                                 DataType = "String"
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+    }
+
+    // Creates a target schema with a numeric scalar.
+    private static IStructureSchema CreateNumberTargetSchema()
+    {
+        return new StructureSchema
+        {
+            Name = "Target",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object,
+                Children =
+                [
+                    new SchemaNode
+                    {
+                        Name = "Customer",
+                        Kind = SchemaNodeKind.Object,
+                        Children =
+                        [
+                            new SchemaNode
+                            {
+                                Name = "Amount",
+                                Kind = SchemaNodeKind.Scalar,
+                                DataType = "Number"
                             }
                         ]
                     }

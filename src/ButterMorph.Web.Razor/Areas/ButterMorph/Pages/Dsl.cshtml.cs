@@ -65,7 +65,7 @@ public sealed class DslModel : PageModel
     }
 
     // Gets the current design session.
-    private IMappingDesignSession Session => _sessionStore.GetOrCreate(DesignerSessionKeys.DefaultSessionKey);
+    private IMappingDesignSession Session => _sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this));
 
     // Creates a friendly operation message.
     private static string CreateMessage(IMappingOperationResult result, string successMessage)

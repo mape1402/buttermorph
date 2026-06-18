@@ -19,6 +19,10 @@
     <ProjectReference Include="..\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\buttermorph\designer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.css" />
+    <EmbeddedResource Include="wwwroot\buttermorph\designer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.js" />
+  </ItemGroup>
 
 
 </Project>
