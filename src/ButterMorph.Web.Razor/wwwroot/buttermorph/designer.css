@@ -1,5 +1,11 @@
+html,
 body {
+  height: 100%;
   margin: 0;
+  overflow: hidden;
+}
+
+body {
   background: #f3f0f8;
   color: #211a2b;
   font-family: "Segoe UI", Arial, sans-serif;
@@ -8,8 +14,9 @@ body {
 
 .bm-workbench {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  min-height: 100vh;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .bm-topbar {
@@ -94,16 +101,15 @@ button,
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .bm-toolbox {
   background: #fff;
   border-right: 1px solid #ddd4eb;
-  height: calc(100vh - 78px);
+  min-height: 0;
   overflow: auto;
   padding: 10px;
-  position: sticky;
-  top: 0;
 }
 
 .bm-panel-title h2,
@@ -427,8 +433,7 @@ textarea,
   }
 
   .bm-toolbox {
-    height: auto;
-    position: static;
+    min-height: 0;
   }
 
   .bm-target-field {
