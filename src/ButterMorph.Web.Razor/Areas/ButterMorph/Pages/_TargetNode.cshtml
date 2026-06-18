@@ -1,0 +1,47 @@
+@model ButterMorph.Web.Razor.SchemaTreeDisplayNode
+
+@if (Model.Children.Count > 0)
+{
+    <details class="bm-tree-node bm-target-node" open>
+        <summary>
+            <span class="bm-json-key">@Model.Name</span>
+            <span class="bm-json-brace">@((Model.Kind == ButterMorph.Abstractions.SchemaNodeKind.Array) ? "[" : "{")</span>
+            <span class="bm-node-meta">@Model.Kind</span>
+        </summary>
+        <div class="bm-tree-children">
+            @foreach (var child in Model.Children)
+            {
+                <partial name="_TargetNode" model="child" />
+            }
+        </div>
+        <div class="bm-json-close">@((Model.Kind == ButterMorph.Abstractions.SchemaNodeKind.Array) ? "]" : "}")</div>
+    </details>
+}
+else
+{
+    <div class="bm-target-field" data-drop-target="true">
+        <div class="bm-target-label">
+            <strong>@Model.Name</strong>
+            <span>@Model.DataType</span>
+        </div>
+        <input type="hidden" name="TargetPaths" value="@Model.Path" />
+        <div class="bm-expression-shell">
+            <input class="bm-expression-input"
+                   name="Expressions"
+                   value="@Model.Expression"
+                   placeholder="@Model.Placeholder"
+                   data-target-path="@Model.Path"
+                   title="@Model.Path" />
+            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">×</button>
+        </div>
+        @if (Model.Diagnostics.Count > 0)
+        {
+            <ul class="bm-field-diagnostics">
+                @foreach (var diagnostic in Model.Diagnostics)
+                {
+                    <li>@diagnostic</li>
+                }
+            </ul>
+        }
+    </div>
+}

@@ -8,122 +8,130 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>ButterMorph Mapping Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css" />
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js"></script>
+    <title>ButterMorph Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=report-compact-4" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=report-compact-4"></script>
 </head>
 <body>
-    <main class="bm-shell">
-        <nav class="bm-nav">
-            <a href="/buttermorph">Home</a>
-            <a href="/buttermorph/schemas">Schemas</a>
-            <a href="/buttermorph/dsl">DSL</a>
-        </nav>
-        <section class="bm-page-title">
-            <p class="bm-kicker">Step 2</p>
-            <h1>Design mappings</h1>
-            <p>The output schema drives the work: every target field is listed below. Write the expression that should fill each field, copy source paths from the left, then save once.</p>
-        </section>
-        <p class="bm-message">@Model.Message</p>
-        <section class="bm-designer-layout">
-            <div class="bm-card">
-                <h2>Source schema</h2>
-                @if (Model.SourceNodes.Count == 0)
-                {
-                    <p class="bm-empty">No source schema loaded. Go to Schemas and load the demo schemas.</p>
-                }
-                <p class="bm-help">Copy a source path, or click it while focused inside a target expression field.</p>
-                <table>
-                    <thead><tr><th>Path</th><th>Kind</th><th>Type</th><th></th></tr></thead>
-                    <tbody>
-                    @foreach (var node in Model.SourceNodes)
-                    {
-                        <tr>
-                            <td style="padding-left:@(node.Depth * 16)px">@node.Path</td>
-                            <td>@node.Kind</td>
-                            <td>@node.DataType</td>
-                            <td>
-                                <button type="button" class="bm-copy-source" data-path="@node.Path">Use</button>
-                            </td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+    <main class="bm-workbench" data-active-view="@Model.ActiveView">
+        <header class="bm-topbar">
+            <div>
+                <p class="bm-kicker">ButterMorph</p>
+                <h1>Mapping Designer</h1>
             </div>
-            <div class="bm-card">
-                <h2>Output field mappings</h2>
-                @if (Model.TargetFields.Count == 0)
-                {
-                    <p class="bm-empty">No target fields loaded. Go to Schemas and load the demo schemas first.</p>
-                }
-                <form method="post" asp-page-handler="SaveTargetMappings">
-                    <table class="bm-mapping-table">
-                        <thead><tr><th>Output field</th><th>Type</th><th>Expression</th></tr></thead>
-                        <tbody>
-                        @foreach (var field in Model.TargetFields)
-                        {
-                            <tr>
-                                <td>
-                                    <strong>@field.DisplayName</strong>
-                                    <span>@field.TargetPath</span>
-                                    <input type="hidden" name="TargetPaths" value="@field.TargetPath" />
-                                </td>
-                                <td>@field.DataType</td>
-                                <td>
-                                    <input class="bm-expression-input" name="Expressions" value="@field.Expression" placeholder="@field.Placeholder" />
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                    <div class="bm-actions">
-                        <button type="submit">Save output mappings</button>
-                        <button type="submit" asp-page-handler="Analyze" class="bm-button-secondary">Analyze</button>
-                        <a class="bm-button bm-button-secondary" href="/buttermorph/dsl">Open DSL</a>
-                    </div>
-                </form>
+            <div class="bm-view-toggle" role="group" aria-label="Designer view">
+                <button type="button" class="bm-view-button" data-view="Visual">Visual Designer</button>
+                <button type="button" class="bm-view-button" data-view="Dsl">DSL</button>
             </div>
-        </section>
-        <section class="bm-card">
-            <h2>Current mappings</h2>
-            @if (Model.Mappings.Count == 0)
-            {
-                <p class="bm-empty">No mappings yet. Fill output expressions above and save.</p>
-            }
-            <table>
-                <thead><tr><th>Target</th><th>Expression</th><th></th></tr></thead>
-                <tbody>
-                @foreach (var mapping in Model.Mappings)
-                {
-                    <tr>
-                        <td>@mapping.TargetPath</td>
-                        <td>@mapping.Expression</td>
-                        <td>
-                            <form method="post" asp-page-handler="RemoveMapping">
-                                <input type="hidden" name="TargetPath" value="@mapping.TargetPath" />
-                                <button type="submit">Remove</button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </section>
-        <section class="bm-card">
-            <h2>Diagnostics</h2>
-            <form method="post" asp-page-handler="Analyze">
-                <button type="submit">Analyze</button>
+            <form method="post" asp-page-handler="LoadDemo" class="bm-toolbar-form">
+                <button type="submit">Load Demo</button>
             </form>
-            <ul>
-            @foreach (var diagnostic in Model.Diagnostics)
+        </header>
+
+        <section class="bm-status">
+            <span>@Model.Message</span>
+            @if (Model.Diagnostics.Count > 0)
             {
-                <li><strong>@diagnostic.Code</strong> @diagnostic.Path - @diagnostic.Message</li>
+                <strong>@Model.Diagnostics.Count diagnostics</strong>
             }
-            </ul>
-            @if (Model.Diagnostics.Count == 0)
+            else
             {
-                <p class="bm-empty">No diagnostics to show.</p>
+                <strong>Ready</strong>
             }
+        </section>
+
+        <section class="bm-workspace">
+            <aside class="bm-toolbox">
+                <div class="bm-panel-title">
+                    <h2>Sources</h2>
+                </div>
+
+                <details class="bm-drawer">
+                    <summary>Add source schema</summary>
+                    <form method="post" asp-page-handler="LoadSourceSchema" class="bm-stack-form">
+                        <label>
+                            Source key
+                            <input name="SourceKey" value="@Model.SourceKey" />
+                        </label>
+                        <label>
+                            JSON Schema
+                            <textarea name="SourceSchemaJson" rows="9">@Model.SourceSchemaJson</textarea>
+                        </label>
+                        <button type="submit">Load source</button>
+                    </form>
+                </details>
+
+                <details class="bm-drawer">
+                    <summary>Load output schema</summary>
+                    <form method="post" asp-page-handler="LoadTargetSchema" class="bm-stack-form">
+                        <label>
+                            Target JSON Schema
+                            <textarea name="TargetSchemaJson" rows="9">@Model.TargetSchemaJson</textarea>
+                        </label>
+                        <button type="submit">Load target</button>
+                    </form>
+                </details>
+
+                @if (Model.SourceSchemas.Count == 0)
+                {
+                    <p class="bm-empty">No sources loaded. Use Load Demo or add a source schema.</p>
+                }
+
+                <div class="bm-source-list">
+                    @foreach (var source in Model.SourceSchemas)
+                    {
+                        <section class="bm-source-group">
+                            <h3>@source.Key</h3>
+                            @foreach (var child in source.Root.Children)
+                            {
+                                <partial name="_SourceNode" model="child" />
+                            }
+                        </section>
+                    }
+                </div>
+            </aside>
+
+            <section class="bm-designer-surface" data-view-panel="Visual">
+                <form method="post" asp-page-handler="SaveTargetMappings" class="bm-target-form">
+                    <div class="bm-canvas-header">
+                        <div>
+                            <h2>Output schema</h2>
+                        </div>
+                        <button type="submit">Save mappings</button>
+                    </div>
+
+                    @if (Model.TargetTree.Children.Count == 0)
+                    {
+                        <p class="bm-empty">No output schema loaded. Load the target schema from the toolbox.</p>
+                    }
+                    else
+                    {
+                        <div class="bm-json-canvas">
+                            @foreach (var child in Model.TargetTree.Children)
+                            {
+                                <partial name="_TargetNode" model="child" />
+                            }
+                        </div>
+                    }
+                </form>
+            </section>
+
+            <section class="bm-designer-surface bm-dsl-surface" data-view-panel="Dsl">
+                <form method="post" class="bm-dsl-form">
+                    <div class="bm-canvas-header">
+                        <div>
+                            <h2>DSL</h2>
+                            <p>Import or export the same mapping document used by the visual designer.</p>
+                        </div>
+                        <div class="bm-actions">
+                            <button type="submit" asp-page-handler="ImportDsl">Import DSL</button>
+                            <button type="submit" asp-page-handler="ExportDsl">Export DSL</button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="ActiveView" value="Dsl" />
+                    <textarea name="DslContent" rows="28">@Model.DslContent</textarea>
+                </form>
+            </section>
         </section>
     </main>
 </body>

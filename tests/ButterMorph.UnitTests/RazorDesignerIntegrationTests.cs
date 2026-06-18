@@ -62,13 +62,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     public async Task DesignerSavesTargetFieldMappingsSuccessfully()
     {
         HttpClient client = _factory.CreateClient();
-        string schemasHtml = await client.GetStringAsync("/buttermorph/schemas");
-        string schemasToken = ExtractToken(schemasHtml);
         HttpResponseMessage demoResponse = await client.PostAsync(
-            "/buttermorph/schemas" + QueryMarker() + "handler=Demo",
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadDemo",
             new FormUrlEncodedContent(
             [
-                new KeyValuePair<string, string>("__RequestVerificationToken", schemasToken)
+                new KeyValuePair<string, string>("__RequestVerificationToken", ExtractToken(await client.GetStringAsync("/buttermorph/designer")))
             ]));
 
         string designerHtml = await client.GetStringAsync("/buttermorph/designer");
@@ -87,10 +85,64 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Equal(HttpStatusCode.OK, demoResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
-        Assert.Contains("Output field mappings", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("Output schema", designerHtml, StringComparison.Ordinal);
         Assert.Contains("Target mappings saved", savedHtml, StringComparison.Ordinal);
         Assert.Contains("$source.Customer.Name", savedHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("$source.Customer.Email  }", savedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that report-style designer markup is rendered.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRendersReportStyleWorkbench()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/designer");
+
+        Assert.Contains("bm-toolbox", html, StringComparison.Ordinal);
+        Assert.Contains("bm-designer-surface", html, StringComparison.Ordinal);
+        Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("Add source schema", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Current mappings", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Analyzer", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that DSL import and export are available from the designer page.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerImportsAndExportsDslSuccessfully()
+    {
+        HttpClient client = _factory.CreateClient();
+        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(designerHtml);
+        HttpResponseMessage importResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=ImportDsl",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("DslContent", "target { Customer { Name: $source.Customer.Name } }"),
+                new KeyValuePair<string, string>("ActiveView", "Dsl")
+            ]));
+        string importedHtml = await importResponse.Content.ReadAsStringAsync();
+        string exportToken = ExtractToken(importedHtml);
+        HttpResponseMessage exportResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=ExportDsl",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", exportToken),
+                new KeyValuePair<string, string>("ActiveView", "Dsl")
+            ]));
+        string exportedHtml = await exportResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, importResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, exportResponse.StatusCode);
+        Assert.Contains("DSL imported", importedHtml, StringComparison.Ordinal);
+        Assert.Contains("$source.Customer.Name", exportedHtml, StringComparison.Ordinal);
     }
 
     // Extracts an antiforgery token from rendered Razor markup.

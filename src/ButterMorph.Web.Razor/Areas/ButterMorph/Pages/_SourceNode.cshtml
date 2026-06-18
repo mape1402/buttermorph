@@ -1,0 +1,28 @@
+@model ButterMorph.Web.Razor.SchemaTreeDisplayNode
+
+@if (Model.Children.Count > 0)
+{
+    <details class="bm-tree-node bm-source-node" open>
+        <summary>
+            <span class="bm-node-name">@Model.Name</span>
+            <span class="bm-node-meta">@Model.Kind</span>
+        </summary>
+        <div class="bm-tree-children">
+            @foreach (var child in Model.Children)
+            {
+                <partial name="_SourceNode" model="child" />
+            }
+        </div>
+    </details>
+}
+else
+{
+    <button type="button"
+            class="bm-source-field"
+            draggable="@Model.CanDrag.ToString().ToLowerInvariant()"
+            data-path="@Model.Path"
+            title="@Model.Path">
+        <span class="bm-node-name">@Model.Name</span>
+        <span class="bm-node-meta">@Model.DataType</span>
+    </button>
+}

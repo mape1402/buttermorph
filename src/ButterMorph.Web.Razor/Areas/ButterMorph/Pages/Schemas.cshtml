@@ -13,36 +13,16 @@
 </head>
 <body>
     <main class="bm-shell">
-        <nav class="bm-nav">
-            <a href="/buttermorph">Home</a>
-            <a href="/buttermorph/designer">Designer</a>
-            <a href="/buttermorph/dsl">DSL</a>
-        </nav>
         <section class="bm-page-title">
-            <p class="bm-kicker">Step 1</p>
-            <h1>Load schemas</h1>
-            <p>Paste JSON Schema for the source and target structures. Use the demo button if you just want to try the designer quickly.</p>
+            <p class="bm-kicker">ButterMorph</p>
+            <h1>Schemas moved into the designer</h1>
+            <p>Source and output schemas now load directly from the left toolbox.</p>
         </section>
-        <p class="bm-message">@Model.Message</p>
-        <form method="post" asp-page-handler="Demo" class="bm-card bm-inline">
-            <button type="submit">Load demo schemas</button>
-            <a class="bm-button bm-button-secondary" href="/buttermorph/designer">Go to designer</a>
-        </form>
-        <section class="bm-grid">
-            <form method="post" asp-page-handler="Source" class="bm-card">
-                <h2>Source schema</h2>
-                <label>Source key</label>
-                <input name="SourceKey" value="@Model.SourceKey" />
-                <label>JSON Schema</label>
-                <textarea name="SourceSchemaJson" rows="18">@Model.SourceSchemaJson</textarea>
-                <button type="submit">Load source</button>
-            </form>
-            <form method="post" asp-page-handler="Target" class="bm-card">
-                <h2>Target schema</h2>
-                <label>JSON Schema</label>
-                <textarea name="TargetSchemaJson" rows="18">@Model.TargetSchemaJson</textarea>
-                <button type="submit">Load target</button>
-            </form>
+        <section class="bm-card">
+            <p class="bm-empty">@Model.Message</p>
+            <div class="bm-actions">
+                <a class="bm-button" href="/buttermorph/designer">Open designer</a>
+            </div>
         </section>
     </main>
 </body>

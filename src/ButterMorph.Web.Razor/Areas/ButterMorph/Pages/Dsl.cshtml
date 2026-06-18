@@ -13,25 +13,17 @@
 </head>
 <body>
     <main class="bm-shell">
-        <nav class="bm-nav">
-            <a href="/buttermorph">Home</a>
-            <a href="/buttermorph/schemas">Schemas</a>
-            <a href="/buttermorph/designer">Designer</a>
-        </nav>
         <section class="bm-page-title">
-            <p class="bm-kicker">Step 3</p>
-            <h1>DSL</h1>
-            <p>Export the current session to ButterMorph DSL or paste DSL back into the designer.</p>
+            <p class="bm-kicker">ButterMorph</p>
+            <h1>DSL moved into the designer</h1>
+            <p>The DSL editor is now a top-level view inside the mapping designer.</p>
         </section>
-        <p class="bm-message">@Model.Message</p>
-        <form method="post" asp-antiforgery="true" class="bm-card">
-            <textarea name="DslContent" rows="24">@Model.DslContent</textarea>
+        <section class="bm-card">
+            <p class="bm-empty">@Model.Message</p>
             <div class="bm-actions">
-                <button type="submit" asp-page-handler="Import">Import DSL</button>
-                <button type="submit" asp-page-handler="Export">Export DSL</button>
-                <a class="bm-button bm-button-secondary" href="/buttermorph/designer">Back to designer</a>
+                <a class="bm-button" href="/buttermorph/designer">Open designer</a>
             </div>
-        </form>
+        </section>
     </main>
 </body>
 </html>

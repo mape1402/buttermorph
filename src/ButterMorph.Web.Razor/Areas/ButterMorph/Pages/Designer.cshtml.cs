@@ -2,6 +2,7 @@ namespace ButterMorph.Web.Razor;
 
 using ButterMorph.Abstractions;
 using ButterMorph.Design;
+using ButterMorph.Json.Schema;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -19,17 +20,26 @@ public sealed class DesignerModel : PageModel
     // Exports expressions through DSL text for display.
     private readonly IDslExporter _dslExporter;
 
+    // Imports JSON Schema content from toolbox forms.
+    private readonly IJsonSchemaImporter _schemaImporter;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="DesignerModel"/> class.
     /// </summary>
     /// <param name="sessionStore">The session store.</param>
     /// <param name="schemaExplorer">The schema explorer.</param>
     /// <param name="dslExporter">The DSL exporter.</param>
-    public DesignerModel(IMappingDesignSessionStore sessionStore, ISchemaExplorer schemaExplorer, IDslExporter dslExporter)
+    /// <param name="schemaImporter">The JSON Schema importer.</param>
+    public DesignerModel(
+        IMappingDesignSessionStore sessionStore,
+        ISchemaExplorer schemaExplorer,
+        IDslExporter dslExporter,
+        IJsonSchemaImporter schemaImporter)
     {
         _sessionStore = sessionStore;
         _schemaExplorer = schemaExplorer;
         _dslExporter = dslExporter;
+        _schemaImporter = schemaImporter;
     }
 
     /// <summary>
@@ -57,9 +67,44 @@ public sealed class DesignerModel : PageModel
     public List<string> Expressions { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the source key for toolbox schema loading.
+    /// </summary>
+    [BindProperty]
+    public string SourceKey { get; set; } = "source";
+
+    /// <summary>
+    /// Gets or sets the source JSON Schema content.
+    /// </summary>
+    [BindProperty]
+    public string SourceSchemaJson { get; set; } = SampleSchemas.Source;
+
+    /// <summary>
+    /// Gets or sets the target JSON Schema content.
+    /// </summary>
+    [BindProperty]
+    public string TargetSchemaJson { get; set; } = SampleSchemas.Target;
+
+    /// <summary>
+    /// Gets or sets the DSL editor content.
+    /// </summary>
+    [BindProperty]
+    public string DslContent { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the active designer view.
+    /// </summary>
+    [BindProperty]
+    public string ActiveView { get; set; } = "Visual";
+
+    /// <summary>
     /// Gets the source schema nodes.
     /// </summary>
     public IReadOnlyCollection<SchemaTreeDisplayNode> SourceNodes { get; private set; } = [];
+
+    /// <summary>
+    /// Gets source schema toolbox groups.
+    /// </summary>
+    public IReadOnlyCollection<SourceSchemaDisplayModel> SourceSchemas { get; private set; } = [];
 
     /// <summary>
     /// Gets the target schema nodes.
@@ -77,6 +122,11 @@ public sealed class DesignerModel : PageModel
     public IReadOnlyCollection<TargetFieldMappingDisplayModel> TargetFields { get; private set; } = [];
 
     /// <summary>
+    /// Gets the target schema display tree.
+    /// </summary>
+    public SchemaTreeDisplayNode TargetTree { get; private set; } = new();
+
+    /// <summary>
     /// Gets semantic diagnostics.
     /// </summary>
     public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; private set; } = [];
@@ -84,7 +134,7 @@ public sealed class DesignerModel : PageModel
     /// <summary>
     /// Gets or sets the status message.
     /// </summary>
-    public string Message { get; set; } = "Load schemas, add mappings and analyze the document.";
+    public string Message { get; set; } = "Load schemas from the toolbox, map fields visually or switch to DSL.";
 
     /// <summary>
     /// Displays the designer.
@@ -117,6 +167,99 @@ public sealed class DesignerModel : PageModel
         TargetPath = "Customer.Name";
         IMappingOperationResult result = Session.AddPathMapping(SourcePath, TargetPath);
         Message = CreateMessage(result, "Sample mapping added.");
+        LoadViewState();
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Loads demo schemas into the designer.
+    /// </summary>
+    /// <returns>The page result.</returns>
+    public IActionResult OnPostLoadDemo()
+    {
+        JsonSchemaConversionResult sourceResult = _schemaImporter.Import(new JsonSchemaImportRequest
+        {
+            Name = SourceKey,
+            JsonSchema = SourceSchemaJson
+        });
+        JsonSchemaConversionResult targetResult = _schemaImporter.Import(new JsonSchemaImportRequest
+        {
+            Name = "Target",
+            JsonSchema = TargetSchemaJson
+        });
+
+        if (sourceResult.Succeeded && targetResult.Succeeded)
+        {
+            Session.LoadSourceSchema(SourceKey, sourceResult.Schema);
+            Session.LoadTargetSchema(targetResult.Schema);
+            Message = "Demo schemas loaded.";
+        }
+        else
+        {
+            Message = "Demo schemas could not be loaded.";
+            Diagnostics = CombineDiagnostics(sourceResult.Diagnostics, targetResult.Diagnostics);
+        }
+
+        RunSemanticDiagnostics();
+        LoadViewState();
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Loads a source schema from the toolbox.
+    /// </summary>
+    /// <returns>The page result.</returns>
+    public IActionResult OnPostLoadSourceSchema()
+    {
+        JsonSchemaConversionResult result = _schemaImporter.Import(new JsonSchemaImportRequest
+        {
+            Name = SourceKey,
+            JsonSchema = SourceSchemaJson
+        });
+
+        if (result.Succeeded)
+        {
+            Session.LoadSourceSchema(SourceKey, result.Schema);
+            Message = "Source schema loaded.";
+        }
+        else
+        {
+            Message = "Source schema could not be loaded.";
+            Diagnostics = result.Diagnostics;
+        }
+
+        RunSemanticDiagnostics();
+        LoadViewState();
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Loads the target schema from the toolbox.
+    /// </summary>
+    /// <returns>The page result.</returns>
+    public IActionResult OnPostLoadTargetSchema()
+    {
+        JsonSchemaConversionResult result = _schemaImporter.Import(new JsonSchemaImportRequest
+        {
+            Name = "Target",
+            JsonSchema = TargetSchemaJson
+        });
+
+        if (result.Succeeded)
+        {
+            Session.LoadTargetSchema(result.Schema);
+            Message = "Target schema loaded.";
+        }
+        else
+        {
+            Message = "Target schema could not be loaded.";
+            Diagnostics = result.Diagnostics;
+        }
+
+        RunSemanticDiagnostics();
         LoadViewState();
 
         return Page();
@@ -167,16 +310,56 @@ public sealed class DesignerModel : PageModel
             diagnostics.AddRange(result.Diagnostics);
         }
 
-        Diagnostics = diagnostics;
         if (diagnostics.Count == 0)
         {
             Message = "Target mappings saved for " + savedCount.ToString(System.Globalization.CultureInfo.InvariantCulture) + " fields.";
+            RunSemanticDiagnostics();
         }
         else
         {
             Message = "Some target mappings could not be saved.";
+            Diagnostics = diagnostics;
         }
 
+        LoadViewState();
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Imports posted DSL content.
+    /// </summary>
+    /// <returns>The page result.</returns>
+    public IActionResult OnPostImportDsl()
+    {
+        IMappingOperationResult result = Session.ImportDsl(DslContent);
+        Message = CreateMessage(result, "DSL imported.");
+        ActiveView = "Dsl";
+
+        if (result.Succeeded)
+        {
+            RunSemanticDiagnostics();
+        }
+        else
+        {
+            Diagnostics = result.Diagnostics;
+        }
+
+        LoadViewState();
+
+        return Page();
+    }
+
+    /// <summary>
+    /// Exports current DSL content.
+    /// </summary>
+    /// <returns>The page result.</returns>
+    public IActionResult OnPostExportDsl()
+    {
+        DslContent = Session.ExportDsl();
+        ActiveView = "Dsl";
+        Message = "DSL exported.";
+        RunSemanticDiagnostics();
         LoadViewState();
 
         return Page();
@@ -190,7 +373,7 @@ public sealed class DesignerModel : PageModel
     {
         SemanticAnalysisResult result = Session.Analyze();
         Diagnostics = result.Diagnostics;
-        Message = "Semantic analysis completed.";
+        Message = "Diagnostics refreshed.";
         LoadViewState();
 
         return Page();
@@ -204,16 +387,33 @@ public sealed class DesignerModel : PageModel
     {
         ITransformationDocument document = Session.Document;
         List<SchemaTreeDisplayNode> sourceNodes = [];
+        List<SourceSchemaDisplayModel> sourceSchemas = [];
 
         foreach (KeyValuePair<string, IStructureSchema> schemaPair in document.SourceSchemas)
         {
-            sourceNodes.AddRange(CreateSourceNodes(schemaPair.Key, SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(schemaPair.Value))));
+            ISchemaTreeNode explored = _schemaExplorer.Explore(schemaPair.Value);
+            SchemaTreeDisplayNode sourceTree = SchemaTreeDisplayBuilder.BuildSource(schemaPair.Key, explored);
+            sourceSchemas.Add(new SourceSchemaDisplayModel
+            {
+                Key = schemaPair.Key,
+                Root = sourceTree
+            });
+            sourceNodes.AddRange(CreateSourceNodes(schemaPair.Key, SchemaTreeFlattener.Flatten(explored)));
         }
 
+        Dictionary<string, string> expressions = CreateExpressionDictionary(document);
+        Dictionary<string, IReadOnlyCollection<string>> diagnostics = CreateDiagnosticDictionary(Diagnostics);
         SourceNodes = sourceNodes;
+        SourceSchemas = sourceSchemas;
         TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
         TargetFields = CreateTargetFields(TargetNodes, Mappings);
+        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), expressions, diagnostics);
+
+        if (string.IsNullOrWhiteSpace(DslContent))
+        {
+            DslContent = Session.ExportDsl();
+        }
     }
 
     // Creates display rows for mappings.
@@ -231,6 +431,52 @@ public sealed class DesignerModel : PageModel
         }
 
         return rows;
+    }
+
+    // Creates a target path to expression lookup.
+    private Dictionary<string, string> CreateExpressionDictionary(ITransformationDocument document)
+    {
+        Dictionary<string, string> expressions = new(StringComparer.Ordinal);
+
+        foreach (ITransformationMapping mapping in document.Mappings)
+        {
+            expressions[mapping.TargetPath] = ExportExpression(mapping);
+        }
+
+        return expressions;
+    }
+
+    // Creates a path to diagnostic messages lookup.
+    private static Dictionary<string, IReadOnlyCollection<string>> CreateDiagnosticDictionary(IReadOnlyCollection<DiagnosticEntry> diagnostics)
+    {
+        Dictionary<string, List<string>> grouped = new(StringComparer.Ordinal);
+
+        foreach (DiagnosticEntry diagnostic in diagnostics)
+        {
+            string path = diagnostic.Path;
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                path = "$root";
+            }
+
+            if (!grouped.TryGetValue(path, out List<string> messages))
+            {
+                messages = [];
+                grouped[path] = messages;
+            }
+
+            messages.Add(diagnostic.Code + " " + diagnostic.Message);
+        }
+
+        Dictionary<string, IReadOnlyCollection<string>> result = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, List<string>> entry in grouped)
+        {
+            result[entry.Key] = entry.Value;
+        }
+
+        return result;
     }
 
     // Creates editable target field rows from target schema leaves.
@@ -359,5 +605,23 @@ public sealed class DesignerModel : PageModel
         }
 
         return "Operation failed.";
+    }
+
+    // Runs semantic diagnostics without exposing analyzer workflow in the UI.
+    private void RunSemanticDiagnostics()
+    {
+        SemanticAnalysisResult result = Session.Analyze();
+        Diagnostics = result.Diagnostics;
+    }
+
+    // Combines conversion diagnostics.
+    private static IReadOnlyCollection<DiagnosticEntry> CombineDiagnostics(
+        IReadOnlyCollection<DiagnosticEntry> first,
+        IReadOnlyCollection<DiagnosticEntry> second)
+    {
+        List<DiagnosticEntry> diagnostics = [.. first];
+        diagnostics.AddRange(second);
+
+        return diagnostics;
     }
 }
