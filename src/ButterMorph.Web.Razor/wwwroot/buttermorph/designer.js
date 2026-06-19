@@ -92,6 +92,13 @@ document.addEventListener("DOMContentLoaded", function () {
           isFunction: true,
           category: "function",
           key: functionKey,
+          hint: function (editor, data, completion) {
+            const insertionStart = editor.indexFromPos(data.from);
+            editor.replaceRange(completion.text, data.from, data.to, "complete");
+            editor.focus();
+            selectFirstFunctionArgumentInCodeEditor(insertionStart, completion.text);
+            rememberDslSelection();
+          },
           render: function (element) {
             element.appendChild(createCompletionElement(functionKey, description, kind ? kind.textContent : "Function"));
           }

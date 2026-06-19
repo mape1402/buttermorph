@@ -88,6 +88,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("\"RequestVerificationToken\": token", script, StringComparison.Ordinal);
         Assert.Contains("data-function-template", script, StringComparison.Ordinal);
         Assert.Contains("selectFirstFunctionArgument", script, StringComparison.Ordinal);
+        Assert.Contains("hint: function (editor, data, completion)", script, StringComparison.Ordinal);
+        Assert.Contains("editor.replaceRange(completion.text, data.from, data.to, \"complete\")", script, StringComparison.Ordinal);
         Assert.Contains("rememberDslSelection", script, StringComparison.Ordinal);
         Assert.Contains("insertIntoDslEditor", script, StringComparison.Ordinal);
         Assert.Contains("initializeDslCodeEditor", script, StringComparison.Ordinal);
