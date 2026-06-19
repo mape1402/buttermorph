@@ -272,16 +272,25 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
             Mappings =
             [
                 Map("$customer.Identity.Id", "Customer.CustomerId"),
-                Map("$customer.Identity.Name", "Customer.FullName"),
-                Map("$customer.Identity.Email", "Customer.EmailAddress"),
-                Map("$customer.Address.Line1", "ShippingAddress.Street"),
+                Function("upper", "Customer.FullName", Path("$customer.Identity.Name")),
+                Function("lower", "Customer.EmailAddress", Path("$customer.Identity.Email")),
+                Function("defaultEmpty", "ShippingAddress.Street", Path("$customer.Address.Line1"), Text("NO STREET")),
                 Map("$customer.Address.City", "ShippingAddress.City"),
                 Map("$customer.Address.State", "ShippingAddress.Region"),
                 Map("$customer.Address.PostalCode", "ShippingAddress.ZipCode"),
                 Map("$customer.Address.Country", "ShippingAddress.CountryCode"),
                 Map("$customer.Preferences.Language", "Summary.PreferredLanguage"),
                 Map("$orders.Orders[0].Total", "Summary.LatestOrderTotal"),
-                Map("$customer.Preferences.NewsletterEnabled", "Summary.Newsletter")
+                Map("$customer.Preferences.NewsletterEnabled", "Summary.Newsletter"),
+                Project(
+                    "$orders.Orders[0].Items",
+                    "item",
+                    "OrderLines",
+                    Object(
+                        Property("Sku", Path("item.Sku")),
+                        Property("Name", Path("item.Description")),
+                        Property("Units", Path("item.Quantity")),
+                        Property("Price", Path("item.UnitPrice"))))
             ],
             Metadata = new Dictionary<string, string>
             {
@@ -439,17 +448,26 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
             Mappings =
             [
                 Map("$invoice.Header.InvoiceNumber", "Document.Number"),
-                Map("$invoice.Header.IssuedOn", "Document.Date"),
+                Function("formatDate", "Document.Date", Path("$invoice.Header.IssuedOn"), Text("yyyy-MM-dd")),
                 Map("$invoice.Header.Currency", "Document.Currency"),
                 Map("$invoice.BillTo.CustomerCode", "Party.Code"),
-                Map("$invoice.BillTo.LegalName", "Party.Name"),
+                Function("concat", "Party.Name", Path("$vendor.Vendor.Name"), Text(" / "), Path("$invoice.BillTo.LegalName")),
                 Map("$invoice.BillTo.TaxId", "Party.TaxId"),
                 Map("$payment.Payment.Reference", "Settlement.Reference"),
                 Map("$payment.Payment.Method", "Settlement.Method"),
                 Map("$payment.Payment.Amount", "Settlement.PaidAmount"),
                 Map("$invoice.Header.Subtotal", "Totals.Subtotal"),
                 Map("$invoice.Header.Tax", "Totals.Tax"),
-                Map("$invoice.Header.Total", "Totals.GrandTotal")
+                Function("add", "Totals.GrandTotal", Path("$invoice.Header.Subtotal"), Path("$invoice.Header.Tax")),
+                Project(
+                    "$invoice.Lines",
+                    "line",
+                    "Lines",
+                    Object(
+                        Property("Code", Path("line.Sku")),
+                        Property("Text", Path("line.Description")),
+                        Property("Units", Path("line.Quantity")),
+                        Property("LineAmount", Path("line.Amount"))))
             ],
             Metadata = new Dictionary<string, string>
             {
@@ -610,20 +628,28 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
             Mappings =
             [
                 Map("$ticket.Ticket.TicketId", "Case.Id"),
-                Map("$ticket.Ticket.Subject", "Case.Title"),
-                Map("$ticket.Ticket.Priority", "Case.Severity"),
-                Map("$ticket.Ticket.CreatedAt", "Case.OpenedAt"),
+                Function("replace", "Case.Title", Path("$ticket.Ticket.Subject"), Text("Issue"), Text("Case")),
+                Function("upper", "Case.Severity", Path("$ticket.Ticket.Priority")),
+                Function("parseDate", "Case.OpenedAt", Path("$ticket.Ticket.CreatedAt")),
                 Map("$ticket.Ticket.Channel", "Case.SourceChannel"),
-                Map("$ticket.Requester.Name", "Contact.DisplayName"),
-                Map("$ticket.Requester.Email", "Contact.EmailAddress"),
+                Function("defaultEmpty", "Contact.DisplayName", Path("$ticket.Requester.Name"), Text("Unknown requester")),
+                Function("lower", "Contact.EmailAddress", Path("$ticket.Requester.Email")),
                 Map("$ticket.Requester.Phone", "Contact.PhoneNumber"),
                 Map("$profile.Customer.CustomerId", "Customer.Id"),
                 Map("$profile.Customer.Segment", "Customer.Segment"),
-                Map("$profile.Customer.RiskLevel", "Customer.Risk"),
+                Function("if", "Customer.Risk", Path("$profile.Customer.RiskLevel"), Text("REVIEW"), Text("NORMAL")),
                 Map("$asset.Device.SerialNumber", "Asset.Serial"),
                 Map("$asset.Device.Model", "Asset.Model"),
                 Map("$asset.Device.Firmware", "Asset.FirmwareVersion"),
-                Map("$asset.Warranty.Status", "Asset.WarrantyStatus")
+                Map("$asset.Warranty.Status", "Asset.WarrantyStatus"),
+                Project(
+                    "$ticket.Conversation",
+                    "message",
+                    "Messages",
+                    Object(
+                        Property("From", Path("message.Author")),
+                        Property("Body", Path("message.Message")),
+                        Property("At", Path("message.CreatedAt"))))
             ],
             Metadata = new Dictionary<string, string>
             {
@@ -637,11 +663,79 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new TransformationMapping
         {
-            SourceExpression = new PathExpression
+            SourceExpression = Path(sourcePath),
+            TargetPath = targetPath
+        };
+    }
+
+    // Creates a mapping from a function expression to a target path.
+    private static ITransformationMapping Function(string functionKey, string targetPath, params ITransformationExpression[] arguments)
+    {
+        return new TransformationMapping
+        {
+            SourceExpression = new FunctionCallExpression
             {
-                Path = sourcePath
+                FunctionKey = functionKey,
+                Arguments = arguments
             },
             TargetPath = targetPath
+        };
+    }
+
+    // Creates a mapping from a projection expression to a target array path.
+    private static ITransformationMapping Project(string sourcePath, string alias, string targetPath, ITransformationExpression body)
+    {
+        return new TransformationMapping
+        {
+            SourceExpression = new CollectionProjectionExpression
+            {
+                SourceExpression = Path(sourcePath),
+                ItemAlias = alias,
+                BodyExpression = body
+            },
+            TargetPath = targetPath
+        };
+    }
+
+    // Creates a map-shaped expression.
+    private static ITransformationExpression Object(params IObjectPropertyExpression[] properties)
+    {
+        return new ObjectExpression
+        {
+            Properties = properties
+        };
+    }
+
+    // Creates a map-shaped property expression.
+    private static IObjectPropertyExpression Property(string name, ITransformationExpression expression)
+    {
+        return new ObjectPropertyExpression
+        {
+            Name = name,
+            Expression = expression
+        };
+    }
+
+    // Creates a path expression.
+    private static ITransformationExpression Path(string sourcePath)
+    {
+        return new PathExpression
+        {
+            Path = sourcePath
+        };
+    }
+
+    // Creates a text literal expression.
+    private static ITransformationExpression Text(string value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "String",
+                RawValue = value,
+                IsNull = false
+            }
         };
     }
 
