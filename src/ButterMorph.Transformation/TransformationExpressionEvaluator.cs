@@ -214,6 +214,11 @@ public sealed class TransformationExpressionEvaluator : ITransformationExpressio
             return sourceResult;
         }
 
+        if (sourceResult.Result is IScalarCollectionFunctionResult scalarCollectionResult)
+        {
+            return EvaluateScalarProjection(context, expression, scalarCollectionResult.Values);
+        }
+
         if (sourceResult.Result is not IStructureNodeCollectionFunctionResult collectionResult)
         {
             return CreateFailure(CreateDiagnostic("BMEX006", "Projection source must evaluate to a structure node collection.", expression.ItemAlias));
@@ -228,6 +233,50 @@ public sealed class TransformationExpressionEvaluator : ITransformationExpressio
             Dictionary<string, IStructureNode> aliases = new(context.Aliases, StringComparer.Ordinal)
             {
                 [expression.ItemAlias] = sourceNode
+            };
+
+            ITransformationExpressionEvaluationResult bodyResult = Evaluate(new TransformationExpressionEvaluationContext
+            {
+                ExecutionContext = context.ExecutionContext,
+                Expression = expression.BodyExpression,
+                Aliases = aliases
+            });
+
+            if (!bodyResult.Succeeded)
+            {
+                diagnostics.AddRange(bodyResult.Diagnostics);
+                continue;
+            }
+
+            AppendResultNodes(nodes, bodyResult.Result, ref index);
+        }
+
+        if (diagnostics.Count > 0)
+        {
+            return CreateFailure(diagnostics);
+        }
+
+        return CreateSuccess(new StructureNodeCollectionFunctionResult
+        {
+            Nodes = nodes
+        });
+    }
+
+    // Evaluates a scalar collection projection through scalar alias nodes.
+    private ITransformationExpressionEvaluationResult EvaluateScalarProjection(
+        TransformationExpressionEvaluationContext context,
+        ICollectionProjectionExpression expression,
+        IReadOnlyCollection<IScalarValue> values)
+    {
+        List<DiagnosticEntry> diagnostics = [];
+        List<IStructureNode> nodes = [];
+        int index = 0;
+
+        foreach (IScalarValue value in values)
+        {
+            Dictionary<string, IStructureNode> aliases = new(context.Aliases, StringComparer.Ordinal)
+            {
+                [expression.ItemAlias] = CreateScalarNode(expression.ItemAlias, value)
             };
 
             ITransformationExpressionEvaluationResult bodyResult = Evaluate(new TransformationExpressionEvaluationContext

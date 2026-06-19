@@ -187,6 +187,29 @@ public sealed class TransformationSemanticAnalyzerTests
     }
 
     /// <summary>
+    /// Confirms that newly added native-style function descriptors are accepted.
+    /// </summary>
+    [Fact]
+    public void AnalyzeAcceptsExpandedFunctionDescriptors()
+    {
+        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
+        ITransformationDocument document = CreateDocument(
+        [
+            CreateMapping(CreateFunction("split", [CreatePath("$source.Customer.Name"), CreateScalar(",")]), "OrderIds"),
+            CreateMapping(CreateFunction("toNumber", [CreatePath("$source.Customer.Name")]), "Customer.Display"),
+            CreateMapping(CreateFunction("camelCase", [CreatePath("$source.Customer.Name")]), "Customer.Display"),
+            CreateMapping(CreateFunction("ToUpper", [CreatePath("$source.Customer.Name")]), "Customer.Display"),
+            CreateMapping(CreateFunction("sum", [CreateFunction("split", [CreatePath("$source.Customer.Name"), CreateScalar(",")])]), "Customer.Display")
+        ],
+        []);
+
+        SemanticAnalysisResult result = analyzer.Analyze(document);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
     /// Confirms that missing validation rule descriptors are reported.
     /// </summary>
     [Fact]
@@ -509,6 +532,62 @@ public sealed class TransformationSemanticAnalyzerTests
                 CreateFunctionParameter("node", FunctionValueKind.StructureNode)
             ]
         });
+        registry.Register("split", function, new FunctionDescriptor
+        {
+            Key = "split",
+            DisplayName = "Split",
+            Description = "Splits text.",
+            ValueKind = FunctionValueKind.ScalarCollection,
+            Parameters =
+            [
+                CreateFunctionParameter("text", FunctionValueKind.Scalar),
+                CreateFunctionParameter("separator", FunctionValueKind.Scalar)
+            ]
+        });
+        registry.Register("toNumber", function, new FunctionDescriptor
+        {
+            Key = "toNumber",
+            DisplayName = "To Number",
+            Description = "Converts a scalar value.",
+            ValueKind = FunctionValueKind.Scalar,
+            Parameters =
+            [
+                CreateFunctionParameter("value", FunctionValueKind.Scalar)
+            ]
+        });
+        registry.Register("camelCase", function, new FunctionDescriptor
+        {
+            Key = "camelCase",
+            DisplayName = "Camel Case",
+            Description = "Converts text casing.",
+            ValueKind = FunctionValueKind.Scalar,
+            Parameters =
+            [
+                CreateFunctionParameter("value", FunctionValueKind.Scalar)
+            ]
+        });
+        registry.Register("ToUpper", function, new FunctionDescriptor
+        {
+            Key = "ToUpper",
+            DisplayName = "To Upper",
+            Description = "Converts text casing.",
+            ValueKind = FunctionValueKind.Scalar,
+            Parameters =
+            [
+                CreateFunctionParameter("value", FunctionValueKind.Scalar)
+            ]
+        });
+        registry.Register("sum", function, new FunctionDescriptor
+        {
+            Key = "sum",
+            DisplayName = "Sum",
+            Description = "Sums scalar collection values.",
+            ValueKind = FunctionValueKind.Scalar,
+            Parameters =
+            [
+                CreateFunctionParameter("values", FunctionValueKind.ScalarCollection)
+            ]
+        });
 
         return registry;
     }
@@ -619,6 +698,16 @@ public sealed class TransformationSemanticAnalyzerTests
                 CreatePath("$source.Customer.Name"),
                 CreateScalar(" Lovelace")
             ]
+        };
+    }
+
+    // Creates a function call expression.
+    private static IFunctionCallExpression CreateFunction(string key, IReadOnlyCollection<ITransformationExpression> arguments)
+    {
+        return new FunctionCallExpression
+        {
+            FunctionKey = key,
+            Arguments = arguments
         };
     }
 
