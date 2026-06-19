@@ -152,6 +152,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-function-template=\"ToUpper(argument0)\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"sum(argument0)\"", html, StringComparison.Ordinal);
         Assert.Contains("bm-function-group", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"bm-function-group\" open>", html, StringComparison.Ordinal);
         Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
         Assert.Contains("Source name", html, StringComparison.Ordinal);
