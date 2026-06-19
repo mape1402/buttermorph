@@ -487,6 +487,92 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that playground scenarios render editable array projection headers.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRendersArrayProjectionHeadersForPlaygroundScenarios()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string complexHtml = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=complex");
+        string invoiceHtml = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=invoice");
+        string supportHtml = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=support");
+
+        Assert.Contains("data-array-target-path=\"OrderLines\"", complexHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"$orders.Orders[0].Items\"", complexHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"item.Sku\"", complexHtml, StringComparison.Ordinal);
+        Assert.Contains("data-array-target-path=\"Lines\"", invoiceHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"$invoice.Lines\"", invoiceHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"line.Sku\"", invoiceHtml, StringComparison.Ordinal);
+        Assert.Contains("data-array-target-path=\"Messages\"", supportHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"$ticket.Conversation\"", supportHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"message.Author\"", supportHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that visual array edits export projection DSL.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsVisualArrayProjectionToDsl()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=complex-array-sync");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=complex-array-sync&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ProjectionTargetPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionSources", "$orders.Orders[0].Items"),
+                new KeyValuePair<string, string>("ProjectionAliases", "line"),
+                new KeyValuePair<string, string>("ProjectionAdvancedExpressions", string.Empty),
+                new KeyValuePair<string, string>("ProjectionFieldArrayPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionFieldPaths", "Sku"),
+                new KeyValuePair<string, string>("ProjectionFieldExpressions", "line.Sku"),
+                new KeyValuePair<string, string>("ProjectionFieldArrayPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionFieldPaths", "Description"),
+                new KeyValuePair<string, string>("ProjectionFieldExpressions", "line.Description")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        string dsl = ReadString(json, "dslContent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Contains("OrderLines: project $orders.Orders[0].Items as line => { Description: line.Description, Sku: line.Sku }", dsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that DSL array projections update visual projection inputs.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsDslArrayProjectionToVisualInputs()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=invoice-dsl-sync");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=invoice-dsl-sync&handler=SyncDsl",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("DslContent", "target { Lines: project $invoice.Items as row => { Code: row.Code, Description: row.Description } }"),
+                new KeyValuePair<string, string>("ActiveView", "Dsl")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal("$invoice.Items", ReadMapping(json, "Lines::projection::source"));
+        Assert.Equal("row", ReadMapping(json, "Lines::projection::alias"));
+        Assert.Equal("row.Code", ReadMapping(json, "Lines::projection::field::Code"));
+        Assert.Equal("row.Description", ReadMapping(json, "Lines::projection::field::Description"));
+    }
+
+    /// <summary>
     /// Confirms that source and output schemas can be loaded from files.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

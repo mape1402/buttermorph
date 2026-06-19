@@ -14,9 +14,10 @@ internal static class SchemaTreeDisplayBuilder
     internal static SchemaTreeDisplayNode BuildTarget(
         ISchemaTreeNode root,
         IReadOnlyDictionary<string, string> expressions,
-        IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics)
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics,
+        IReadOnlyDictionary<string, ArrayProjectionDisplayModel> projections)
     {
-        return BuildNode(root, string.Empty, false, expressions, diagnostics);
+        return BuildNode(root, string.Empty, false, expressions, diagnostics, projections, new ArrayProjectionDisplayModel());
     }
 
     private static SchemaTreeDisplayNode BuildNode(
@@ -25,7 +26,7 @@ internal static class SchemaTreeDisplayBuilder
         bool isSource,
         IReadOnlyDictionary<string, string> expressions)
     {
-        return BuildNode(node, sourceKey, isSource, expressions, new Dictionary<string, IReadOnlyCollection<string>>());
+        return BuildNode(node, sourceKey, isSource, expressions, new Dictionary<string, IReadOnlyCollection<string>>(), new Dictionary<string, ArrayProjectionDisplayModel>(), new ArrayProjectionDisplayModel());
     }
 
     private static SchemaTreeDisplayNode BuildNode(
@@ -33,7 +34,9 @@ internal static class SchemaTreeDisplayBuilder
         string sourceKey,
         bool isSource,
         IReadOnlyDictionary<string, string> expressions,
-        IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics)
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics,
+        IReadOnlyDictionary<string, ArrayProjectionDisplayModel> projections,
+        ArrayProjectionDisplayModel projectionContext)
     {
         string path = node.Path;
 
@@ -42,11 +45,23 @@ internal static class SchemaTreeDisplayBuilder
             path = CreateSourcePath(sourceKey, node.Path);
         }
 
+        ArrayProjectionDisplayModel activeProjection = projectionContext;
+        bool isArrayProjection = !isSource && node.Kind == SchemaNodeKind.Array;
+
+        if (isArrayProjection && !projections.TryGetValue(path, out activeProjection))
+        {
+            activeProjection = new ArrayProjectionDisplayModel
+            {
+                TargetPath = path,
+                Alias = "item"
+            };
+        }
+
         List<SchemaTreeDisplayNode> children = [];
 
         foreach (ISchemaTreeNode child in node.Children)
         {
-            children.Add(BuildNode(child, sourceKey, isSource, expressions, diagnostics));
+            children.Add(BuildNode(child, sourceKey, isSource, expressions, diagnostics, projections, activeProjection));
         }
 
         string expression = string.Empty;
@@ -54,6 +69,19 @@ internal static class SchemaTreeDisplayBuilder
         if (expressions.TryGetValue(path, out string storedExpression))
         {
             expression = storedExpression;
+        }
+
+        bool isTemplateField = !isSource && node.Kind == SchemaNodeKind.Scalar && !string.IsNullOrWhiteSpace(activeProjection.TargetPath) && path.StartsWith(activeProjection.TargetPath + "[0].", StringComparison.Ordinal);
+        string projectionFieldPath = string.Empty;
+
+        if (isTemplateField)
+        {
+            projectionFieldPath = path[(activeProjection.TargetPath.Length + 4)..];
+
+            if (activeProjection.FieldExpressions.TryGetValue(projectionFieldPath, out string storedFieldExpression))
+            {
+                expression = storedFieldExpression;
+            }
         }
 
         IReadOnlyCollection<string> nodeDiagnostics = [];
@@ -72,10 +100,17 @@ internal static class SchemaTreeDisplayBuilder
             DataType = node.DataType,
             Children = children,
             IsExpanded = true,
-            CanDrag = isSource && node.Kind == SchemaNodeKind.Scalar,
+            CanDrag = isSource && (node.Kind == SchemaNodeKind.Scalar || node.Kind == SchemaNodeKind.Array),
             Expression = expression,
             Placeholder = CreatePlaceholder(path),
-            Diagnostics = nodeDiagnostics
+            Diagnostics = nodeDiagnostics,
+            IsArrayProjection = isArrayProjection,
+            ProjectionSourceExpression = activeProjection.SourceExpression,
+            ProjectionAlias = activeProjection.Alias,
+            ProjectionAdvancedExpression = activeProjection.AdvancedExpression,
+            IsArrayTemplateField = isTemplateField,
+            ProjectionTargetPath = activeProjection.TargetPath,
+            ProjectionFieldPath = projectionFieldPath
         };
     }
 

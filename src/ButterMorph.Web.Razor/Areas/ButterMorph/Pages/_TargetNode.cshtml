@@ -8,7 +8,37 @@
             <span class="bm-json-brace">@((Model.Kind == ButterMorph.Abstractions.SchemaNodeKind.Array) ? "[" : "{")</span>
             <span class="bm-node-meta">@Model.Kind</span>
         </summary>
-        <div class="bm-tree-children">
+        @if (Model.IsArrayProjection)
+        {
+            <div class="bm-array-mapping"
+                 data-array-drop-target="true"
+                 data-array-target-path="@Model.Path">
+                <input type="hidden" name="ProjectionTargetPaths" value="@Model.Path" />
+                <span class="bm-for-each-label">for each</span>
+                <input class="bm-expression-input bm-array-source-input"
+                       name="ProjectionSources"
+                       value="@Model.ProjectionSourceExpression"
+                       placeholder="$source.Collection"
+                       data-target-path="@(Model.Path + "::projection::source")"
+                       data-array-source-input="true"
+                       data-array-target-path="@Model.Path" />
+                <span class="bm-for-each-label">as</span>
+                <input class="bm-expression-input bm-array-alias-input"
+                       name="ProjectionAliases"
+                       value="@Model.ProjectionAlias"
+                       placeholder="item"
+                       data-target-path="@(Model.Path + "::projection::alias")"
+                       data-array-alias-input="true"
+                       data-array-target-path="@Model.Path" />
+                <input class="bm-expression-input bm-array-advanced-input"
+                       type="hidden"
+                       name="ProjectionAdvancedExpressions"
+                       value="@Model.ProjectionAdvancedExpression"
+                       data-target-path="@(Model.Path + "::projection::advanced")" />
+                <button type="button" class="bm-clear-array-mapping" aria-label="Clear array mapping">&times;</button>
+            </div>
+        }
+        <div class="bm-tree-children @(Model.IsArrayProjection ? "bm-array-template" : string.Empty)">
             @foreach (var child in Model.Children)
             {
                 <partial name="_TargetNode" model="child" />
@@ -19,20 +49,31 @@
 }
 else
 {
-    <div class="bm-target-field" data-drop-target="true">
+    <div class="bm-target-field @(Model.IsArrayTemplateField ? "bm-array-template-field" : string.Empty)"
+         data-drop-target="true"
+         data-array-source="@Model.ProjectionSourceExpression"
+         data-array-alias="@Model.ProjectionAlias">
         <div class="bm-target-label">
             <strong>@Model.Name</strong>
             <span>@Model.DataType</span>
         </div>
-        <input type="hidden" name="TargetPaths" value="@Model.Path" />
+        @if (Model.IsArrayTemplateField)
+        {
+            <input type="hidden" name="ProjectionFieldArrayPaths" value="@Model.ProjectionTargetPath" />
+            <input type="hidden" name="ProjectionFieldPaths" value="@Model.ProjectionFieldPath" />
+        }
+        else
+        {
+            <input type="hidden" name="TargetPaths" value="@Model.Path" />
+        }
         <div class="bm-expression-shell">
             <input class="bm-expression-input"
-                   name="Expressions"
+                   name="@(Model.IsArrayTemplateField ? "ProjectionFieldExpressions" : "Expressions")"
                    value="@Model.Expression"
                    placeholder="@Model.Placeholder"
-                   data-target-path="@Model.Path"
+                   data-target-path="@(Model.IsArrayTemplateField ? Model.ProjectionTargetPath + "::projection::field::" + Model.ProjectionFieldPath : Model.Path)"
                    title="@Model.Path" />
-            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">×</button>
+            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">&times;</button>
         </div>
         @if (Model.Diagnostics.Count > 0)
         {

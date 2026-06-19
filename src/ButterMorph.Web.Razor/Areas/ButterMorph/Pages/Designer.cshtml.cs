@@ -84,6 +84,48 @@ public sealed class DesignerModel : PageModel
     public List<string> Expressions { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets posted projection target paths.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionTargetPaths { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection source expressions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionSources { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection aliases.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionAliases { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted advanced projection expressions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionAdvancedExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field array paths.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldArrayPaths { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field paths.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldPaths { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field expressions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldExpressions { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the source display name.
     /// </summary>
     [BindProperty]
@@ -564,13 +606,14 @@ public sealed class DesignerModel : PageModel
         }
 
         Dictionary<string, string> expressions = CreateExpressionDictionary(document);
+        Dictionary<string, ArrayProjectionDisplayModel> projections = CreateProjectionDictionary(document);
         Dictionary<string, IReadOnlyCollection<string>> diagnostics = CreateDiagnosticDictionary(Diagnostics);
         SourceNodes = sourceNodes;
         SourceSchemas = sourceSchemas;
         TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
         TargetFields = CreateTargetFields(TargetNodes, Mappings);
-        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), expressions, diagnostics);
+        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), expressions, diagnostics, projections);
 
         if (string.IsNullOrWhiteSpace(DslContent))
         {
@@ -603,9 +646,110 @@ public sealed class DesignerModel : PageModel
         foreach (ITransformationMapping mapping in document.Mappings)
         {
             expressions[mapping.TargetPath] = ExportExpression(mapping);
+
+            if (mapping.SourceExpression is ICollectionProjectionExpression projectionExpression)
+            {
+                AddProjectionExpressionKeys(mapping.TargetPath, projectionExpression, expressions);
+            }
         }
 
         return expressions;
+    }
+
+    // Creates array projection display data by target array path.
+    private Dictionary<string, ArrayProjectionDisplayModel> CreateProjectionDictionary(ITransformationDocument document)
+    {
+        Dictionary<string, ArrayProjectionDisplayModel> projections = new(StringComparer.Ordinal);
+
+        foreach (ITransformationMapping mapping in document.Mappings)
+        {
+            if (mapping.SourceExpression is not ICollectionProjectionExpression projectionExpression)
+            {
+                continue;
+            }
+
+            Dictionary<string, string> fieldExpressions = new(StringComparer.Ordinal);
+            string advancedExpression = string.Empty;
+
+            if (projectionExpression.BodyExpression is IObjectExpression mapExpression)
+            {
+                AddProjectionFieldExpressions(string.Empty, mapExpression, fieldExpressions);
+            }
+            else
+            {
+                advancedExpression = ExportExpressionValue(projectionExpression);
+            }
+
+            projections[mapping.TargetPath] = new ArrayProjectionDisplayModel
+            {
+                TargetPath = mapping.TargetPath,
+                SourceExpression = ExportExpressionValue(projectionExpression.SourceExpression),
+                Alias = ResolveAlias(projectionExpression.ItemAlias),
+                AdvancedExpression = advancedExpression,
+                FieldExpressions = fieldExpressions
+            };
+        }
+
+        return projections;
+    }
+
+    // Adds editable item template expressions by relative field path.
+    private void AddProjectionFieldExpressions(
+        string prefix,
+        IObjectExpression mapExpression,
+        Dictionary<string, string> expressions)
+    {
+        foreach (IObjectPropertyExpression property in mapExpression.Properties)
+        {
+            string fieldPath = CreateFieldPath(prefix, property.Name);
+
+            if (property.Expression is IObjectExpression childMapExpression)
+            {
+                AddProjectionFieldExpressions(fieldPath, childMapExpression, expressions);
+                continue;
+            }
+
+            expressions[fieldPath] = ExportExpressionValue(property.Expression);
+        }
+    }
+
+    // Adds composite keys used by the visual array projection editor.
+    private void AddProjectionExpressionKeys(
+        string targetPath,
+        ICollectionProjectionExpression projectionExpression,
+        Dictionary<string, string> expressions)
+    {
+        expressions[CreateProjectionKey(targetPath, "source")] = ExportExpressionValue(projectionExpression.SourceExpression);
+        expressions[CreateProjectionKey(targetPath, "alias")] = ResolveAlias(projectionExpression.ItemAlias);
+
+        if (projectionExpression.BodyExpression is IObjectExpression mapExpression)
+        {
+            AddProjectionFieldExpressionKeys(targetPath, string.Empty, mapExpression, expressions);
+            return;
+        }
+
+        expressions[CreateProjectionKey(targetPath, "advanced")] = ExportExpressionValue(projectionExpression);
+    }
+
+    // Adds composite field keys used by item template inputs.
+    private void AddProjectionFieldExpressionKeys(
+        string targetPath,
+        string prefix,
+        IObjectExpression mapExpression,
+        Dictionary<string, string> expressions)
+    {
+        foreach (IObjectPropertyExpression property in mapExpression.Properties)
+        {
+            string fieldPath = CreateFieldPath(prefix, property.Name);
+
+            if (property.Expression is IObjectExpression childMapExpression)
+            {
+                AddProjectionFieldExpressionKeys(targetPath, fieldPath, childMapExpression, expressions);
+                continue;
+            }
+
+            expressions[CreateProjectionFieldKey(targetPath, fieldPath)] = ExportExpressionValue(property.Expression);
+        }
     }
 
     // Saves posted target mappings into the current document.
@@ -633,7 +777,143 @@ public sealed class DesignerModel : PageModel
             }
         }
 
+        SavePostedProjections(diagnostics);
+
         return diagnostics;
+    }
+
+    // Saves posted array projection editors as single target array mappings.
+    private void SavePostedProjections(List<DiagnosticEntry> diagnostics)
+    {
+        for (int index = 0; index < ProjectionTargetPaths.Count; index++)
+        {
+            string targetPath = ProjectionTargetPaths[index];
+            string sourceExpression = GetPostedValue(ProjectionSources, index);
+            string alias = ResolveAlias(GetPostedValue(ProjectionAliases, index));
+            string advancedExpression = GetPostedValue(ProjectionAdvancedExpressions, index);
+            Dictionary<string, string> fieldExpressions = GetPostedProjectionFields(targetPath);
+
+            Session.RemoveMapping(targetPath);
+
+            if (string.IsNullOrWhiteSpace(sourceExpression) && string.IsNullOrWhiteSpace(advancedExpression) && fieldExpressions.Count == 0)
+            {
+                continue;
+            }
+
+            string expressionText = advancedExpression;
+
+            if (string.IsNullOrWhiteSpace(expressionText))
+            {
+                if (string.IsNullOrWhiteSpace(sourceExpression))
+                {
+                    diagnostics.Add(CreateDiagnostic("BMWR001", "Array projection source is required.", targetPath));
+                    continue;
+                }
+
+                expressionText = "project " + sourceExpression + " as " + alias + " => " + RenderProjectionBody(fieldExpressions, alias);
+            }
+
+            IMappingOperationResult result = Session.AddExpressionTextMapping(expressionText, targetPath);
+
+            if (!result.Succeeded)
+            {
+                diagnostics.AddRange(result.Diagnostics);
+            }
+        }
+    }
+
+    // Gets posted projection field expressions for a target array.
+    private Dictionary<string, string> GetPostedProjectionFields(string targetPath)
+    {
+        Dictionary<string, string> fields = new(StringComparer.Ordinal);
+        int count = Math.Min(ProjectionFieldArrayPaths.Count, Math.Min(ProjectionFieldPaths.Count, ProjectionFieldExpressions.Count));
+
+        for (int index = 0; index < count; index++)
+        {
+            if (!string.Equals(ProjectionFieldArrayPaths[index], targetPath, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string fieldPath = ProjectionFieldPaths[index];
+            string expression = ProjectionFieldExpressions[index];
+
+            if (string.IsNullOrWhiteSpace(fieldPath) || string.IsNullOrWhiteSpace(expression))
+            {
+                continue;
+            }
+
+            fields[fieldPath] = expression;
+        }
+
+        return fields;
+    }
+
+    // Renders projection body content for DSL import.
+    private static string RenderProjectionBody(Dictionary<string, string> fields, string alias)
+    {
+        if (fields.Count == 0)
+        {
+            return alias;
+        }
+
+        return "{ " + RenderProjectionFields(fields, string.Empty) + " }";
+    }
+
+    // Renders projection fields recursively for nested item templates.
+    private static string RenderProjectionFields(Dictionary<string, string> fields, string prefix)
+    {
+        List<string> parts = [];
+        List<string> names = GetProjectionFieldNames(fields, prefix);
+
+        foreach (string name in names)
+        {
+            string fieldPath = CreateFieldPath(prefix, name);
+
+            if (fields.TryGetValue(fieldPath, out string expression))
+            {
+                parts.Add(name + ": " + expression);
+                continue;
+            }
+
+            parts.Add(name + ": { " + RenderProjectionFields(fields, fieldPath) + " }");
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    // Gets immediate field names under a projection path.
+    private static List<string> GetProjectionFieldNames(Dictionary<string, string> fields, string prefix)
+    {
+        SortedSet<string> names = new(StringComparer.Ordinal);
+
+        foreach (string fieldPath in fields.Keys)
+        {
+            string remaining = fieldPath;
+
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                string expectedPrefix = prefix + ".";
+
+                if (!fieldPath.StartsWith(expectedPrefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                remaining = fieldPath[expectedPrefix.Length..];
+            }
+
+            int separatorIndex = remaining.IndexOf(".", StringComparison.Ordinal);
+
+            if (separatorIndex >= 0)
+            {
+                remaining = remaining[..separatorIndex];
+            }
+
+            names.Add(remaining);
+        }
+
+        return [.. names];
     }
 
     // Creates a path to diagnostic messages lookup.
@@ -747,6 +1027,73 @@ public sealed class DesignerModel : PageModel
     private static string CreatePlaceholder(string targetPath)
     {
         return string.Empty;
+    }
+
+    // Creates the composite key for projection header inputs.
+    private static string CreateProjectionKey(string targetPath, string part)
+    {
+        return targetPath + "::projection::" + part;
+    }
+
+    // Creates the composite key for projection item field inputs.
+    private static string CreateProjectionFieldKey(string targetPath, string fieldPath)
+    {
+        return targetPath + "::projection::field::" + fieldPath;
+    }
+
+    // Creates a dotted field path without leading separators.
+    private static string CreateFieldPath(string prefix, string name)
+    {
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            return name;
+        }
+
+        return prefix + "." + name;
+    }
+
+    // Resolves a safe default item alias for visual projections.
+    private static string ResolveAlias(string alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            return "item";
+        }
+
+        return alias;
+    }
+
+    // Gets a posted value by index without throwing for uneven lists.
+    private static string GetPostedValue(IReadOnlyList<string> values, int index)
+    {
+        if (index >= values.Count)
+        {
+            return string.Empty;
+        }
+
+        return values[index];
+    }
+
+    // Creates a designer diagnostic entry.
+    private static DiagnosticEntry CreateDiagnostic(string code, string message, string path)
+    {
+        return new DiagnosticEntry
+        {
+            Code = code,
+            Message = message,
+            Path = path,
+            Severity = "Error"
+        };
+    }
+
+    // Exports a transformation expression by wrapping it in a temporary mapping.
+    private string ExportExpressionValue(ITransformationExpression expression)
+    {
+        return ExportExpression(new ButterMorph.Core.TransformationMapping
+        {
+            SourceExpression = expression,
+            TargetPath = "Value"
+        });
     }
 
     // Exports a single mapping expression by wrapping it in a temporary document.

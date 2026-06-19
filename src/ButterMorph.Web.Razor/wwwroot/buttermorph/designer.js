@@ -98,16 +98,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
   function collectVisualMappings() {
-    const formData = new FormData();
-    const targetPaths = document.querySelectorAll("input[name='TargetPaths']");
-    const expressions = document.querySelectorAll("input[name='Expressions']");
-    targetPaths.forEach(function (input) {
-      formData.append("TargetPaths", input.value);
-    });
-    expressions.forEach(function (input) {
-      formData.append("Expressions", input.value);
-    });
-    return formData;
+    const form = document.querySelector(".bm-target-form");
+    return form ? new FormData(form) : new FormData();
   }
   function syncVisual() {
     postForm("SyncVisual", collectVisualMappings()).then(function (response) {
@@ -241,7 +233,47 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
-  document.querySelectorAll(".bm-source-field").forEach(function (field) {
+  function readArraySource(target) {
+    const input = target.closest(".bm-target-field");
+    if (!input) {
+      return "";
+    }
+    return input.getAttribute("data-array-source") || "";
+  }
+  function readArrayAlias(target) {
+    const input = target.closest(".bm-target-field");
+    if (!input) {
+      return "item";
+    }
+    return input.getAttribute("data-array-alias") || "item";
+  }
+  function relativizePath(path, target) {
+    const source = readArraySource(target);
+    const alias = readArrayAlias(target);
+    if (source.length === 0) {
+      return path;
+    }
+    const indexedPrefix = source + "[0].";
+    if (path.indexOf(indexedPrefix) === 0) {
+      return alias + "." + path.substring(indexedPrefix.length);
+    }
+    const dottedPrefix = source + ".";
+    if (path.indexOf(dottedPrefix) === 0) {
+      return alias + "." + path.substring(dottedPrefix.length);
+    }
+    return path;
+  }
+  function updateTemplateSource(targetPath, sourceExpression, alias) {
+    document.querySelectorAll(".bm-target-field[data-array-source]").forEach(function (field) {
+      const hidden = field.querySelector("input[name='ProjectionFieldArrayPaths']");
+      if (!hidden || hidden.value !== targetPath) {
+        return;
+      }
+      field.setAttribute("data-array-source", sourceExpression);
+      field.setAttribute("data-array-alias", alias || "item");
+    });
+  }
+  document.querySelectorAll(".bm-source-field, .bm-source-branch[data-path]").forEach(function (field) {
     field.addEventListener("dragstart", function (event) {
       const path = field.getAttribute("data-path");
       field.classList.add("bm-dragging");
@@ -265,7 +297,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
-  document.querySelectorAll(".bm-target-field").forEach(function (target) {
+  document.querySelectorAll(".bm-target-field, .bm-array-mapping").forEach(function (target) {
     target.addEventListener("dragover", function (event) {
       event.preventDefault();
       target.classList.add("bm-drop-hover");
@@ -280,9 +312,15 @@ document.addEventListener("DOMContentLoaded", function () {
       event.preventDefault();
       target.classList.remove("bm-drop-hover");
       const path = event.dataTransfer.getData("text/plain");
-      const input = target.querySelector(".bm-expression-input");
+      const input = target.hasAttribute("data-array-drop-target")
+        ? target.querySelector(".bm-array-source-input")
+        : target.querySelector(".bm-expression-input");
       if (input && path) {
-        input.value = path;
+        input.value = target.hasAttribute("data-array-drop-target") ? path : relativizePath(path, target);
+        if (target.hasAttribute("data-array-drop-target")) {
+          const aliasInput = target.querySelector(".bm-array-alias-input");
+          updateTemplateSource(target.getAttribute("data-array-target-path"), path, aliasInput ? aliasInput.value : "item");
+        }
         input.focus();
         scheduleVisualSync();
       }
@@ -297,6 +335,48 @@ document.addEventListener("DOMContentLoaded", function () {
         input.focus();
         scheduleVisualSync();
       }
+    });
+  });
+  document.querySelectorAll(".bm-array-source-input, .bm-array-alias-input").forEach(function (input) {
+    input.addEventListener("input", function () {
+      const container = input.closest(".bm-array-mapping");
+      if (!container) {
+        return;
+      }
+      const sourceInput = container.querySelector(".bm-array-source-input");
+      const aliasInput = container.querySelector(".bm-array-alias-input");
+      updateTemplateSource(
+        container.getAttribute("data-array-target-path"),
+        sourceInput ? sourceInput.value : "",
+        aliasInput ? aliasInput.value : "item");
+    });
+  });
+  document.querySelectorAll(".bm-clear-array-mapping").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const container = button.closest(".bm-array-mapping");
+      if (!container) {
+        return;
+      }
+      const targetPath = container.getAttribute("data-array-target-path");
+      container.querySelectorAll(".bm-expression-input").forEach(function (input) {
+        if (input.classList.contains("bm-array-alias-input")) {
+          input.value = "item";
+        } else {
+          input.value = "";
+        }
+      });
+      document.querySelectorAll("input[name='ProjectionFieldArrayPaths']").forEach(function (hidden) {
+        if (hidden.value !== targetPath) {
+          return;
+        }
+        const field = hidden.closest(".bm-target-field");
+        const input = field ? field.querySelector(".bm-expression-input") : null;
+        if (input) {
+          input.value = "";
+        }
+      });
+      updateTemplateSource(targetPath, "", "item");
+      scheduleVisualSync();
     });
   });
   loadLeftDockMode();

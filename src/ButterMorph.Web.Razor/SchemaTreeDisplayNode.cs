@@ -61,4 +61,39 @@ public sealed class SchemaTreeDisplayNode
     /// Gets or sets diagnostics for this node.
     /// </summary>
     public IReadOnlyCollection<string> Diagnostics { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this node edits an array projection.
+    /// </summary>
+    public bool IsArrayProjection { get; set; }
+
+    /// <summary>
+    /// Gets or sets the array projection source expression.
+    /// </summary>
+    public string ProjectionSourceExpression { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the array projection alias.
+    /// </summary>
+    public string ProjectionAlias { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets an advanced projection expression when it cannot be decomposed.
+    /// </summary>
+    public string ProjectionAdvancedExpression { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this node is inside an array template.
+    /// </summary>
+    public bool IsArrayTemplateField { get; set; }
+
+    /// <summary>
+    /// Gets or sets the array projection target path for a template field.
+    /// </summary>
+    public string ProjectionTargetPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the relative projection field path.
+    /// </summary>
+    public string ProjectionFieldPath { get; set; } = string.Empty;
 }
