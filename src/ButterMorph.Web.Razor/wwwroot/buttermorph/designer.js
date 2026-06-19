@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
   const leftDockModeKey = "ButterMorphDesigner.LeftDockMode";
+  const leftDockPanelKey = "ButterMorphDesigner.LeftDockPanel";
   const legacyToolboxModeKey = "ButterMorphDesigner.ToolboxMode";
   function getToken() {
     const token = document.querySelector("input[name='__RequestVerificationToken']");
@@ -35,6 +36,27 @@ document.addEventListener("DOMContentLoaded", function () {
     const savedMode = window.localStorage.getItem(leftDockModeKey)
       || window.localStorage.getItem(legacyToolboxModeKey);
     setLeftDockMode(savedMode);
+  }
+  function setActiveDockPanel(panelName) {
+    const normalizedPanel = panelName || "sources";
+    document.querySelectorAll("[data-dock-tab]").forEach(function (tab) {
+      const isActive = tab.getAttribute("data-dock-tab") === normalizedPanel;
+      tab.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    document.querySelectorAll("[data-dock-panel]").forEach(function (panel) {
+      const isActive = panel.getAttribute("data-dock-panel") === normalizedPanel;
+      if (isActive) {
+        panel.removeAttribute("hidden");
+        return;
+      }
+      panel.setAttribute("hidden", "hidden");
+    });
+    window.localStorage.setItem(leftDockPanelKey, normalizedPanel);
+  }
+  function loadActiveDockPanel() {
+    const savedPanel = window.localStorage.getItem(leftDockPanelKey) || "sources";
+    const panel = document.querySelector("[data-dock-panel='" + savedPanel + "']");
+    setActiveDockPanel(panel ? savedPanel : "sources");
   }
   function updateMessage(response) {
     const box = document.querySelector("[data-message-box='true']");
@@ -127,6 +149,23 @@ document.addEventListener("DOMContentLoaded", function () {
       updateMessage(response);
     });
   }
+  function insertIntoExpressionInput(input, expressionText) {
+    if (!input || expressionText.length === 0) {
+      return;
+    }
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    if (start >= 0 && end >= 0) {
+      input.value = input.value.substring(0, start) + expressionText + input.value.substring(end);
+      input.selectionStart = start + expressionText.length;
+      input.selectionEnd = start + expressionText.length;
+    } else {
+      input.value = expressionText;
+    }
+    input.focus();
+    activeExpressionInput = input;
+    scheduleVisualSync();
+  }
   function scheduleVisualSync() {
     window.clearTimeout(visualTimer);
     visualTimer = window.setTimeout(syncVisual, 450);
@@ -175,10 +214,13 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.querySelectorAll("[data-dock-tab]").forEach(function (button) {
     button.addEventListener("click", function () {
+      const panelName = button.getAttribute("data-dock-tab") || "sources";
+      const alreadyActive = button.getAttribute("aria-selected") === "true";
+      setActiveDockPanel(panelName);
       if (!isLeftDockAuto()) {
         return;
       }
-      if (leftDock && leftDock.classList.contains("bm-dock-flyout-open")) {
+      if (leftDock && alreadyActive && leftDock.classList.contains("bm-dock-flyout-open")) {
         closeDockFlyout();
       } else {
         openDockFlyout();
@@ -297,6 +339,42 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
+  document.querySelectorAll(".bm-function-item").forEach(function (functionItem) {
+    functionItem.addEventListener("dragstart", function (event) {
+      const template = functionItem.getAttribute("data-function-template");
+      functionItem.classList.add("bm-dragging");
+      if (event.dataTransfer && template) {
+        event.dataTransfer.setData("text/plain", template);
+        event.dataTransfer.effectAllowed = "copy";
+      }
+    });
+    functionItem.addEventListener("dragend", function () {
+      functionItem.classList.remove("bm-dragging");
+    });
+    functionItem.addEventListener("click", function () {
+      const template = functionItem.getAttribute("data-function-template") || "";
+      if (activeExpressionInput) {
+        insertIntoExpressionInput(activeExpressionInput, template);
+        return;
+      }
+      if (navigator.clipboard && template) {
+        navigator.clipboard.writeText(template);
+      }
+    });
+  });
+  document.querySelectorAll("[data-function-search='true']").forEach(function (input) {
+    input.addEventListener("input", function () {
+      const searchText = input.value.toLowerCase();
+      document.querySelectorAll(".bm-function-item").forEach(function (functionItem) {
+        const itemText = (functionItem.getAttribute("data-function-search-text") || "").toLowerCase();
+        functionItem.hidden = searchText.length > 0 && itemText.indexOf(searchText) < 0;
+      });
+      document.querySelectorAll(".bm-function-group").forEach(function (group) {
+        const visibleItems = group.querySelectorAll(".bm-function-item:not([hidden])");
+        group.hidden = visibleItems.length === 0;
+      });
+    });
+  });
   document.querySelectorAll(".bm-target-field, .bm-array-mapping").forEach(function (target) {
     target.addEventListener("dragover", function (event) {
       event.preventDefault();
@@ -379,5 +457,6 @@ document.addEventListener("DOMContentLoaded", function () {
       scheduleVisualSync();
     });
   });
+  loadActiveDockPanel();
   loadLeftDockMode();
 });

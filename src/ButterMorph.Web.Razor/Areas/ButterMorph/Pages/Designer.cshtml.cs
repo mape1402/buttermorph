@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
+using System.Globalization;
 
 /// <summary>
 /// Displays and edits mapping definitions.
@@ -25,6 +26,9 @@ public sealed class DesignerModel : PageModel
     // Imports JSON Schema content from toolbox forms.
     private readonly IJsonSchemaImporter _schemaImporter;
 
+    // Lists design-time capabilities such as registered functions.
+    private readonly ICapabilityExplorer _capabilityExplorer;
+
     // Reads integration options for the reusable designer.
     private readonly ButterMorphRazorDesignerOptions _options;
 
@@ -41,6 +45,7 @@ public sealed class DesignerModel : PageModel
     /// <param name="schemaExplorer">The schema explorer.</param>
     /// <param name="dslExporter">The DSL exporter.</param>
     /// <param name="schemaImporter">The JSON Schema importer.</param>
+    /// <param name="capabilityExplorer">The capability explorer.</param>
     /// <param name="options">The Razor designer options.</param>
     /// <param name="designerHosts">The optional designer host integrations.</param>
     public DesignerModel(
@@ -48,6 +53,7 @@ public sealed class DesignerModel : PageModel
         ISchemaExplorer schemaExplorer,
         IDslExporter dslExporter,
         IJsonSchemaImporter schemaImporter,
+        ICapabilityExplorer capabilityExplorer,
         IOptions<ButterMorphRazorDesignerOptions> options,
         IEnumerable<IButterMorphDesignerHost> designerHosts)
     {
@@ -55,6 +61,7 @@ public sealed class DesignerModel : PageModel
         _schemaExplorer = schemaExplorer;
         _dslExporter = dslExporter;
         _schemaImporter = schemaImporter;
+        _capabilityExplorer = capabilityExplorer;
         _options = options.Value;
         _designerHosts = designerHosts;
     }
@@ -164,6 +171,11 @@ public sealed class DesignerModel : PageModel
     /// Gets source schema toolbox groups.
     /// </summary>
     public IReadOnlyCollection<SourceSchemaDisplayModel> SourceSchemas { get; private set; } = [];
+
+    /// <summary>
+    /// Gets function toolbox categories.
+    /// </summary>
+    public IReadOnlyCollection<FunctionToolboxCategoryDisplayModel> FunctionCategories { get; private set; } = [];
 
     /// <summary>
     /// Gets the target schema nodes.
@@ -610,6 +622,7 @@ public sealed class DesignerModel : PageModel
         Dictionary<string, IReadOnlyCollection<string>> diagnostics = CreateDiagnosticDictionary(Diagnostics);
         SourceNodes = sourceNodes;
         SourceSchemas = sourceSchemas;
+        FunctionCategories = CreateFunctionCategories();
         TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
         TargetFields = CreateTargetFields(TargetNodes, Mappings);
@@ -619,6 +632,140 @@ public sealed class DesignerModel : PageModel
         {
             DslContent = Session.ExportDsl();
         }
+    }
+
+    // Creates grouped function toolbox display data from registered descriptors.
+    private IReadOnlyCollection<FunctionToolboxCategoryDisplayModel> CreateFunctionCategories()
+    {
+        SortedDictionary<string, List<FunctionToolboxItemDisplayModel>> grouped = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (IFunctionDescriptor descriptor in _capabilityExplorer.ListFunctions())
+        {
+            string category = ReadMetadata(descriptor.Metadata, "category", "Custom");
+
+            if (!grouped.TryGetValue(category, out List<FunctionToolboxItemDisplayModel> functions))
+            {
+                functions = [];
+                grouped[category] = functions;
+            }
+
+            functions.Add(new FunctionToolboxItemDisplayModel
+            {
+                Key = descriptor.Key,
+                DisplayName = ResolveDisplayName(descriptor),
+                Description = descriptor.Description,
+                Category = category,
+                ValueKind = descriptor.ValueKind,
+                Template = CreateFunctionTemplate(descriptor)
+            });
+        }
+
+        List<FunctionToolboxCategoryDisplayModel> categories = [];
+
+        foreach (KeyValuePair<string, List<FunctionToolboxItemDisplayModel>> group in grouped)
+        {
+            group.Value.Sort(CompareFunctionItems);
+            categories.Add(new FunctionToolboxCategoryDisplayModel
+            {
+                Name = group.Key,
+                Functions = group.Value
+            });
+        }
+
+        return categories;
+    }
+
+    // Compares function toolbox items by key.
+    private static int CompareFunctionItems(FunctionToolboxItemDisplayModel left, FunctionToolboxItemDisplayModel right)
+    {
+        return string.Compare(left.Key, right.Key, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Resolves the display name for a descriptor.
+    private static string ResolveDisplayName(IFunctionDescriptor descriptor)
+    {
+        if (string.IsNullOrWhiteSpace(descriptor.DisplayName))
+        {
+            return descriptor.Key;
+        }
+
+        return descriptor.DisplayName;
+    }
+
+    // Creates the insertion template for a function descriptor.
+    private static string CreateFunctionTemplate(IFunctionDescriptor descriptor)
+    {
+        List<string> arguments = [];
+        int argumentCount = ResolveTemplateArgumentCount(descriptor);
+
+        for (int index = 0; index < argumentCount; index++)
+        {
+            arguments.Add(ResolveParameterKey(descriptor.Parameters, index));
+        }
+
+        return descriptor.Key + "(" + string.Join(", ", arguments) + ")";
+    }
+
+    // Resolves the number of arguments to include in a function template.
+    private static int ResolveTemplateArgumentCount(IFunctionDescriptor descriptor)
+    {
+        string minimumText = ReadMetadata(descriptor.Metadata, "minArgs", string.Empty);
+
+        if (int.TryParse(minimumText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int minimumArguments))
+        {
+            return minimumArguments;
+        }
+
+        int requiredCount = 0;
+
+        foreach (IFunctionParameterDescriptor parameter in descriptor.Parameters)
+        {
+            if (parameter.IsRequired)
+            {
+                requiredCount++;
+            }
+        }
+
+        if (requiredCount > 0)
+        {
+            return requiredCount;
+        }
+
+        return descriptor.Parameters.Count;
+    }
+
+    // Resolves a parameter key for template insertion.
+    private static string ResolveParameterKey(IReadOnlyCollection<IFunctionParameterDescriptor> parameters, int index)
+    {
+        int currentIndex = 0;
+
+        foreach (IFunctionParameterDescriptor parameter in parameters)
+        {
+            if (currentIndex == index)
+            {
+                if (!string.IsNullOrWhiteSpace(parameter.Key))
+                {
+                    return parameter.Key;
+                }
+
+                break;
+            }
+
+            currentIndex++;
+        }
+
+        return "argument" + index.ToString(CultureInfo.InvariantCulture);
+    }
+
+    // Reads descriptor metadata with a fallback.
+    private static string ReadMetadata(IReadOnlyDictionary<string, string> metadata, string key, string fallback)
+    {
+        if (metadata.TryGetValue(key, out string value) && !string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        return fallback;
     }
 
     // Creates display rows for mappings.

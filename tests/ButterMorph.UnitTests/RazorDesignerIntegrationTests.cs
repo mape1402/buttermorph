@@ -71,11 +71,14 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-dock-titlebar", css, StringComparison.Ordinal);
         Assert.Contains("bm-dock-flyout-open", css, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.LeftDockMode", script, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesigner.LeftDockPanel", script, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
+        Assert.Contains("data-function-template", script, StringComparison.Ordinal);
         Assert.Contains("bm-dock-flyout-open", script, StringComparison.Ordinal);
         Assert.Contains("hideMessage", script, StringComparison.Ordinal);
         Assert.Contains("::file-selector-button", css, StringComparison.Ordinal);
+        Assert.Contains("bm-function-item", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
     }
@@ -130,8 +133,17 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
         Assert.Contains("data-left-dock-mode=\"pinned\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-panel=\"sources\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-panel=\"functions\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-pin=\"sources\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-pin=\"functions\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab=\"sources\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dock-tab=\"functions\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-search=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-template=\"split(argument0, argument1)\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-template=\"camelCase(argument0)\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-template=\"ToUpper(argument0)\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-template=\"sum(argument0)\"", html, StringComparison.Ordinal);
+        Assert.Contains("bm-function-group", html, StringComparison.Ordinal);
         Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
         Assert.Contains("Source name", html, StringComparison.Ordinal);
