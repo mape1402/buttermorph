@@ -504,8 +504,88 @@ document.addEventListener("DOMContentLoaded", function () {
       length: readValue(diagnostic, "length") || 1
     };
   }
+  function clearDslDiagnosticPanel() {
+    const panel = document.querySelector("[data-dsl-diagnostics-panel='true']");
+    const count = document.querySelector("[data-dsl-diagnostics-count='true']");
+    const list = document.querySelector("[data-dsl-diagnostics-list='true']");
+    const empty = document.querySelector("[data-dsl-diagnostics-empty='true']");
+    if (count) {
+      count.textContent = "0";
+    }
+    if (list) {
+      list.innerHTML = "";
+    }
+    if (empty) {
+      empty.removeAttribute("hidden");
+    }
+    if (panel) {
+      panel.classList.remove("bm-dsl-diagnostics-has-items");
+    }
+  }
+  function goToDslDiagnostic(line, column) {
+    if (!dslCodeEditor) {
+      return;
+    }
+    const position = window.CodeMirror.Pos(Math.max(0, line - 1), Math.max(0, column - 1));
+    dslCodeEditor.focus();
+    dslCodeEditor.setCursor(position);
+    dslCodeEditor.scrollIntoView(position, 80);
+  }
+  function createDslDiagnosticRow(diagnostic) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "bm-dsl-diagnostic-row";
+    row.setAttribute("data-dsl-diagnostic-row", "true");
+    row.setAttribute("data-line", diagnostic.line);
+    row.setAttribute("data-column", diagnostic.column);
+    row.title = diagnostic.message;
+    const code = document.createElement("span");
+    code.className = "bm-dsl-diagnostic-code";
+    code.textContent = diagnostic.code.length > 0 ? diagnostic.severity + " " + diagnostic.code : diagnostic.severity;
+    const location = document.createElement("span");
+    location.className = "bm-dsl-diagnostic-location";
+    location.textContent = diagnostic.line + ":" + diagnostic.column;
+    const path = document.createElement("span");
+    path.className = "bm-dsl-diagnostic-path";
+    path.textContent = diagnostic.path;
+    const message = document.createElement("span");
+    message.className = "bm-dsl-diagnostic-message";
+    message.textContent = diagnostic.message;
+    row.appendChild(code);
+    row.appendChild(location);
+    row.appendChild(path);
+    row.appendChild(message);
+    row.addEventListener("click", function () {
+      goToDslDiagnostic(diagnostic.line, diagnostic.column);
+    });
+    return row;
+  }
+  function renderDslDiagnosticPanel(response) {
+    const panel = document.querySelector("[data-dsl-diagnostics-panel='true']");
+    const count = document.querySelector("[data-dsl-diagnostics-count='true']");
+    const list = document.querySelector("[data-dsl-diagnostics-list='true']");
+    const empty = document.querySelector("[data-dsl-diagnostics-empty='true']");
+    if (!panel || !count || !list || !empty) {
+      return [];
+    }
+    const diagnostics = (readValue(response, "editorDiagnostics") || []).map(normalizeEditorDiagnostic);
+    count.textContent = diagnostics.length.toString();
+    list.innerHTML = "";
+    if (diagnostics.length === 0) {
+      empty.removeAttribute("hidden");
+      panel.classList.remove("bm-dsl-diagnostics-has-items");
+      return diagnostics;
+    }
+    empty.setAttribute("hidden", "hidden");
+    panel.classList.add("bm-dsl-diagnostics-has-items");
+    diagnostics.forEach(function (diagnostic) {
+      list.appendChild(createDslDiagnosticRow(diagnostic));
+    });
+    return diagnostics;
+  }
   function applyDslDiagnostics(response) {
     clearDslDiagnostics();
+    renderDslDiagnosticPanel(response);
     if (!dslCodeEditor) {
       return;
     }
@@ -611,6 +691,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
   function updateErrorMessage(message) {
+    clearDslDiagnosticPanel();
     updateMessage({
       succeeded: false,
       message: message,
@@ -654,7 +735,11 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       applyDslDiagnostics(response);
-      updateMessage(response);
+      if ((readValue(response, "editorDiagnostics") || []).length > 0) {
+        hideMessage();
+      } else {
+        updateMessage(response);
+      }
     }).catch(function (error) {
       updateErrorMessage(error.message);
     });
@@ -673,7 +758,11 @@ document.addEventListener("DOMContentLoaded", function () {
         hideMessage();
         return;
       }
-      updateMessage(response);
+      if ((readValue(response, "editorDiagnostics") || []).length > 0) {
+        hideMessage();
+      } else {
+        updateMessage(response);
+      }
     }).catch(function (error) {
       updateErrorMessage(error.message);
     });
@@ -901,6 +990,17 @@ document.addEventListener("DOMContentLoaded", function () {
     dslEditor.addEventListener("select", rememberDslSelection);
     dslEditor.addEventListener("focus", rememberDslSelection);
   }
+  document.querySelectorAll("[data-dsl-diagnostics-toggle='true']").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const panel = button.closest("[data-dsl-diagnostics-panel='true']");
+      if (!panel) {
+        return;
+      }
+      const collapsed = panel.classList.toggle("bm-dsl-diagnostics-collapsed");
+      button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      refreshDslEditor();
+    });
+  });
   document.querySelectorAll("[data-message-close='true']").forEach(function (button) {
     button.addEventListener("click", function () {
       const box = document.querySelector("[data-message-box='true']");

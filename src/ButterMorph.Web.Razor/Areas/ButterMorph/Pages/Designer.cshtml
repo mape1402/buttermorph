@@ -11,10 +11,10 @@
     <title>ButterMorph Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css?v=codemirror-5-65-16" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=dsl-ide-1" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=dsl-errors-1" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=dsl-ide-1"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=dsl-errors-1"></script>
 </head>
 <body>
     <main class="bm-workbench" data-active-view="@Model.ActiveView" data-left-dock-mode="pinned">
@@ -186,6 +186,16 @@
                     </div>
                     <input type="hidden" name="ActiveView" value="Dsl" />
                     <textarea name="DslContent" rows="28" data-dsl-editor="true">@Model.DslContent</textarea>
+                    <section class="bm-dsl-diagnostics-panel" data-dsl-diagnostics-panel="true">
+                        <button type="button" class="bm-dsl-diagnostics-header" data-dsl-diagnostics-toggle="true" aria-expanded="true">
+                            <span>Errors</span>
+                            <strong data-dsl-diagnostics-count="true">0</strong>
+                        </button>
+                        <div class="bm-dsl-diagnostics-body" data-dsl-diagnostics-body="true">
+                            <div class="bm-dsl-diagnostics-empty" data-dsl-diagnostics-empty="true">No DSL diagnostics</div>
+                            <div class="bm-dsl-diagnostics-list" data-dsl-diagnostics-list="true"></div>
+                        </div>
+                    </section>
                 </form>
             </section>
         </section>

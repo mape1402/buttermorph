@@ -96,6 +96,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("getDslCompletionContext", script, StringComparison.Ordinal);
         Assert.Contains("createProjectSuggestions", script, StringComparison.Ordinal);
         Assert.Contains("applyDslDiagnostics", script, StringComparison.Ordinal);
+        Assert.Contains("renderDslDiagnosticPanel", script, StringComparison.Ordinal);
+        Assert.Contains("clearDslDiagnosticPanel", script, StringComparison.Ordinal);
+        Assert.Contains("goToDslDiagnostic", script, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-diagnostics-toggle", script, StringComparison.Ordinal);
         Assert.Contains("createFunctionDescriptionMap", script, StringComparison.Ordinal);
         Assert.Contains("handleDslFunctionHover", script, StringComparison.Ordinal);
         Assert.Contains("getDslValue", script, StringComparison.Ordinal);
@@ -112,6 +116,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains(".bm-dsl-diagnostic-underline", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-diagnostic-gutter", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-function-tooltip", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-diagnostics-panel", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-diagnostic-row", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
     }
@@ -169,6 +175,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("vendor/codemirror/show-hint.min.css", html, StringComparison.Ordinal);
         Assert.Contains("vendor/codemirror/show-hint.min.js", html, StringComparison.Ordinal);
         Assert.Contains("data-dsl-editor=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-diagnostics-panel=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-diagnostics-count=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-diagnostics-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("No DSL diagnostics", html, StringComparison.Ordinal);
         Assert.Contains("data-left-dock-mode=\"pinned\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-panel=\"sources\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-panel=\"functions\"", html, StringComparison.Ordinal);
@@ -488,6 +498,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
         Assert.True(ReadArrayCount(json, "editorDiagnostics") > 0);
         Assert.True(ReadFirstDiagnosticLine(json) > 0);
+        Assert.False(string.IsNullOrWhiteSpace(ReadFirstDiagnosticMessage(json)));
     }
 
     /// <summary>
@@ -910,6 +921,13 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         using JsonDocument document = JsonDocument.Parse(json);
         return document.RootElement.GetProperty("editorDiagnostics")[0].GetProperty("path").GetString();
+    }
+
+    // Reads the first editor diagnostic message from a JSON response.
+    private static string ReadFirstDiagnosticMessage(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty("editorDiagnostics")[0].GetProperty("message").GetString();
     }
 
     // Reads a mapping value from a JSON response.
