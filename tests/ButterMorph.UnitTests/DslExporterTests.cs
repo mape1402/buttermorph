@@ -110,6 +110,31 @@ public sealed class DslExporterTests
     }
 
     /// <summary>
+    /// Confirms that metadata keys with punctuation export and parse correctly.
+    /// </summary>
+    [Fact]
+    public void ExportQuotesMetadataKeysThatAreNotIdentifiers()
+    {
+        ITransformationDocument document = new TransformationDocument
+        {
+            Metadata = new Dictionary<string, string>
+            {
+                ["playground-context"] = "complex"
+            },
+            Mappings =
+            [
+                CreateMapping(CreatePath("$source.Name"), "Name")
+            ]
+        };
+
+        string dsl = new DslExporter().Export(document);
+        ITransformationDocument parsed = Parse(dsl);
+
+        Assert.Contains("\"playground-context\": \"complex\"", dsl, System.StringComparison.Ordinal);
+        Assert.Equal("complex", parsed.Metadata["playground-context"]);
+    }
+
+    /// <summary>
     /// Confirms that exported DSL parses back into an equivalent document shape.
     /// </summary>
     [Fact]

@@ -113,7 +113,7 @@ internal sealed class SyntaxAnalyzer
 
         while (!Check(TokenKind.RightBrace) && !IsAtEnd())
         {
-            Token key = Consume(TokenKind.Identifier, "Expected metadata key.");
+            Token key = ConsumeMetadataKey();
             Consume(TokenKind.Colon, "Expected ':' after metadata key.");
             Token value = ConsumeMetadataValue();
             document.Metadata[key.Value] = value.Value;
@@ -330,6 +330,16 @@ internal sealed class SyntaxAnalyzer
         }
 
         throw Error(Current, "Expected metadata value.");
+    }
+
+    private Token ConsumeMetadataKey()
+    {
+        if (Check(TokenKind.Identifier) || Check(TokenKind.StringLiteral))
+        {
+            return Advance();
+        }
+
+        throw Error(Current, "Expected metadata key.");
     }
 
     private Token ConsumeTargetPath(string message)

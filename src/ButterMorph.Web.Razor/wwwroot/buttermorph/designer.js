@@ -18,6 +18,11 @@ document.addEventListener("DOMContentLoaded", function () {
   function queryMarker() {
     return String.fromCharCode(63);
   }
+  function createHandlerUrl(handler) {
+    const parameters = new URLSearchParams(window.location.search);
+    parameters.set("handler", handler);
+    return window.location.pathname + queryMarker() + parameters.toString();
+  }
   function setLeftDockMode(mode) {
     const normalizedMode = mode === "auto" ? "auto" : "pinned";
     if (workbench) {
@@ -110,13 +115,29 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
   function postForm(handler, formData) {
-    formData.append("__RequestVerificationToken", getToken());
-    return fetch(window.location.pathname + queryMarker() + "handler=" + handler, {
+    const token = getToken();
+    formData.append("__RequestVerificationToken", token);
+    return fetch(createHandlerUrl(handler), {
       method: "POST",
       body: formData,
-      credentials: "same-origin"
+      credentials: "same-origin",
+      headers: {
+        "RequestVerificationToken": token
+      }
     }).then(function (response) {
+      if (!response.ok) {
+        return response.text().then(function (text) {
+          throw new Error("Sync request failed with status " + response.status + ". " + text.substring(0, 160));
+        });
+      }
       return response.json();
+    });
+  }
+  function updateErrorMessage(message) {
+    updateMessage({
+      succeeded: false,
+      message: message,
+      diagnosticsCount: 0
     });
   }
   function collectVisualMappings() {
@@ -131,6 +152,8 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       updateMessage(response);
+    }).catch(function (error) {
+      updateErrorMessage(error.message);
     });
   }
   function syncDsl() {
@@ -147,6 +170,8 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       updateMessage(response);
+    }).catch(function (error) {
+      updateErrorMessage(error.message);
     });
   }
   function hasTextSelection(input) {

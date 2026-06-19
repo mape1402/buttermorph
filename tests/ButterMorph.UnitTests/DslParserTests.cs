@@ -45,6 +45,26 @@ public sealed class DslParserTests
     }
 
     /// <summary>
+    /// Confirms that quoted metadata keys are accepted.
+    /// </summary>
+    [Fact]
+    public void ParseAcceptsQuotedMetadataKeys()
+    {
+        ITransformationDocument document = Parse(
+            """
+            metadata {
+              "playground-context": "complex"
+            }
+
+            target {
+              Name: $source.Name
+            }
+            """);
+
+        Assert.Equal("complex", document.Metadata["playground-context"]);
+    }
+
+    /// <summary>
     /// Confirms that literal expressions are parsed.
     /// </summary>
     [Fact]

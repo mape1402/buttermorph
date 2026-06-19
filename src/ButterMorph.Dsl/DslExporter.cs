@@ -38,13 +38,24 @@ public sealed class DslExporter : IDslExporter
         foreach (KeyValuePair<string, string> entry in document.Metadata.OrderBy(entry => entry.Key, StringComparer.Ordinal))
         {
             builder.Append("  ");
-            builder.Append(entry.Key);
+            builder.Append(WriteMetadataKey(entry.Key));
             builder.Append(": ");
             builder.AppendLine(WriteString(entry.Value));
         }
 
         builder.AppendLine("}");
         builder.AppendLine();
+    }
+
+    // Writes a metadata key as an identifier when possible, otherwise as a string literal.
+    private static string WriteMetadataKey(string key)
+    {
+        if (IsIdentifier(key))
+        {
+            return key;
+        }
+
+        return WriteString(key);
     }
 
     // Writes transformation mappings as nested target blocks when possible.

@@ -74,6 +74,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorphDesigner.LeftDockPanel", script, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
+        Assert.Contains("URLSearchParams(window.location.search)", script, StringComparison.Ordinal);
+        Assert.Contains("parameters.set(\"handler\", handler)", script, StringComparison.Ordinal);
+        Assert.Contains("Sync request failed with status", script, StringComparison.Ordinal);
+        Assert.Contains("\"RequestVerificationToken\": token", script, StringComparison.Ordinal);
         Assert.Contains("data-function-template", script, StringComparison.Ordinal);
         Assert.Contains("selectFirstFunctionArgument", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
@@ -371,6 +375,57 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(string.Empty, ReadString(json, "message"));
         Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
+    }
+
+    /// <summary>
+    /// Confirms that visual synchronization preserves host context query state.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsVisualMappingsWithContextQuery()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=complex");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=complex&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Customer.FullName"),
+                new KeyValuePair<string, string>("Expressions", "trim($customer.Identity.Name)")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Contains("trim($customer.Identity.Name)", ReadString(json, "dslContent"), StringComparison.Ordinal);
+        Assert.Equal("trim($customer.Identity.Name)", ReadMapping(json, "Customer.FullName"));
+    }
+
+    /// <summary>
+    /// Confirms that DSL synchronization preserves host context query state.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsDslMappingsWithContextQuery()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=invoice");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=invoice&handler=SyncDsl",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("DslContent", "target { Party { Name: upper($vendor.Vendor.Name) } }"),
+                new KeyValuePair<string, string>("ActiveView", "Dsl")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal("upper($vendor.Vendor.Name)", ReadMapping(json, "Party.Name"));
     }
 
     /// <summary>
