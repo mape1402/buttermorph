@@ -32,7 +32,7 @@ public sealed class FunctionRegistry : IFunctionRegistry
     public void Register(string key, IFunction function, IFunctionDescriptor descriptor)
     {
         _functions[key] = function;
-        _descriptors[key] = descriptor;
+        _descriptors[key] = CreateDescriptor(key, function, descriptor);
     }
 
     /// <summary>
@@ -72,5 +72,31 @@ public sealed class FunctionRegistry : IFunctionRegistry
     public IReadOnlyCollection<IFunctionDescriptor> ListDescriptors()
     {
         return [.. _descriptors.Values];
+    }
+
+    // Creates a descriptor that uses the function implementation as the description source.
+    private static IFunctionDescriptor CreateDescriptor(string key, IFunction function, IFunctionDescriptor descriptor)
+    {
+        return new FunctionDescriptor
+        {
+            Key = ResolveDescriptorKey(key, descriptor),
+            DisplayName = descriptor.DisplayName,
+            Description = function.Description,
+            ValueKind = descriptor.ValueKind,
+            IsRequired = descriptor.IsRequired,
+            Parameters = descriptor.Parameters,
+            Metadata = descriptor.Metadata
+        };
+    }
+
+    // Resolves the public descriptor key while preserving explicit descriptor values.
+    private static string ResolveDescriptorKey(string key, IFunctionDescriptor descriptor)
+    {
+        if (descriptor.Key.Length > 0)
+        {
+            return descriptor.Key;
+        }
+
+        return key;
     }
 }

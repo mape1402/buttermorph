@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using System.Globalization;
 using ButterMorph.Abstractions;
@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class DateAddYearsFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Adds years to a date.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

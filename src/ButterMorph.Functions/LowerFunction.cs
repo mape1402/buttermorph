@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 
@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class LowerFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Converts text to lower case.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

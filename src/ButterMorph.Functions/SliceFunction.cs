@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class SliceFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns a slice of scalar collection values.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

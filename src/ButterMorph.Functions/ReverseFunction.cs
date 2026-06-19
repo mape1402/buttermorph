@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class ReverseFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Reverses scalar collection values.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

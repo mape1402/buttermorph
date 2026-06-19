@@ -8,6 +8,12 @@ using ButterMorph.Core;
 /// </summary>
 public sealed class SumFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Sums numeric scalar collection values.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

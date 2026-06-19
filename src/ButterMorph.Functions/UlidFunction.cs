@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 using System.Security.Cryptography;
@@ -8,6 +8,12 @@ using System.Security.Cryptography;
 /// </summary>
 public sealed class UlidFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Creates a sortable unique identifier value.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

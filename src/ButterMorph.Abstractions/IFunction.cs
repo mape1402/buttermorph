@@ -6,6 +6,11 @@ namespace ButterMorph.Abstractions;
 public interface IFunction
 {
     /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    string Description { get; }
+
+    /// <summary>
     /// Executes the function.
     /// </summary>
     /// <param name="context">The function execution context.</param>

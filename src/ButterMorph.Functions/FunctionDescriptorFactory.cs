@@ -4,13 +4,13 @@ using ButterMorph.Abstractions;
 
 internal sealed class FunctionDescriptorFactory
 {
-    internal IFunctionDescriptor Create(string key, FunctionValueKind valueKind, string category, int minimum, int maximum)
+    internal IFunctionDescriptor Create(string key, IFunction function, FunctionValueKind valueKind, string category, int minimum, int maximum)
     {
         return new FunctionDescriptor
         {
             Key = key,
             DisplayName = key,
-            Description = "Native ButterMorph function " + key + ".",
+            Description = function.Description,
             ValueKind = valueKind,
             Parameters = CreateParameters(minimum, maximum),
             Metadata = new Dictionary<string, string>

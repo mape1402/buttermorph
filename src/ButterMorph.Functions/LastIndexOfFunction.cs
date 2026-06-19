@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class LastIndexOfFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns the last index of a search value.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

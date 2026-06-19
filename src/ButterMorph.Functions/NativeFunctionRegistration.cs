@@ -125,6 +125,6 @@ internal sealed class NativeFunctionRegistration
     // Registers one native function with its descriptor.
     private void Register(IFunctionRegistry registry, string key, IFunction function, FunctionValueKind valueKind, string category, int minimum, int maximum)
     {
-        registry.Register(key, function, _descriptors.Create(key, valueKind, category, minimum, maximum));
+        registry.Register(key, function, _descriptors.Create(key, function, valueKind, category, minimum, maximum));
     }
 }

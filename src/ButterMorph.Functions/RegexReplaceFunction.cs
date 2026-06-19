@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using System.Text.RegularExpressions;
 using ButterMorph.Abstractions;
@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class RegexReplaceFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Replaces regular expression matches.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 
@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class JoinFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Joins scalar collection values into text.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

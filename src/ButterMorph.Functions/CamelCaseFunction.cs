@@ -9,6 +9,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class CamelCaseFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Converts text to camel case.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

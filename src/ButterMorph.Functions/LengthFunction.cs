@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class LengthFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns the length of text or the count of a collection.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

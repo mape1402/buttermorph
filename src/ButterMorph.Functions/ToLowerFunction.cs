@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class ToLowerFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Converts text to lowercase.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

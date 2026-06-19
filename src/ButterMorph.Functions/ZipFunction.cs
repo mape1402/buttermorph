@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
@@ -8,6 +8,12 @@ using ButterMorph.Core;
 /// </summary>
 public sealed class ZipFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Zips two scalar collections into node pairs.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

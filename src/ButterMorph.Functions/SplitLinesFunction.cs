@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class SplitLinesFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Splits text into lines.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

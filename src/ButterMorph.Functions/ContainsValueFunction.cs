@@ -8,6 +8,12 @@ using ButterMorph.Core;
 /// </summary>
 public sealed class ContainsValueFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns whether a scalar collection contains a value.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

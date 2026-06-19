@@ -75,7 +75,12 @@ public sealed class FunctionRegistryTests
 
         IFunctionDescriptor resolved = registry.ResolveDescriptor("fn");
 
-        Assert.Same(descriptor, resolved);
+        Assert.NotSame(descriptor, resolved);
+        Assert.Equal(function.Description, resolved.Description);
+        Assert.Equal(descriptor.Key, resolved.Key);
+        Assert.Equal(descriptor.DisplayName, resolved.DisplayName);
+        Assert.Equal(descriptor.ValueKind, resolved.ValueKind);
+        Assert.Equal(descriptor.Parameters, resolved.Parameters);
         Assert.Single(registry.ListDescriptors());
     }
 
@@ -106,7 +111,12 @@ public sealed class FunctionRegistryTests
         registry.Register("fn", function, first);
         registry.Register("fn", function, second);
 
-        Assert.Same(second, registry.ResolveDescriptor("fn"));
+        IFunctionDescriptor resolved = registry.ResolveDescriptor("fn");
+
+        Assert.NotSame(second, resolved);
+        Assert.Equal(function.Description, resolved.Description);
+        Assert.Equal(second.DisplayName, resolved.DisplayName);
+        Assert.Equal(second.ValueKind, resolved.ValueKind);
         Assert.Single(registry.ListDescriptors());
     }
 

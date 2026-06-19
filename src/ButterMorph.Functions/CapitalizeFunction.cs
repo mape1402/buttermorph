@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class CapitalizeFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Capitalizes the first text character.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

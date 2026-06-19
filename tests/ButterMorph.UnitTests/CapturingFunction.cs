@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 internal sealed class CapturingFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Test function that captures arguments and returns a configured result.";
+
     // Stores the configured function result returned during execution.
     private readonly IFunctionResult _result;
 

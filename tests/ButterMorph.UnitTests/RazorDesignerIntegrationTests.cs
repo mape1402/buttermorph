@@ -151,6 +151,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-dock-tab=\"functions\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-search=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"split(argument0, argument1)\"", html, StringComparison.Ordinal);
+        Assert.Contains("title=\"Splits text using a literal separator.\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"camelCase(argument0)\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"ToUpper(argument0)\"", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"sum(argument0)\"", html, StringComparison.Ordinal);

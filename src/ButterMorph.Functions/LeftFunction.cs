@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class LeftFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns the left part of text.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

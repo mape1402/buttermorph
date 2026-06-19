@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using System.Globalization;
 using ButterMorph.Abstractions;
@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class EndOfMonthFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Returns the final moment of the month.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

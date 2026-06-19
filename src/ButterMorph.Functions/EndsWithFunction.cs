@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 
@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class EndsWithFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Checks whether text ends with a suffix.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

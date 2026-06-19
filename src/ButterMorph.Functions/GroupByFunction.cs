@@ -1,4 +1,4 @@
-﻿namespace ButterMorph.Functions;
+namespace ButterMorph.Functions;
 
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
@@ -8,6 +8,12 @@ using ButterMorph.Core;
 /// </summary>
 public sealed class GroupByFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Groups scalar values by evaluated scalar keys.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

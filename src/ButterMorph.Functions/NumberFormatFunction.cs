@@ -8,6 +8,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class NumberFormatFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Formats a number using invariant culture.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

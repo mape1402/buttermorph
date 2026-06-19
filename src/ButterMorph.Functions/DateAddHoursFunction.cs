@@ -7,6 +7,12 @@ using ButterMorph.Abstractions;
 /// </summary>
 public sealed class DateAddHoursFunction : IFunction
 {
+    
+    /// <summary>
+    /// Gets the function description shown in design-time tooling.
+    /// </summary>
+    public string Description => "Adds hours to a date.";
+
     // Shared conversion helpers for this function.
     private readonly FunctionTools _tools = new();
 

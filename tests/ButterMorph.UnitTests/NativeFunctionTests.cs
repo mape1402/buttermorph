@@ -25,8 +25,10 @@ public sealed class NativeFunctionTests
         {
             try
             {
-                registry.Resolve(key);
-                registry.ResolveDescriptor(key);
+                IFunction function = registry.Resolve(key);
+                IFunctionDescriptor descriptor = registry.ResolveDescriptor(key);
+                Assert.False(string.IsNullOrWhiteSpace(function.Description));
+                Assert.Equal(function.Description, descriptor.Description);
             }
             catch (KeyNotFoundException)
             {
@@ -36,6 +38,7 @@ public sealed class NativeFunctionTests
 
         Assert.Empty(missing);
         Assert.Equal(Inventory().Count, registry.ListDescriptors().Count);
+        Assert.Equal("Splits text using a literal separator.", registry.Resolve("split").Description);
     }
 
     /// <summary>
