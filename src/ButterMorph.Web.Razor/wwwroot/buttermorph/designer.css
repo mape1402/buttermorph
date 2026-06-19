@@ -890,6 +890,7 @@ textarea,
 
 .bm-designer-surface {
   background-color: var(--bm-content-bg);
+  display: grid;
   min-height: 0;
   overflow: auto;
   padding: 1rem;
@@ -906,8 +907,18 @@ textarea,
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
   box-shadow: var(--bm-shadow);
-  min-height: calc(100% - 2px);
+  min-height: 0;
   overflow: hidden;
+}
+
+.bm-target-form {
+  min-height: calc(100% - 2px);
+}
+
+.bm-dsl-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
 }
 
 .bm-canvas-header {
@@ -1096,7 +1107,9 @@ textarea,
   border-radius: 0;
   border-top: 1px solid var(--bm-border);
   box-shadow: none;
-  min-height: 420px;
+  height: 100%;
+  min-height: 0;
+  resize: none;
 }
 
 .bm-empty {

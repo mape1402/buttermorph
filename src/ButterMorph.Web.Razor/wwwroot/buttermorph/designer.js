@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let activeExpressionInput = null;
   let visualTimer = 0;
   let dslTimer = 0;
+  let dslSelectionStart = 0;
+  let dslSelectionEnd = 0;
   const workbench = document.querySelector(".bm-workbench");
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
@@ -189,6 +191,32 @@ document.addEventListener("DOMContentLoaded", function () {
     input.selectionStart = expressionStart + openIndex + 1;
     input.selectionEnd = expressionStart + argumentEnd;
   }
+  function rememberDslSelection() {
+    if (!dslEditor) {
+      return;
+    }
+    dslSelectionStart = dslEditor.selectionStart >= 0 ? dslEditor.selectionStart : dslEditor.value.length;
+    dslSelectionEnd = dslEditor.selectionEnd >= 0 ? dslEditor.selectionEnd : dslSelectionStart;
+  }
+  function isDslViewActive() {
+    return workbench && workbench.getAttribute("data-active-view") === "Dsl";
+  }
+  function insertIntoDslEditor(expressionText, selectFirstArgument) {
+    if (!dslEditor || expressionText.length === 0) {
+      return;
+    }
+    const start = dslSelectionStart >= 0 ? dslSelectionStart : dslEditor.value.length;
+    const end = dslSelectionEnd >= 0 ? dslSelectionEnd : start;
+    dslEditor.value = dslEditor.value.substring(0, start) + expressionText + dslEditor.value.substring(end);
+    dslEditor.selectionStart = start + expressionText.length;
+    dslEditor.selectionEnd = start + expressionText.length;
+    if (selectFirstArgument) {
+      selectFirstFunctionArgument(dslEditor, start, expressionText);
+    }
+    dslEditor.focus();
+    rememberDslSelection();
+    scheduleDslSync();
+  }
   function insertIntoExpressionInput(input, expressionText, selectFirstArgument) {
     if (!input || expressionText.length === 0) {
       return;
@@ -326,6 +354,10 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   if (dslEditor) {
     dslEditor.addEventListener("input", scheduleDslSync);
+    dslEditor.addEventListener("click", rememberDslSelection);
+    dslEditor.addEventListener("keyup", rememberDslSelection);
+    dslEditor.addEventListener("select", rememberDslSelection);
+    dslEditor.addEventListener("focus", rememberDslSelection);
   }
   document.querySelectorAll("[data-message-close='true']").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -403,6 +435,14 @@ document.addEventListener("DOMContentLoaded", function () {
         navigator.clipboard.writeText(path);
       }
     });
+    field.addEventListener("dblclick", function (event) {
+      const path = field.getAttribute("data-path");
+      if (!isDslViewActive() || !path) {
+        return;
+      }
+      event.preventDefault();
+      insertIntoDslEditor(path, false);
+    });
   });
   document.querySelectorAll(".bm-function-item").forEach(function (functionItem) {
     functionItem.addEventListener("dragstart", function (event) {
@@ -430,6 +470,14 @@ document.addEventListener("DOMContentLoaded", function () {
       if (navigator.clipboard && template) {
         navigator.clipboard.writeText(template);
       }
+    });
+    functionItem.addEventListener("dblclick", function (event) {
+      const template = functionItem.getAttribute("data-function-template") || "";
+      if (!isDslViewActive() || template.length === 0) {
+        return;
+      }
+      event.preventDefault();
+      insertIntoDslEditor(template, true);
     });
   });
   document.querySelectorAll("[data-function-search='true']").forEach(function (input) {

@@ -80,6 +80,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("\"RequestVerificationToken\": token", script, StringComparison.Ordinal);
         Assert.Contains("data-function-template", script, StringComparison.Ordinal);
         Assert.Contains("selectFirstFunctionArgument", script, StringComparison.Ordinal);
+        Assert.Contains("rememberDslSelection", script, StringComparison.Ordinal);
+        Assert.Contains("insertIntoDslEditor", script, StringComparison.Ordinal);
+        Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
         Assert.Contains("application/x-buttermorph-function-template", script, StringComparison.Ordinal);
         Assert.Contains("application/x-buttermorph-source-path", script, StringComparison.Ordinal);
