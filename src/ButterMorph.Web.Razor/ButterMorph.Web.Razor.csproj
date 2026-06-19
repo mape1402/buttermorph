@@ -17,11 +17,16 @@
     <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
     <ProjectReference Include="..\ButterMorph.Core\ButterMorph.Core.csproj" />
     <ProjectReference Include="..\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
+    <ProjectReference Include="..\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\buttermorph\designer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\designer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\atlas-schema.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.atlas-schema.css" />
+    <EmbeddedResource Include="wwwroot\buttermorph\atlas-schema-builder.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.atlas-schema-builder.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\atlas-type-version-editor.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.atlas-type-version-editor.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\atlas-metadata-field-editor.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.atlas-metadata-field-editor.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\codemirror.min.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.codemirror.min.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\codemirror.min.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.codemirror.min.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.css" />

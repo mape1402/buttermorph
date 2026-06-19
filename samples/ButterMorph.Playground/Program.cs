@@ -4,6 +4,7 @@ using ButterMorph.DependencyInjection;
 using ButterMorph.Design;
 using ButterMorph.Json;
 using ButterMorph.Json.Schema;
+using ButterMorph.SchemaDesign;
 using ButterMorph.Web.Razor;
 using System.Text.Json;
 
@@ -12,10 +13,17 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddButterMorph();
 builder.Services.AddButterMorphDesign();
 builder.Services.AddButterMorphJsonSchema();
+builder.Services.AddButterMorphSchemaDesign();
 builder.Services.AddButterMorphRazorDesigner();
 builder.Services.AddSingleton<PlaygroundMappingStore>();
+builder.Services.AddSingleton<PlaygroundSchemaStore>();
 builder.Services.AddSingleton<PlaygroundDesignerHost>();
+builder.Services.AddSingleton<PlaygroundSchemaDesignerHost>();
 builder.Services.AddSingleton<IButterMorphDesignerHost>(provider => provider.GetRequiredService<PlaygroundDesignerHost>());
+builder.Services.AddSingleton<IButterMorphSchemaDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
+builder.Services.AddSingleton<IButterMorphSchemaTypeDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
+builder.Services.AddSingleton<IButterMorphFieldMetadataDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
+builder.Services.AddSingleton<IButterMorphPayloadSchemaDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
 
 WebApplication app = builder.Build();
 
@@ -32,6 +40,29 @@ app.UseAuthorization();
 
 app.MapGet("/", () => Results.Content(CreatePlaygroundHtml(), "text/html"));
 app.MapGet("/playground/scenarios", (PlaygroundDesignerHost host) => Results.Json(host.ListScenarios()));
+app.MapGet("/playground/schema-scenarios", (PlaygroundSchemaDesignerHost host) => Results.Json(host.ListScenarios()));
+app.MapGet("/playground/schemas/{contextKey}", (string contextKey, PlaygroundSchemaDesignerHost host) => Results.Json(host.CreateView(contextKey)));
+app.MapPost("/playground/schema-items/{contextKey}", async (string contextKey, PlaygroundSchemaDesignerHost host, HttpRequest request) =>
+{
+    PlaygroundSchemaClientItem item = await JsonSerializer.DeserializeAsync<PlaygroundSchemaClientItem>(
+        request.Body,
+        new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    if (item == null)
+    {
+        item = new PlaygroundSchemaClientItem();
+    }
+
+    if (string.IsNullOrWhiteSpace(item.ContextKey))
+    {
+        item.ContextKey = contextKey;
+    }
+
+    host.SaveClientItem(item);
+    return Results.Json(host.CreateView(item.ContextKey));
+});
 app.MapGet("/playground/mappings/{contextKey}", (
     string contextKey,
     PlaygroundDesignerHost host,
@@ -150,6 +181,14 @@ public partial class Program
     .source-box, .output-box { min-height:220px; }
     .source-box { background:#fff; }
     .diagnostics { color:#b91c1c; font-size:.86rem; margin-top:.6rem; white-space:pre-wrap; }
+    .schema-grid { display:grid; gap:1rem; grid-template-columns:360px minmax(0,1fr); }
+    .schema-json { min-height:360px; }
+    .schema-tabs { display:flex; gap:.35rem; margin:.75rem 0; }
+    .schema-tab { background:#e5e7eb; color:#111827; flex:1; min-height:32px; padding:.35rem .5rem; }
+    .schema-tab[aria-pressed="true"] { background:#4f46e5; color:#fff; }
+    .schema-list { display:grid; gap:.6rem; margin-top:.65rem; }
+    .schema-toolbar { display:flex; gap:.5rem; margin:.7rem 0; }
+    .schema-empty { border:1px dashed #cbd5e1; border-radius:8px; color:#64748b; padding:.8rem; text-align:center; }
   </style>
 </head>
 <body>
@@ -198,9 +237,35 @@ public partial class Program
         </div>
       </div>
     </section>
+    <section data-schema-workbench>
+      <h2>Schema designer</h2>
+      <p>Create and maintain schemas in ButterMorph, then persist JSON Schema from the host.</p>
+      <div class="schema-grid">
+        <div>
+          <div class="schema-tabs">
+            <button type="button" class="schema-tab" data-schema-tab="type" aria-pressed="true">Custom types</button>
+            <button type="button" class="schema-tab" data-schema-tab="field" aria-pressed="false">Custom fields</button>
+            <button type="button" class="schema-tab" data-schema-tab="payload" aria-pressed="false">Payload schemas</button>
+          </div>
+          <div class="schema-toolbar">
+            <button type="button" data-create-schema>Create</button>
+            <button type="button" data-edit-schema disabled>Edit</button>
+            <button type="button" class="secondary" data-delete-schema disabled>Delete</button>
+          </div>
+          <div class="schema-list" data-schema-list></div>
+        </div>
+        <div>
+          <div class="meta">
+            <span data-schema-context>No schema selected</span>
+            <span data-schema-time>Not saved yet</span>
+          </div>
+          <textarea readonly class="schema-json" data-schema-json placeholder="Select a schema demo to view its JSON Schema."></textarea>
+        </div>
+      </div>
+    </section>
   </main>
   <script>
-    const popupOptions = "popup=yes,width=1480,height=900,resizable=yes,scrollbars=yes";
+    const popupOptions = "popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes";
     let selectedContext = "";
     const queryMarker = "{{QueryMarker()}}";
     function openDesigner(contextKey) {
@@ -210,6 +275,19 @@ public partial class Program
       const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
       const url = "/buttermorph/designer" + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
       window.open(url, "buttermorph-" + contextKey, popupOptions + ",width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
+    }
+    function openSchemaDesigner(contextKey) {
+      const width = Math.min(1280, screen.availWidth - 80);
+      const height = Math.min(820, screen.availHeight - 80);
+      const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
+      const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
+      const schemaButton = document.querySelector("[data-schema-context-button='" + contextKey + "']");
+      let path = "/buttermorph/payload-schema/designer";
+      if (schemaButton) {
+        path = schemaButton.getAttribute("data-designer-path") || path;
+      }
+      const url = path + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
+      window.open(url, "buttermorph-schema-" + contextKey, popupOptions + ",width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
     }
     async function loadScenarios() {
       const response = await fetch("/playground/scenarios", { credentials: "same-origin" });
@@ -227,8 +305,41 @@ public partial class Program
         container.appendChild(button);
       });
     }
+    async function loadSchemaScenarios() {
+      const response = await fetch("/playground/schema-scenarios", { credentials: "same-origin" });
+      const scenarios = await response.json();
+      const container = document.querySelector("[data-schema-scenarios]");
+      container.innerHTML = "";
+      scenarios.forEach(scenario => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "scenario";
+        button.setAttribute("data-schema-context-button", scenario.contextKey);
+        button.setAttribute("data-designer-path", scenario.designerPath || "/buttermorph/payload-schema/designer");
+        button.setAttribute("aria-pressed", "false");
+        button.innerHTML = "<strong>" + scenario.displayName + "</strong><span>" + scenario.description + "</span>";
+        button.addEventListener("click", () => loadSchema(scenario.contextKey));
+        container.appendChild(button);
+      });
+    }
     async function loadSave(contextKey) {
       await loadMapping(contextKey);
+    }
+    async function loadSchema(contextKey) {
+      const response = await fetch("/playground/schemas/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
+      const schema = await response.json();
+      document.querySelectorAll("[data-schema-context-button]").forEach(button => {
+        let pressed = "false";
+        if (button.getAttribute("data-schema-context-button") === contextKey) {
+          pressed = "true";
+        }
+        button.setAttribute("aria-pressed", pressed);
+      });
+      document.querySelector("[data-schema-context]").textContent = schema.displayName || contextKey;
+      document.querySelector("[data-schema-time]").textContent = schema.savedAt || "Initial schema";
+      document.querySelector("[data-schema-json]").value = schema.jsonSchema || "";
+      document.querySelector("[data-edit-schema]").disabled = false;
+      document.querySelector("[data-edit-schema]").setAttribute("data-schema-context", contextKey);
     }
     async function loadMapping(contextKey) {
       const response = await fetch("/playground/saves/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
@@ -313,10 +424,12 @@ public partial class Program
     document.querySelector("[data-edit]").addEventListener("click", () => openDesigner(selectedContext));
     document.querySelector("[data-execute]").addEventListener("click", executeMapping);
     window.addEventListener("message", event => {
-      if (event.origin !== window.location.origin || !event.data || event.data.type !== "ButterMorphDesignerSaved") {
+      if (event.origin !== window.location.origin || !event.data) {
         return;
       }
-      loadSave(event.data.contextKey);
+      if (event.data.type === "ButterMorphDesignerSaved") {
+        loadSave(event.data.contextKey);
+      }
     });
     const savedContext = new URLSearchParams(window.location.search).get("buttermorphSavedContext");
     loadScenarios().then(() => {
@@ -325,6 +438,7 @@ public partial class Program
       }
     });
   </script>
+  <script src="/playground-schema.js"></script>
 </body>
 </html>
 """;

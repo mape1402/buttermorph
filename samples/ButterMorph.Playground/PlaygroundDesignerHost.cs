@@ -436,7 +436,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     }
 
     // Creates the prepared customer source schema.
-    private static IStructureSchema CreateCustomerSchema()
+    internal static IStructureSchema CreateCustomerSchema()
     {
         return new StructureSchema
         {
@@ -588,7 +588,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     }
 
     // Creates the prepared invoice source schema.
-    private static IStructureSchema CreateInvoiceSchema()
+    internal static IStructureSchema CreateInvoiceSchema()
     {
         return new StructureSchema
         {
@@ -765,7 +765,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     }
 
     // Creates the prepared ticket source schema.
-    private static IStructureSchema CreateTicketSchema()
+    internal static IStructureSchema CreateTicketSchema()
     {
         return new StructureSchema
         {

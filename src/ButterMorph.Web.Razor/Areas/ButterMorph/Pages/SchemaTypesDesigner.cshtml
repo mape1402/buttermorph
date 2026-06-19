@@ -1,0 +1,173 @@
+@page "/buttermorph/schema-types/designer"
+@model SchemaTypesDesignerModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ButterMorph Schema Type Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=5" />
+</head>
+<body class="atlas-page">
+    <main class="atlas-shell">
+        <section class="dashboard-section">
+        <div class="platform-card event-editor">
+        <div class="platform-card-header">
+            <span>@Model.FormTitle</span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="atlas-alert">@Model.Message</div>
+        }
+
+        <form id="event-editor-form" method="post" asp-page-handler="Save" class="atlas-editor-form">
+            <div class="atlas-editor-scroll">
+                <section class="row g-3 mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Nombre</label>
+                        <input class="form-control" asp-for="Input.Name" placeholder="CustomerCode" />
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label">Descripcion</label>
+                        <input class="form-control" asp-for="Input.Description" placeholder="Describe el tipo personalizado" />
+                    </div>
+                </section>
+
+                <input type="hidden" id="payload-schema-json" asp-for="Input.PayloadSchemaJson" />
+                <input id="array-item-type" type="hidden" asp-for="Input.ArrayItemType" />
+                <input id="array-item-type-version-id" type="hidden" asp-for="Input.ArrayItemTypeVersionId" />
+                <input id="type-allowed-values-json" type="hidden" asp-for="Input.AllowedValuesJson" />
+
+                <section class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Version</label>
+                        <input class="form-control" asp-for="Input.VersionNumber" placeholder="1.0.0" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Base type</label>
+                        <select id="type-base-select" class="form-control" asp-for="Input.BaseType">
+                            <option value="string">string</option>
+                            <option value="number">number</option>
+                            <option value="integer">integer</option>
+                            <option value="boolean">boolean</option>
+                            <option value="object">object</option>
+                            <option value="array">array</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Comentario</label>
+                        <input class="form-control" asp-for="Input.Comment" placeholder="Comentario de version" />
+                    </div>
+                </section>
+
+                <section class="type-constraints type-constraints-string row g-3 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">minLength</label>
+                        <input class="form-control" asp-for="Input.MinLength" type="number" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">maxLength</label>
+                        <input class="form-control" asp-for="Input.MaxLength" type="number" min="0" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">pattern</label>
+                        <input class="form-control" asp-for="Input.Pattern" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Lista de valores permitidos</label>
+                        <div class="type-enum-chip-editor" data-enum-type="string">
+                            <div class="type-enum-chips"></div>
+                            <input class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+                        </div>
+                        <small class="text-muted d-block mt-1">Opcional. Si capturas valores, se guardaran como enum del schema.</small>
+                    </div>
+                </section>
+
+                <section class="type-constraints type-constraints-number row g-3 mb-3 d-none">
+                    <div class="col-md-3">
+                        <label class="form-label">precision</label>
+                        <input class="form-control" asp-for="Input.Precision" type="number" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">scale</label>
+                        <input class="form-control" asp-for="Input.Scale" type="number" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">minimum</label>
+                        <input class="form-control" asp-for="Input.Minimum" type="number" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">maximum</label>
+                        <input class="form-control" asp-for="Input.Maximum" type="number" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Lista de valores permitidos</label>
+                        <div class="type-enum-chip-editor" data-enum-type="number">
+                            <div class="type-enum-chips"></div>
+                            <input type="number" step="any" class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+                        </div>
+                        <small class="text-muted d-block mt-1">Opcional. Si capturas valores, se guardaran como enum del schema.</small>
+                    </div>
+                </section>
+
+                <section class="type-constraints type-constraints-integer row g-3 mb-3 d-none">
+                    <div class="col-md-3">
+                        <label class="form-label">minimum</label>
+                        <input class="form-control" asp-for="Input.Minimum" type="number" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">maximum</label>
+                        <input class="form-control" asp-for="Input.Maximum" type="number" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Lista de valores permitidos</label>
+                        <div class="type-enum-chip-editor" data-enum-type="integer">
+                            <div class="type-enum-chips"></div>
+                            <input type="number" step="1" class="form-control type-enum-input" placeholder="Escribe un valor y presiona Enter" />
+                        </div>
+                        <small class="text-muted d-block mt-1">Opcional. Si capturas valores, se guardaran como enum del schema.</small>
+                    </div>
+                </section>
+
+                <section class="type-constraints type-constraints-object event-schema-block mb-3 d-none">
+                    <div class="event-schema-header">
+                        <h2 class="section-heading event-schema-title">Estructura object</h2>
+                        <button type="button" class="btn btn-secondary btn-sm" id="add-root-field">Agregar campo</button>
+                    </div>
+                    <div id="schema-root-fields" class="schema-fields-list"></div>
+                </section>
+
+                <section class="type-constraints type-constraints-array row g-3 mb-3 d-none">
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de item</label>
+                        <select id="array-item-type-select" class="form-control"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">minItems</label>
+                        <input class="form-control" asp-for="Input.MinItems" type="number" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">maxItems</label>
+                        <input class="form-control" asp-for="Input.MaxItems" type="number" min="0" />
+                    </div>
+                </section>
+            </div>
+            <div class="contract-editor-actions">
+                <button class="btn btn-primary" type="submit">Guardar tipo</button>
+            </div>
+        </form>
+        </div>
+        </section>
+    </main>
+
+    <script id="schema-type-catalog" type="application/json">@Html.Raw(Model.SchemaTypeCatalogJson)</script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=4"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-type-version-editor.js?v=4"></script>
+    @await Html.PartialAsync("_AtlasSchemaTemplate")
+    @await Html.PartialAsync("_SchemaDesignerSavedSignal", ("ButterMorphSchemaTypeDesignerSaved", Model.HostSaveCompleted, Model.SafeReturnUrl))
+</body>
+</html>

@@ -31,6 +31,10 @@ public static class EndpointRouteBuilderExtensions
         MapDesignerAsset(endpoints, "vendor/codemirror/codemirror.min.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "atlas-schema.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "atlas-schema-builder.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "atlas-type-version-editor.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "atlas-metadata-field-editor.js", "text/javascript; charset=utf-8");
         endpoints.MapRazorPages();
 
         return endpoints;

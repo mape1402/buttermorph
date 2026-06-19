@@ -39,11 +39,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage home = await client.GetAsync("/buttermorph");
         HttpResponseMessage schemas = await client.GetAsync("/buttermorph/schemas");
         HttpResponseMessage designer = await client.GetAsync("/buttermorph/designer");
+        HttpResponseMessage schemaDesigner = await client.GetAsync("/buttermorph/schema-designer");
+        HttpResponseMessage schemaTypeDesigner = await client.GetAsync("/buttermorph/schema-types/designer");
+        HttpResponseMessage metadataFieldDesigner = await client.GetAsync("/buttermorph/metadata-fields/designer");
+        HttpResponseMessage payloadSchemaDesigner = await client.GetAsync("/buttermorph/payload-schema/designer");
         HttpResponseMessage dsl = await client.GetAsync("/buttermorph/dsl");
 
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
         Assert.Equal(HttpStatusCode.OK, schemas.StatusCode);
         Assert.Equal(HttpStatusCode.OK, designer.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, schemaDesigner.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, schemaTypeDesigner.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, metadataFieldDesigner.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, payloadSchemaDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, dsl.StatusCode);
     }
 
@@ -231,12 +239,25 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("/playground/scenarios", html, StringComparison.Ordinal);
         Assert.Contains("/playground/mappings/", html, StringComparison.Ordinal);
         Assert.Contains("/playground/execute/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/schema-scenarios", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/schemas/", html, StringComparison.Ordinal);
         Assert.Contains("data-edit", html, StringComparison.Ordinal);
         Assert.Contains("data-execute", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-tab=\"type\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-tab=\"field\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-tab=\"payload\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-create-schema", html, StringComparison.Ordinal);
+        Assert.Contains("data-edit-schema", html, StringComparison.Ordinal);
+        Assert.Contains("data-delete-schema", html, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesignerSaved", html, StringComparison.Ordinal);
         Assert.Contains("/buttermorph/designer\" + queryMarker + \"context=", html, StringComparison.Ordinal);
+        Assert.Contains("/playground-schema.js", html, StringComparison.Ordinal);
+        string schemaScript = await client.GetStringAsync("/playground-schema.js");
+        Assert.Contains("/playground/schema-items/", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph.Playground.SchemaTypes", schemaScript, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
         Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -254,6 +275,130 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("invoice", json, StringComparison.Ordinal);
         Assert.Contains("support", json, StringComparison.Ordinal);
         Assert.Contains("Customer order mapping", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that prepared playground schema scenarios are listed by endpoint.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundSchemaScenariosEndpointListsPreparedContexts()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string json = await client.GetStringAsync("/playground/schema-scenarios");
+
+        Assert.Contains("datatype-customer-code", json, StringComparison.Ordinal);
+        Assert.Contains("metadata-classification", json, StringComparison.Ordinal);
+        Assert.Contains("payload-customer-profile", json, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/schema-types/designer", json, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/metadata-fields/designer", json, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/payload-schema/designer", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that playground schema endpoint returns JSON Schema content.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundSchemaEndpointReturnsJsonSchema()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string json = await client.GetStringAsync("/playground/schemas/payload-customer-profile");
+
+        Assert.Equal("payload-customer-profile", ReadString(json, "contextKey"));
+        Assert.Contains("Edit payload schema", json, StringComparison.Ordinal);
+        Assert.Contains("Name", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that browser schema item state can preload the backend host.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundSchemaItemEndpointStoresBrowserState()
+    {
+        HttpClient client = _factory.CreateClient();
+        string payload = "{\"contextKey\":\"datatype-test-local\",\"kind\":\"type\",\"displayName\":\"LocalType\",\"description\":\"Local description\",\"designerPath\":\"/buttermorph/schema-types/designer\",\"jsonSchema\":\"{\\\"type\\\":\\\"string\\\"}\",\"versionNumber\":\"1.0.0\",\"baseType\":\"string\"}";
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/playground/schema-items/datatype-test-local",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("datatype-test-local", ReadString(json, "contextKey"));
+        Assert.Equal("type", ReadString(json, "kind"));
+        Assert.Equal("LocalType", ReadString(json, "displayName"));
+        Assert.Contains("string", ReadString(json, "jsonSchema"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that payload schema designer renders the Atlas builder without invented previews.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaDesignerRendersAtlasStyleBuilderAndSave()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile");
+
+        Assert.Contains("Schema del Payload", html, StringComparison.Ordinal);
+        Assert.Contains("event-schema-block", html, StringComparison.Ordinal);
+        Assert.Contains("schema-fields-list", html, StringComparison.Ordinal);
+        Assert.Contains("schema-root-fields", html, StringComparison.Ordinal);
+        Assert.Contains("schema-field-template", html, StringComparison.Ordinal);
+        Assert.Contains("field-metadata-modal", html, StringComparison.Ordinal);
+        Assert.Contains("obj" + "ect-schema-modal", html, StringComparison.Ordinal);
+        Assert.Contains("schema-type-catalog", html, StringComparison.Ordinal);
+        Assert.Contains("field-metadata-catalog", html, StringComparison.Ordinal);
+        Assert.Contains("Agregar campo", html, StringComparison.Ordinal);
+        Assert.Contains("Guardar schema", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("JSON Schema result", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that schema type designer follows the Atlas capture form.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerRendersAtlasCaptureForm()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-customer-code");
+
+        Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
+        Assert.Contains("type-base-select", html, StringComparison.Ordinal);
+        Assert.Contains("type-constraints-string", html, StringComparison.Ordinal);
+        Assert.Contains("type-constraints-" + "obj" + "ect", html, StringComparison.Ordinal);
+        Assert.Contains("schema-root-fields", html, StringComparison.Ordinal);
+        Assert.Contains("Guardar tipo", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("JSON Schema result", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that metadata field designer follows the Atlas metadata form.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task MetadataFieldDesignerRendersAtlasCaptureForm()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-classification");
+
+        Assert.Contains("Nuevo custom field", html, StringComparison.Ordinal);
+        Assert.Contains("metadata-data-type", html, StringComparison.Ordinal);
+        Assert.Contains("Validacion minima", html, StringComparison.Ordinal);
+        Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
+        Assert.Contains("Guardar custom field", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Definition JSON", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
     }
 
     /// <summary>

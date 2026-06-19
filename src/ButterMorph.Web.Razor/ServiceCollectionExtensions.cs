@@ -1,5 +1,6 @@
 namespace ButterMorph.Web.Razor;
 
+using ButterMorph.SchemaDesign;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -26,6 +27,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddButterMorphRazorDesigner(this IServiceCollection services, Action<ButterMorphRazorDesignerOptions> configure)
     {
         services.AddRazorPages();
+        services.AddButterMorphSchemaDesign();
         services.Configure(configure);
 
         return services;

@@ -1,0 +1,201 @@
+@page "/buttermorph/schema-designer"
+@model SchemaDesignerModel
+@using ButterMorph.Abstractions
+@using ButterMorph.Design
+@using Microsoft.AspNetCore.Html
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ButterMorph Schema Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=schema-designer-atlas-1" />
+</head>
+<body class="bm-page">
+    <div class="bm-schema-shell atlas-schema-shell">
+        <header class="bm-schema-topbar atlas-schema-topbar">
+            <div>
+                <div class="bm-brand-kicker">BUTTERMORPH</div>
+                <h1>Schema Designer</h1>
+            </div>
+            <form method="post" asp-page-handler="Save">
+                <button class="bm-button bm-button-primary" type="submit">Save schema</button>
+            </form>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <div class="bm-message-box bm-message-box-visible">@Model.Message</div>
+        }
+
+        <main class="atlas-schema-workbench">
+            <section class="atlas-schema-main">
+                <div class="event-schema-block atlas-event-schema-block">
+                    <div class="event-schema-header">
+                        <div>
+                            <h2 class="event-schema-title">Payload schema</h2>
+                            <p class="atlas-schema-help">Define fields directly, like Atlas: name, type, description, required, and nested structure.</p>
+                        </div>
+                        <form class="schema-add-row atlas-add-root" method="post" asp-page-handler="AddNode">
+                            <input type="hidden" name="ParentPath" value="$root" />
+                            <input class="form-control" name="NodeName" placeholder="fieldName" />
+                            <select class="form-control" name="NodeKind">
+                                <option>Scalar</option>
+                                <option>Object</option>
+                                <option>Array</option>
+                            </select>
+                            <input class="form-control" name="DataType" placeholder="string" />
+                            <button class="btn btn-secondary btn-sm" type="submit">Add field</button>
+                        </form>
+                    </div>
+
+                    <div class="schema-fields-list atlas-root-fields">
+                        @foreach (ISchemaTreeNode child in Model.TreeRoot.Children)
+                        {
+                            @RenderField(child, 0)
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <aside class="atlas-schema-side">
+                @if (Model.ShowManualActions)
+                {
+                    <form class="atlas-side-card" method="post" asp-page-handler="ImportJson">
+                        <div class="atlas-side-card-title">Import JSON Schema</div>
+                        <textarea name="JsonSchemaText">@Model.JsonSchemaText</textarea>
+                        <button class="bm-button" type="submit">Import</button>
+                    </form>
+                }
+
+            </aside>
+        </main>
+    </div>
+
+    @if (Model.HostSaveCompleted)
+    {
+        <script>
+            (function () {
+                var message = { type: "ButterMorphSchemaDesignerSaved", contextKey: "@Model.Request.Query["context"]" };
+                if (window.opener) {
+                    window.opener.postMessage(message, window.location.origin);
+                    window.close();
+                    return;
+                }
+
+                var returnUrl = "@Model.SafeReturnUrl";
+                if (returnUrl) {
+                    window.location.href = returnUrl;
+                }
+            })();
+        </script>
+    }
+</body>
+</html>
+
+@functions {
+    private IHtmlContent RenderField(ISchemaTreeNode node, int depth)
+    {
+        string fieldType = ResolveFieldType(node);
+        string description = ResolveDescription(node);
+        string indent = (depth * 12).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string checkedText = node.IsRequired ? " checked" : string.Empty;
+        string nestedHtml = RenderNested(node, depth);
+        string html =
+            "<div class=\"schema-field atlas-schema-field\" style=\"margin-left:" + indent + "px\">" +
+            "<form method=\"post\" class=\"schema-field-main atlas-schema-field-main\" action=\"?handler=UpdateNode\">" +
+            "<input type=\"hidden\" name=\"SelectedPath\" value=\"" + node.Path + "\" />" +
+            "<div class=\"atlas-field-col atlas-field-name\"><label class=\"form-label\">Campo</label><input class=\"form-control\" name=\"NodeName\" value=\"" + DisplayName(node) + "\" /></div>" +
+            "<div class=\"atlas-field-col atlas-field-type\"><label class=\"form-label\">Tipo</label><select class=\"form-control\" name=\"NodeKind\">" + RenderOptions(node.Kind) + "</select></div>" +
+            "<div class=\"atlas-field-col atlas-field-description\"><label class=\"form-label\">Descripcion</label><input class=\"form-control\" name=\"MetadataValue\" value=\"" + description + "\" placeholder=\"Breve descripcion del campo\" /></div>" +
+            "<div class=\"atlas-field-col atlas-field-required\"><label class=\"form-label\">Requerido</label><label class=\"atlas-check\"><input name=\"IsRequired\" type=\"checkbox\" value=\"true\"" + checkedText + " /> Si</label></div>" +
+            "<div class=\"atlas-field-col atlas-field-actions\"><label class=\"form-label\">Acciones</label><div class=\"atlas-action-row\"><button class=\"btn btn-secondary btn-sm\" type=\"submit\">Apply</button><button class=\"btn btn-outline-danger btn-sm\" formaction=\"?handler=RemoveNode\" type=\"submit\">Remove</button></div></div>" +
+            "<input name=\"DataType\" type=\"hidden\" value=\"" + fieldType + "\" />" +
+            "</form>" +
+            nestedHtml +
+            "</div>";
+
+        return new HtmlString(html);
+    }
+
+    private string RenderNested(ISchemaTreeNode node, int depth)
+    {
+        if (node.Kind == SchemaNodeKind.Scalar)
+        {
+            return string.Empty;
+        }
+
+        string addForm =
+            "<form class=\"schema-add-row atlas-nested-add\" method=\"post\" action=\"?handler=AddNode\">" +
+            "<input type=\"hidden\" name=\"ParentPath\" value=\"" + node.Path + "\" />" +
+            "<input class=\"form-control\" name=\"NodeName\" placeholder=\"propertyName\" />" +
+            "<select class=\"form-control\" name=\"NodeKind\"><option>Scalar</option><option>Object</option><option>Array</option></select>" +
+            "<input class=\"form-control\" name=\"DataType\" placeholder=\"string\" />" +
+            "<button class=\"btn btn-secondary btn-sm\" type=\"submit\">Add property</button>" +
+            "</form>";
+
+        string childRows = string.Empty;
+
+        foreach (ISchemaTreeNode child in node.Children)
+        {
+            childRows += RenderField(child, depth + 1).ToString();
+        }
+
+        string summary = node.Children.Count == 0 ? "Sin propiedades configuradas" : node.Children.Count + " propiedades configuradas";
+        string cssClass = node.Kind == SchemaNodeKind.Array ? "schema-array-builder" : "schema-object-builder";
+
+        return "<div class=\"" + cssClass + " atlas-nested-builder\"><span class=\"schema-nested-summary\">" + summary + "</span><div class=\"schema-fields-list child-fields-list\">" + childRows + "</div>" + addForm + "</div>";
+    }
+
+    private static string RenderOptions(SchemaNodeKind selected)
+    {
+        return RenderOption(SchemaNodeKind.Scalar, selected) + RenderOption(SchemaNodeKind.Object, selected) + RenderOption(SchemaNodeKind.Array, selected);
+    }
+
+    private static string RenderOption(SchemaNodeKind option, SchemaNodeKind selected)
+    {
+        string selectedText = option == selected ? " selected" : string.Empty;
+        return "<option" + selectedText + ">" + option + "</option>";
+    }
+
+    private static string ResolveFieldType(ISchemaTreeNode node)
+    {
+        if (node.Kind == SchemaNodeKind.Scalar)
+        {
+            return node.DataType;
+        }
+
+        foreach (ISchemaTreeNode child in node.Children)
+        {
+            if (child.Name == "$item")
+            {
+                return child.DataType;
+            }
+        }
+
+        return "string";
+    }
+
+    private static string ResolveDescription(ISchemaTreeNode node)
+    {
+        if (node.Metadata.TryGetValue("description", out string description))
+        {
+            return description;
+        }
+
+        return string.Empty;
+    }
+
+    private static string DisplayName(ISchemaTreeNode node)
+    {
+        if (node.Name == "$item")
+        {
+            return "Item";
+        }
+
+        return node.Name;
+    }
+}
