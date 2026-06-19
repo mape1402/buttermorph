@@ -32,7 +32,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const isPinned = normalizedMode === "pinned";
       pinButton.setAttribute("aria-pressed", isPinned ? "true" : "false");
       pinButton.setAttribute("title", isPinned ? "Auto hide panel" : "Pin panel");
-      pinButton.textContent = isPinned ? "\uD83D\uDCCC" : "\u25C0";
+      pinButton.setAttribute("aria-label", isPinned ? "Auto hide panel" : "Pin panel");
+      pinButton.setAttribute("data-pin-state", isPinned ? "pinned" : "auto");
     });
     closeDockFlyout();
     window.localStorage.setItem(leftDockModeKey, normalizedMode);
