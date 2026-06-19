@@ -1,0 +1,27 @@
+﻿namespace ButterMorph.Functions;
+
+using System.Globalization;
+using ButterMorph.Abstractions;
+
+/// <summary>
+/// Returns the current UTC date and time.
+/// </summary>
+public sealed class NowFunction : IFunction
+{
+    // Shared conversion helpers for this function.
+    private readonly FunctionTools _tools = new();
+
+    // Shared date parsing helpers for this function.
+    private readonly DateFunctionTools _dates = new();
+
+    /// <summary>
+    /// Executes the function.
+    /// </summary>
+    /// <param name="context">The function execution context.</param>
+    /// <returns>The function result.</returns>
+    public IFunctionResult Execute(FunctionExecutionContext context)
+    {
+        _tools.Require(context, "now", 0, 0);
+        return _dates.DateResult(DateTimeOffset.UtcNow);
+    }
+}

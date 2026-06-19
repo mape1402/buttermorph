@@ -32,7 +32,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IPathResolver, PathResolver>();
         services.AddTransient<ISchemaPathResolver, SchemaPathResolver>();
         services.AddTransient<ITransformationSemanticAnalyzer, TransformationSemanticAnalyzer>();
-        services.AddSingleton<IFunctionRegistry, FunctionRegistry>();
+        services.AddSingleton<IFunctionRegistry>(_ =>
+        {
+            FunctionRegistry registry = new();
+            new NativeFunctionRegistration().Register(registry);
+            return registry;
+        });
         services.AddTransient<ITransformationExpressionEvaluator, TransformationExpressionEvaluator>();
         services.AddTransient<ITransformationEngine, TransformationEngine>();
         services.AddTransient<IValidationEngine, ValidationEngine>();
