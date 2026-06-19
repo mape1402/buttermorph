@@ -35,22 +35,101 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     /// <returns>The designer load result.</returns>
     public Task<ButterMorphDesignerLoadResult> Load(ButterMorphDesignerLoadRequest request)
     {
-        if (string.Equals(request.ContextKey, ComplexContext, StringComparison.OrdinalIgnoreCase))
+        if (TryCreateLoadResult(request.ContextKey, out ButterMorphDesignerLoadResult result))
         {
-            return Task.FromResult(CreateCustomerOrderLoadResult());
-        }
-
-        if (string.Equals(request.ContextKey, InvoiceContext, StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(CreateInvoiceLoadResult());
-        }
-
-        if (string.Equals(request.ContextKey, SupportContext, StringComparison.OrdinalIgnoreCase))
-        {
-            return Task.FromResult(CreateSupportLoadResult());
+            return Task.FromResult(result);
         }
 
         return Task.FromResult(new ButterMorphDesignerLoadResult());
+    }
+
+    /// <summary>
+    /// Lists the prepared playground scenarios.
+    /// </summary>
+    /// <returns>The prepared scenario summaries.</returns>
+    public IReadOnlyCollection<PlaygroundScenarioSummary> ListScenarios()
+    {
+        return
+        [
+            new PlaygroundScenarioSummary
+            {
+                ContextKey = ComplexContext,
+                DisplayName = "Customer order mapping",
+                Description = "Combines customer profile and order lines into a customer order summary."
+            },
+            new PlaygroundScenarioSummary
+            {
+                ContextKey = InvoiceContext,
+                DisplayName = "Invoice accounting mapping",
+                Description = "Builds an accounting entry from invoice, payment, and vendor sources."
+            },
+            new PlaygroundScenarioSummary
+            {
+                ContextKey = SupportContext,
+                DisplayName = "Support case mapping",
+                Description = "Creates a support case packet from ticket, profile, and asset sources."
+            }
+        ];
+    }
+
+    /// <summary>
+    /// Attempts to create the designer load result for a prepared scenario.
+    /// </summary>
+    /// <param name="contextKey">The scenario context key.</param>
+    /// <param name="result">The created load result.</param>
+    /// <returns><see langword="true"/> when the scenario exists.</returns>
+    public bool TryCreateLoadResult(string contextKey, out ButterMorphDesignerLoadResult result)
+    {
+        if (string.Equals(contextKey, ComplexContext, StringComparison.OrdinalIgnoreCase))
+        {
+            result = CreateCustomerOrderLoadResult();
+            return true;
+        }
+
+        if (string.Equals(contextKey, InvoiceContext, StringComparison.OrdinalIgnoreCase))
+        {
+            result = CreateInvoiceLoadResult();
+            return true;
+        }
+
+        if (string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase))
+        {
+            result = CreateSupportLoadResult();
+            return true;
+        }
+
+        result = new ButterMorphDesignerLoadResult();
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to get sample source JSON for a prepared scenario.
+    /// </summary>
+    /// <param name="contextKey">The scenario context key.</param>
+    /// <param name="sources">The source JSON content by source key.</param>
+    /// <returns><see langword="true"/> when the scenario exists.</returns>
+    public bool TryGetSourceJson(string contextKey, out IReadOnlyDictionary<string, string> sources)
+    {
+        if (string.Equals(contextKey, ComplexContext, StringComparison.OrdinalIgnoreCase))
+        {
+            sources = CreateCustomerOrderSourceJson();
+            return true;
+        }
+
+        if (string.Equals(contextKey, InvoiceContext, StringComparison.OrdinalIgnoreCase))
+        {
+            sources = CreateInvoiceSourceJson();
+            return true;
+        }
+
+        if (string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase))
+        {
+            sources = CreateSupportSourceJson();
+            return true;
+        }
+
+        sources = new Dictionary<string, string>();
+        return false;
     }
 
     // Creates the customer order scenario.
@@ -140,6 +219,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         {
             ContextKey = request.ContextKey,
             DslContent = request.DslContent,
+            Document = request.Document,
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
             MappingCount = request.Document.Mappings.Count
         });
@@ -165,6 +245,194 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         }
 
         return string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Creates sample JSON for the customer order scenario.
+    private static IReadOnlyDictionary<string, string> CreateCustomerOrderSourceJson()
+    {
+        return new Dictionary<string, string>
+        {
+            ["customer"] = """
+{
+  "Identity": {
+    "Id": "CUST-1001",
+    "Name": "Demo Customer",
+    "Email": "DEMO.CUSTOMER@SAMPLE.INVALID",
+    "BirthDate": "1988-04-12"
+  },
+  "Address": {
+    "Line1": "100 Sample Street",
+    "Line2": "Piso 2",
+    "City": "Monterrey",
+    "State": "NL",
+    "PostalCode": "64000",
+    "Country": "MX"
+  },
+  "Preferences": {
+    "Language": "es-MX",
+    "NewsletterEnabled": true,
+    "LoyaltyLevel": "Gold"
+  }
+}
+""",
+            ["orders"] = """
+{
+  "Orders": [
+    {
+      "OrderId": "ORD-9001",
+      "CreatedAt": "2026-06-18",
+      "Status": "Paid",
+      "Total": 1580.50,
+      "Items": [
+        {
+          "Sku": "SKU-001",
+          "Description": "Keyboard",
+          "Quantity": 1,
+          "UnitPrice": 850.25
+        },
+        {
+          "Sku": "SKU-002",
+          "Description": "Mouse",
+          "Quantity": 2,
+          "UnitPrice": 365.125
+        }
+      ]
+    }
+  ]
+}
+"""
+        };
+    }
+
+    // Creates sample JSON for the invoice scenario.
+    private static IReadOnlyDictionary<string, string> CreateInvoiceSourceJson()
+    {
+        return new Dictionary<string, string>
+        {
+            ["invoice"] = """
+{
+  "Header": {
+    "InvoiceNumber": "INV-2026-001",
+    "IssuedOn": "2026-06-18T10:30:00",
+    "Currency": "MXN",
+    "Subtotal": 1200.00,
+    "Tax": 192.00,
+    "Total": 1392.00
+  },
+  "BillTo": {
+    "CustomerCode": "ACME-01",
+    "LegalName": "ACME Manufacturing SA de CV",
+    "TaxId": "AME010101AB1"
+  },
+  "Lines": [
+    {
+      "Sku": "SVC-001",
+      "Description": "Implementation service",
+      "Quantity": 3,
+      "Amount": 900.00
+    },
+    {
+      "Sku": "LIC-002",
+      "Description": "Platform license",
+      "Quantity": 1,
+      "Amount": 300.00
+    }
+  ]
+}
+""",
+            ["payment"] = """
+{
+  "Payment": {
+    "Reference": "PAY-7788",
+    "PaidOn": "2026-06-19T09:15:00",
+    "Method": "Wire",
+    "Amount": 1392.00
+  },
+  "Bank": {
+    "Account": "0123456789",
+    "AuthorizationCode": "AUTH-5521"
+  }
+}
+""",
+            ["vendor"] = """
+{
+  "Vendor": {
+    "VendorId": "VEND-77",
+    "Name": "ButterMorph Labs",
+    "TaxRegime": "General"
+  },
+  "Ledger": {
+    "AccountCode": "4000-001",
+    "CostCenter": "MX-NORTH"
+  }
+}
+"""
+        };
+    }
+
+    // Creates sample JSON for the support scenario.
+    private static IReadOnlyDictionary<string, string> CreateSupportSourceJson()
+    {
+        return new Dictionary<string, string>
+        {
+            ["ticket"] = """
+{
+  "Ticket": {
+    "TicketId": "TCK-4455",
+    "Subject": "Issue with device startup",
+    "Priority": "high",
+    "CreatedAt": "2026-06-18T15:45:00",
+    "Channel": "Portal"
+  },
+  "Requester": {
+    "Name": "Demo Requester",
+    "Email": "REQUESTER@SAMPLE.INVALID",
+    "Phone": "000-000-0000"
+  },
+  "Conversation": [
+    {
+      "Author": "Demo Requester",
+      "Message": "The device does not start after update.",
+      "CreatedAt": "2026-06-18T15:45:00"
+    },
+    {
+      "Author": "Support Agent",
+      "Message": "Please attach the latest diagnostic package.",
+      "CreatedAt": "2026-06-18T16:05:00"
+    }
+  ]
+}
+""",
+            ["profile"] = """
+{
+  "Customer": {
+    "CustomerId": "CUST-778",
+    "Segment": "Enterprise",
+    "RiskLevel": "true"
+  },
+  "Entitlements": [
+    {
+      "ProductCode": "DEVICE-PRO",
+      "Plan": "Premium",
+      "ExpiresOn": "2027-01-31"
+    }
+  ]
+}
+""",
+            ["asset"] = """
+{
+  "Device": {
+    "SerialNumber": "SN-2026-XYZ",
+    "Model": "Atlas Edge",
+    "Firmware": "9.4.1"
+  },
+  "Warranty": {
+    "Status": "Active",
+    "ExpiresOn": "2027-05-10"
+  }
+}
+"""
+        };
     }
 
     // Creates the prepared customer source schema.

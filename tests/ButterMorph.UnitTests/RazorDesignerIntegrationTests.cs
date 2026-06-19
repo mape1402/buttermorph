@@ -228,12 +228,48 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string html = await client.GetStringAsync("/");
 
         Assert.Contains("ButterMorph host playground", html, StringComparison.Ordinal);
-        Assert.Contains("data-context=\"complex\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-context=\"invoice\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-context=\"support\"", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/scenarios", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/mappings/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/execute/", html, StringComparison.Ordinal);
+        Assert.Contains("data-edit", html, StringComparison.Ordinal);
+        Assert.Contains("data-execute", html, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesignerSaved", html, StringComparison.Ordinal);
         Assert.Contains("/buttermorph/designer\" + queryMarker + \"context=", html, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
+        Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that prepared playground scenarios are listed by endpoint.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundScenariosEndpointListsPreparedContexts()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string json = await client.GetStringAsync("/playground/scenarios");
+
+        Assert.Contains("complex", json, StringComparison.Ordinal);
+        Assert.Contains("invoice", json, StringComparison.Ordinal);
+        Assert.Contains("support", json, StringComparison.Ordinal);
+        Assert.Contains("Customer order mapping", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that initial mappings are available before a save.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundMappingEndpointReturnsInitialMappingBeforeSave()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string json = await client.GetStringAsync("/playground/mappings/invoice");
+
+        Assert.Equal("invoice", ReadString(json, "contextKey"));
+        Assert.Contains("$invoice.Header.InvoiceNumber", ReadString(json, "dslContent"), StringComparison.Ordinal);
+        Assert.True(ReadNumber(json, "mappingCount") > 0);
     }
 
     /// <summary>
@@ -250,6 +286,96 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("invoice", ReadString(json, "contextKey"));
         Assert.Equal(string.Empty, ReadString(json, "dslContent"));
         Assert.Equal(0, ReadNumber(json, "mappingCount"));
+    }
+
+    /// <summary>
+    /// Confirms that prepared playground mappings execute through the real engine.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Theory]
+    [InlineData("complex")]
+    [InlineData("invoice")]
+    [InlineData("support")]
+    public async Task PlaygroundExecuteEndpointRunsPreparedScenario(string contextKey)
+    {
+        HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync("/playground/execute/" + contextKey, new StringContent(string.Empty));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(contextKey, ReadString(json, "contextKey"));
+        Assert.True(ReadNumber(json, "mappingCount") > 0);
+        Assert.Contains("{", ReadString(json, "outputJson"), StringComparison.Ordinal);
+        Assert.True(ReadPropertyCount(json, "sources") > 0);
+    }
+
+    /// <summary>
+    /// Confirms that edited playground source JSON is used during execution.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundExecuteEndpointUsesEditedSourceJson()
+    {
+        HttpClient client = _factory.CreateClient();
+        string invoiceJson = """
+{
+  "Header": {
+    "InvoiceNumber": "INV-EDITED-999",
+    "IssuedOn": "2026-06-18T10:30:00",
+    "Currency": "USD",
+    "Subtotal": 10,
+    "Tax": 2,
+    "Total": 12
+  },
+  "BillTo": {
+    "CustomerCode": "CUSTOM-EDIT",
+    "LegalName": "Edited Customer",
+    "TaxId": "EDIT010101AA1"
+  },
+  "Lines": [
+    {
+      "Sku": "EDIT-001",
+      "Description": "Edited line",
+      "Quantity": 1,
+      "Amount": 12
+    }
+  ]
+}
+""";
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/playground/execute/invoice",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("SourceKeys", "invoice"),
+                new KeyValuePair<string, string>("SourceJsonValues", invoiceJson)
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Contains("INV-EDITED-999", ReadString(json, "outputJson"), StringComparison.Ordinal);
+        Assert.Contains(Environment.NewLine, ReadString(json, "outputJson"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that unknown execution contexts fail with a controlled response.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundExecuteEndpointRejectsUnknownContext()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync("/playground/execute/missing", new StringContent(string.Empty));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.Equal("missing", ReadString(json, "contextKey"));
+        Assert.True(ReadArrayCount(json, "diagnostics") > 0);
     }
 
     /// <summary>
@@ -1056,6 +1182,20 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         using JsonDocument document = JsonDocument.Parse(json);
         return document.RootElement.GetProperty(propertyName).GetArrayLength();
+    }
+
+    // Reads a nested map property count from a JSON response.
+    private static int ReadPropertyCount(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        int count = 0;
+
+        foreach (JsonProperty property in document.RootElement.GetProperty(propertyName).EnumerateObject())
+        {
+            count++;
+        }
+
+        return count;
     }
 
     // Reads the first editor diagnostic line from a JSON response.
