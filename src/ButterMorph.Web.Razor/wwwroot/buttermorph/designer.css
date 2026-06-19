@@ -1112,6 +1112,111 @@ textarea,
   resize: none;
 }
 
+.bm-dsl-form .CodeMirror {
+  background-color: #151625;
+  border-top: 1px solid var(--bm-border);
+  color: #e5e7ff;
+  font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+  font-size: 0.82rem;
+  height: 100%;
+}
+
+.bm-dsl-form .CodeMirror-gutters {
+  background-color: #10111f;
+  border-right: 1px solid #2f3148;
+}
+
+.bm-dsl-form .CodeMirror-linenumber {
+  color: #6f769a;
+}
+
+.bm-dsl-form .CodeMirror-cursor {
+  border-left-color: #ffffff;
+}
+
+.bm-dsl-form .CodeMirror-selected {
+  background-color: rgba(99, 102, 241, 0.34);
+}
+
+.cm-s-default .cm-keyword {
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.cm-s-default .cm-string {
+  color: #86efac;
+}
+
+.cm-s-default .cm-number {
+  color: #fbbf24;
+}
+
+.cm-s-default .cm-variable-2 {
+  color: #c4b5fd;
+}
+
+.cm-s-default .cm-variable-3 {
+  color: #f0abfc;
+}
+
+.cm-s-default .cm-builtin {
+  color: #67e8f9;
+}
+
+.cm-s-default .cm-operator {
+  color: #f9a8d4;
+}
+
+.CodeMirror-hints {
+  background-color: #1d1f31;
+  border: 1px solid #3b3f62;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  color: #e5e7ff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 0.78rem;
+  z-index: 80;
+}
+
+.CodeMirror-hint {
+  border-radius: 4px;
+  color: #e5e7ff;
+  padding: 0.25rem 0.35rem;
+}
+
+li.CodeMirror-hint-active {
+  background-color: rgba(99, 102, 241, 0.35);
+  color: #ffffff;
+}
+
+.bm-dsl-hint {
+  display: grid;
+  gap: 0.1rem 0.45rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 260px;
+}
+
+.bm-dsl-hint-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bm-dsl-hint-kind {
+  color: #a5b4fc;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bm-dsl-hint-description {
+  color: #b9bedc;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bm-empty {
   color: var(--bm-muted);
   padding: 0.85rem;

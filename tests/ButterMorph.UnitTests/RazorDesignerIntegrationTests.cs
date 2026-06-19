@@ -58,11 +58,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         HttpResponseMessage cssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.css");
         HttpResponseMessage scriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.js");
+        HttpResponseMessage codeMirrorCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css");
+        HttpResponseMessage codeMirrorScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js");
+        HttpResponseMessage codeMirrorHintCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css");
+        HttpResponseMessage codeMirrorHintScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js");
         string css = await cssResponse.Content.ReadAsStringAsync();
         string script = await scriptResponse.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, codeMirrorCssResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, codeMirrorScriptResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, codeMirrorHintCssResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, codeMirrorHintScriptResponse.StatusCode);
         Assert.Contains("data-left-dock-mode=\"auto\"", css, StringComparison.Ordinal);
         Assert.Contains("bm-dock-tabs", css, StringComparison.Ordinal);
         Assert.Contains("bm-dock-tab", css, StringComparison.Ordinal);
@@ -82,6 +90,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("selectFirstFunctionArgument", script, StringComparison.Ordinal);
         Assert.Contains("rememberDslSelection", script, StringComparison.Ordinal);
         Assert.Contains("insertIntoDslEditor", script, StringComparison.Ordinal);
+        Assert.Contains("initializeDslCodeEditor", script, StringComparison.Ordinal);
+        Assert.Contains("buttermorphDsl", script, StringComparison.Ordinal);
+        Assert.Contains("createDslHintProvider", script, StringComparison.Ordinal);
+        Assert.Contains("getDslValue", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
         Assert.Contains("application/x-buttermorph-function-template", script, StringComparison.Ordinal);
@@ -90,6 +102,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("hideMessage", script, StringComparison.Ordinal);
         Assert.Contains("::file-selector-button", css, StringComparison.Ordinal);
         Assert.Contains("bm-function-item", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-form .CodeMirror", css, StringComparison.Ordinal);
+        Assert.Contains(".CodeMirror-hints", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
     }
@@ -142,6 +156,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-dock-panel-host", html, StringComparison.Ordinal);
         Assert.Contains("bm-designer-surface", html, StringComparison.Ordinal);
         Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("vendor/codemirror/codemirror.min.css", html, StringComparison.Ordinal);
+        Assert.Contains("vendor/codemirror/codemirror.min.js", html, StringComparison.Ordinal);
+        Assert.Contains("vendor/codemirror/show-hint.min.css", html, StringComparison.Ordinal);
+        Assert.Contains("vendor/codemirror/show-hint.min.js", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-editor=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-left-dock-mode=\"pinned\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-panel=\"sources\"", html, StringComparison.Ordinal);
         Assert.Contains("data-dock-panel=\"functions\"", html, StringComparison.Ordinal);
@@ -579,6 +598,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("value=\"$orders.Orders[0].Items\"", complexHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"item.Sku\"", complexHtml, StringComparison.Ordinal);
         Assert.Contains("data-array-target-path=\"Lines\"", invoiceHtml, StringComparison.Ordinal);
+        Assert.Contains("data-path=\"$invoice.Header.InvoiceNumber\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"$invoice.Lines\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"line.Sku\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("data-array-target-path=\"Messages\"", supportHtml, StringComparison.Ordinal);

@@ -27,6 +27,10 @@ public static class EndpointRouteBuilderExtensions
 
         MapDesignerAsset(endpoints, "designer.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "designer.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "vendor/codemirror/codemirror.min.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "vendor/codemirror/codemirror.min.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.js", "text/javascript; charset=utf-8");
         endpoints.MapRazorPages();
 
         return endpoints;
@@ -43,7 +47,8 @@ public static class EndpointRouteBuilderExtensions
         endpoints.MapGet("/_content/ButterMorph.Web.Razor/buttermorph/" + fileName, () =>
         {
             Assembly assembly = typeof(EndpointRouteBuilderExtensions).Assembly;
-            Stream stream = assembly.GetManifestResourceStream("ButterMorph.Web.Razor.wwwroot.buttermorph." + fileName);
+            string resourceName = "ButterMorph.Web.Razor.wwwroot.buttermorph." + fileName.Replace("/", ".", StringComparison.Ordinal);
+            Stream stream = assembly.GetManifestResourceStream(resourceName);
 
             if (stream == null)
             {

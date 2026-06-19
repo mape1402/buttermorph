@@ -7,12 +7,197 @@ document.addEventListener("DOMContentLoaded", function () {
   let dslTimer = 0;
   let dslSelectionStart = 0;
   let dslSelectionEnd = 0;
+  let dslCodeEditor = null;
   const workbench = document.querySelector(".bm-workbench");
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
   const leftDockModeKey = "ButterMorphDesigner.LeftDockMode";
   const leftDockPanelKey = "ButterMorphDesigner.LeftDockPanel";
   const legacyToolboxModeKey = "ButterMorphDesigner.ToolboxMode";
+  function configureDslMode() {
+    if (!window.CodeMirror || window.CodeMirror.modes.buttermorphDsl) {
+      return;
+    }
+    window.CodeMirror.defineMode("buttermorphDsl", function () {
+      const keywords = /^(metadata|target|validate|project|as|when|true|false|null)\b/;
+      return {
+        token: function (stream) {
+          if (stream.eatSpace()) {
+            return null;
+          }
+          if (stream.match(/"(?:[^"\\]|\\.)*"/)) {
+            return "string";
+          }
+          if (stream.match(/\$[A-Za-z_][A-Za-z0-9_]*(?:\[[0-9]+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[[0-9]+\])?)*/)) {
+            return "variable-2";
+          }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+/)) {
+            return "variable-3";
+          }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\()/)) {
+            return "builtin";
+          }
+          if (stream.match(keywords)) {
+            return "keyword";
+          }
+          if (stream.match(/[0-9]+(?:\.[0-9]+)?/)) {
+            return "number";
+          }
+          if (stream.match(/=>|[{}[\]():,.]/)) {
+            return "operator";
+          }
+          stream.next();
+          return null;
+        }
+      };
+    });
+  }
+  function createCompletionElement(title, description, badge) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "bm-dsl-hint";
+    wrapper.title = description;
+    const name = document.createElement("span");
+    name.className = "bm-dsl-hint-name";
+    name.textContent = title;
+    const kind = document.createElement("span");
+    kind.className = "bm-dsl-hint-kind";
+    kind.textContent = badge;
+    wrapper.appendChild(name);
+    wrapper.appendChild(kind);
+    if (description.length > 0) {
+      const text = document.createElement("span");
+      text.className = "bm-dsl-hint-description";
+      text.textContent = description;
+      wrapper.appendChild(text);
+    }
+    return wrapper;
+  }
+  function createFunctionSuggestions() {
+    const suggestions = [];
+    document.querySelectorAll(".bm-function-item").forEach(function (item) {
+      const key = item.querySelector(".bm-function-key");
+      const kind = item.querySelector(".bm-function-kind");
+      const template = item.getAttribute("data-function-template") || "";
+      const description = item.getAttribute("title") || "";
+      if (key && template.length > 0) {
+        suggestions.push({
+          text: template,
+          displayText: key.textContent,
+          className: "bm-dsl-function-hint",
+          description: description,
+          isFunction: true,
+          render: function (element) {
+            element.appendChild(createCompletionElement(key.textContent, description, kind ? kind.textContent : "Function"));
+          }
+        });
+      }
+    });
+    return suggestions;
+  }
+  function createSourceSuggestions() {
+    const suggestions = [];
+    document.querySelectorAll(".bm-source-field, .bm-source-branch[data-path]").forEach(function (item) {
+      const path = item.getAttribute("data-path") || "";
+      const name = item.querySelector(".bm-node-name");
+      const meta = item.querySelector(".bm-node-meta");
+      if (path.length > 0) {
+        suggestions.push({
+          text: path,
+          displayText: path,
+          className: "bm-dsl-source-hint",
+          description: path,
+          render: function (element) {
+            element.appendChild(createCompletionElement(name ? name.textContent : path, path, meta ? meta.textContent : "Source"));
+          }
+        });
+      }
+    });
+    return suggestions;
+  }
+  function createKeywordSuggestions() {
+    return [
+      { text: "target {\n  \n}", displayText: "target block", description: "Creates target mappings." },
+      { text: "validate {\n  \n}", displayText: "validate block", description: "Creates validation rules." },
+      { text: "metadata {\n  key: \"value\"\n}", displayText: "metadata block", description: "Creates document metadata." },
+      { text: "project source as item => item", displayText: "project", description: "Projects a collection using an item alias." },
+      { text: "when(condition, thenExpression, elseExpression)", displayText: "when", description: "Creates a conditional expression.", isFunction: true },
+      { text: "true", displayText: "true", description: "Boolean literal." },
+      { text: "false", displayText: "false", description: "Boolean literal." },
+      { text: "null", displayText: "null", description: "Null literal." }
+    ];
+  }
+  function getCompletionPrefix(editor) {
+    const cursor = editor.getCursor();
+    const line = editor.getLine(cursor.line);
+    const beforeCursor = line.substring(0, cursor.ch);
+    const match = beforeCursor.match(/[$A-Za-z_][A-Za-z0-9_.$\[\]]*$/);
+    if (match) {
+      return match[0];
+    }
+    return "";
+  }
+  function createDslHintProvider(editor) {
+    const prefix = getCompletionPrefix(editor);
+    const lowerPrefix = prefix.toLowerCase();
+    const cursor = editor.getCursor();
+    const from = window.CodeMirror.Pos(cursor.line, cursor.ch - prefix.length);
+    const suggestions = createKeywordSuggestions().concat(createFunctionSuggestions()).concat(createSourceSuggestions());
+    const filtered = [];
+    suggestions.forEach(function (suggestion) {
+      const displayText = suggestion.displayText || suggestion.text;
+      if (lowerPrefix.length === 0 || displayText.toLowerCase().indexOf(lowerPrefix) >= 0 || suggestion.text.toLowerCase().indexOf(lowerPrefix) >= 0) {
+        if (!suggestion.render) {
+          suggestion.render = function (element) {
+            element.appendChild(createCompletionElement(displayText, suggestion.description || "", "DSL"));
+          };
+        }
+        filtered.push(suggestion);
+      }
+    });
+    return {
+      list: filtered,
+      from: from,
+      to: cursor
+    };
+  }
+  function initializeDslCodeEditor() {
+    if (!dslEditor || !window.CodeMirror) {
+      return;
+    }
+    configureDslMode();
+    dslCodeEditor = window.CodeMirror.fromTextArea(dslEditor, {
+      mode: "buttermorphDsl",
+      lineNumbers: true,
+      indentUnit: 2,
+      tabSize: 2,
+      lineWrapping: true,
+      extraKeys: {
+        "Ctrl-Space": "autocomplete",
+        "Alt-Space": "autocomplete"
+      },
+      hintOptions: {
+        hint: createDslHintProvider,
+        completeSingle: false
+      }
+    });
+    dslCodeEditor.on("change", function (editor, change) {
+      dslEditor.value = editor.getValue();
+      rememberDslSelection();
+      if (change.origin !== "setValue") {
+        scheduleDslSync();
+      }
+      if (change.origin === "+input") {
+        const inserted = change.text.join("");
+        if (/[$A-Za-z_.]/.test(inserted)) {
+          editor.showHint({ completeSingle: false });
+        }
+      }
+    });
+    dslCodeEditor.on("cursorActivity", rememberDslSelection);
+    dslCodeEditor.on("focus", rememberDslSelection);
+    window.CodeMirror.on(dslCodeEditor, "endCompletion", rememberDslSelection);
+    refreshDslEditor();
+  }
   function getToken() {
     const token = document.querySelector("input[name='__RequestVerificationToken']");
     return token ? token.value : "";
@@ -147,10 +332,34 @@ document.addEventListener("DOMContentLoaded", function () {
     const form = document.querySelector(".bm-target-form");
     return form ? new FormData(form) : new FormData();
   }
+  function getDslValue() {
+    if (dslCodeEditor) {
+      return dslCodeEditor.getValue();
+    }
+    if (dslEditor) {
+      return dslEditor.value;
+    }
+    return "";
+  }
+  function setDslValue(value) {
+    if (dslEditor) {
+      dslEditor.value = value;
+    }
+    if (dslCodeEditor && dslCodeEditor.getValue() !== value) {
+      dslCodeEditor.setValue(value);
+    }
+  }
+  function refreshDslEditor() {
+    if (dslCodeEditor) {
+      window.setTimeout(function () {
+        dslCodeEditor.refresh();
+      }, 20);
+    }
+  }
   function syncVisual() {
     postForm("SyncVisual", collectVisualMappings()).then(function (response) {
       if (readValue(response, "succeeded") && dslEditor) {
-        dslEditor.value = readValue(response, "dslContent");
+        setDslValue(readValue(response, "dslContent"));
         hideMessage();
         return;
       }
@@ -164,7 +373,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     const formData = new FormData();
-    formData.append("DslContent", dslEditor.value);
+    formData.append("DslContent", getDslValue());
     formData.append("ActiveView", "Dsl");
     postForm("SyncDsl", formData).then(function (response) {
       if (readValue(response, "succeeded")) {
@@ -191,8 +400,30 @@ document.addEventListener("DOMContentLoaded", function () {
     input.selectionStart = expressionStart + openIndex + 1;
     input.selectionEnd = expressionStart + argumentEnd;
   }
+  function selectFirstFunctionArgumentInCodeEditor(expressionStart, expressionText) {
+    if (!dslCodeEditor) {
+      return;
+    }
+    const openIndex = expressionText.indexOf("(");
+    const closeIndex = expressionText.indexOf(")", openIndex + 1);
+    if (openIndex < 0 || closeIndex < 0 || closeIndex === openIndex + 1) {
+      return;
+    }
+    const commaIndex = expressionText.indexOf(",", openIndex + 1);
+    const argumentEnd = commaIndex >= 0 && commaIndex < closeIndex ? commaIndex : closeIndex;
+    dslCodeEditor.setSelection(
+      dslCodeEditor.posFromIndex(expressionStart + openIndex + 1),
+      dslCodeEditor.posFromIndex(expressionStart + argumentEnd));
+  }
   function rememberDslSelection() {
     if (!dslEditor) {
+      return;
+    }
+    if (dslCodeEditor) {
+      const selectionStart = dslCodeEditor.indexFromPos(dslCodeEditor.getCursor("from"));
+      const selectionEnd = dslCodeEditor.indexFromPos(dslCodeEditor.getCursor("to"));
+      dslSelectionStart = selectionStart;
+      dslSelectionEnd = selectionEnd;
       return;
     }
     dslSelectionStart = dslEditor.selectionStart >= 0 ? dslEditor.selectionStart : dslEditor.value.length;
@@ -203,6 +434,21 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function insertIntoDslEditor(expressionText, selectFirstArgument) {
     if (!dslEditor || expressionText.length === 0) {
+      return;
+    }
+    if (dslCodeEditor) {
+      const startPosition = dslCodeEditor.posFromIndex(dslSelectionStart);
+      const endPosition = dslCodeEditor.posFromIndex(dslSelectionEnd);
+      dslCodeEditor.replaceRange(expressionText, startPosition, endPosition);
+      const insertedStart = dslSelectionStart;
+      const insertedEnd = dslSelectionStart + expressionText.length;
+      dslCodeEditor.focus();
+      dslCodeEditor.setCursor(dslCodeEditor.posFromIndex(insertedEnd));
+      if (selectFirstArgument) {
+        selectFirstFunctionArgumentInCodeEditor(insertedStart, expressionText);
+      }
+      rememberDslSelection();
+      scheduleDslSync();
       return;
     }
     const start = dslSelectionStart >= 0 ? dslSelectionStart : dslEditor.value.length;
@@ -291,6 +537,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const view = button.getAttribute("data-view");
       if (workbench && view) {
         workbench.setAttribute("data-active-view", view);
+        if (view === "Dsl") {
+          refreshDslEditor();
+        }
       }
     });
   });
@@ -353,6 +602,7 @@ document.addEventListener("DOMContentLoaded", function () {
     input.addEventListener("input", scheduleVisualSync);
   });
   if (dslEditor) {
+    initializeDslCodeEditor();
     dslEditor.addEventListener("input", scheduleDslSync);
     dslEditor.addEventListener("click", rememberDslSelection);
     dslEditor.addEventListener("keyup", rememberDslSelection);
