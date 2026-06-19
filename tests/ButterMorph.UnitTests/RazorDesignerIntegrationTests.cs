@@ -75,6 +75,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
         Assert.Contains("data-function-template", script, StringComparison.Ordinal);
+        Assert.Contains("selectFirstFunctionArgument", script, StringComparison.Ordinal);
+        Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
+        Assert.Contains("application/x-buttermorph-function-template", script, StringComparison.Ordinal);
+        Assert.Contains("application/x-buttermorph-source-path", script, StringComparison.Ordinal);
         Assert.Contains("bm-dock-flyout-open", script, StringComparison.Ordinal);
         Assert.Contains("hideMessage", script, StringComparison.Ordinal);
         Assert.Contains("::file-selector-button", css, StringComparison.Ordinal);

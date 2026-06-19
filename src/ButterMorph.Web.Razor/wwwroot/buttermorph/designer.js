@@ -149,18 +149,52 @@ document.addEventListener("DOMContentLoaded", function () {
       updateMessage(response);
     });
   }
-  function insertIntoExpressionInput(input, expressionText) {
+  function hasTextSelection(input) {
+    return input && input.selectionStart >= 0 && input.selectionEnd > input.selectionStart;
+  }
+  function selectFirstFunctionArgument(input, expressionStart, expressionText) {
+    const openIndex = expressionText.indexOf("(");
+    const closeIndex = expressionText.indexOf(")", openIndex + 1);
+    if (openIndex < 0 || closeIndex < 0 || closeIndex === openIndex + 1) {
+      return;
+    }
+    const commaIndex = expressionText.indexOf(",", openIndex + 1);
+    const argumentEnd = commaIndex >= 0 && commaIndex < closeIndex ? commaIndex : closeIndex;
+    input.selectionStart = expressionStart + openIndex + 1;
+    input.selectionEnd = expressionStart + argumentEnd;
+  }
+  function insertIntoExpressionInput(input, expressionText, selectFirstArgument) {
     if (!input || expressionText.length === 0) {
       return;
     }
     const start = input.selectionStart;
     const end = input.selectionEnd;
+    let insertionStart = input.value.length;
     if (start >= 0 && end >= 0) {
       input.value = input.value.substring(0, start) + expressionText + input.value.substring(end);
+      insertionStart = start;
       input.selectionStart = start + expressionText.length;
       input.selectionEnd = start + expressionText.length;
     } else {
       input.value = expressionText;
+      insertionStart = 0;
+    }
+    if (selectFirstArgument) {
+      selectFirstFunctionArgument(input, insertionStart, expressionText);
+    }
+    input.focus();
+    activeExpressionInput = input;
+    scheduleVisualSync();
+  }
+  function replaceExpressionInput(input, expressionText, selectFirstArgument) {
+    if (!input || expressionText.length === 0) {
+      return;
+    }
+    input.value = expressionText;
+    input.selectionStart = expressionText.length;
+    input.selectionEnd = expressionText.length;
+    if (selectFirstArgument) {
+      selectFirstFunctionArgument(input, 0, expressionText);
     }
     input.focus();
     activeExpressionInput = input;
@@ -320,6 +354,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const path = field.getAttribute("data-path");
       field.classList.add("bm-dragging");
       if (event.dataTransfer && path) {
+        event.dataTransfer.setData("application/x-buttermorph-source-path", path);
         event.dataTransfer.setData("text/plain", path);
         event.dataTransfer.effectAllowed = "copy";
       }
@@ -330,9 +365,13 @@ document.addEventListener("DOMContentLoaded", function () {
     field.addEventListener("click", function () {
       const path = field.getAttribute("data-path");
       if (activeExpressionInput && path) {
-        activeExpressionInput.value = path;
-        activeExpressionInput.focus();
-        scheduleVisualSync();
+        if (hasTextSelection(activeExpressionInput)) {
+          insertIntoExpressionInput(activeExpressionInput, path, false);
+        } else {
+          activeExpressionInput.value = path;
+          activeExpressionInput.focus();
+          scheduleVisualSync();
+        }
       }
       if (navigator.clipboard && path) {
         navigator.clipboard.writeText(path);
@@ -344,6 +383,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const template = functionItem.getAttribute("data-function-template");
       functionItem.classList.add("bm-dragging");
       if (event.dataTransfer && template) {
+        event.dataTransfer.setData("application/x-buttermorph-function-template", template);
         event.dataTransfer.setData("text/plain", template);
         event.dataTransfer.effectAllowed = "copy";
       }
@@ -354,7 +394,11 @@ document.addEventListener("DOMContentLoaded", function () {
     functionItem.addEventListener("click", function () {
       const template = functionItem.getAttribute("data-function-template") || "";
       if (activeExpressionInput) {
-        insertIntoExpressionInput(activeExpressionInput, template);
+        if (hasTextSelection(activeExpressionInput)) {
+          insertIntoExpressionInput(activeExpressionInput, template, true);
+        } else {
+          replaceExpressionInput(activeExpressionInput, template, true);
+        }
         return;
       }
       if (navigator.clipboard && template) {
@@ -389,15 +433,31 @@ document.addEventListener("DOMContentLoaded", function () {
     target.addEventListener("drop", function (event) {
       event.preventDefault();
       target.classList.remove("bm-drop-hover");
-      const path = event.dataTransfer.getData("text/plain");
+      const functionTemplate = event.dataTransfer.getData("application/x-buttermorph-function-template");
+      const sourcePath = event.dataTransfer.getData("application/x-buttermorph-source-path");
+      const text = event.dataTransfer.getData("text/plain");
+      const expression = functionTemplate || sourcePath || text;
       const input = target.hasAttribute("data-array-drop-target")
         ? target.querySelector(".bm-array-source-input")
         : target.querySelector(".bm-expression-input");
-      if (input && path) {
-        input.value = target.hasAttribute("data-array-drop-target") ? path : relativizePath(path, target);
+      if (input && expression) {
+        if (functionTemplate && !target.hasAttribute("data-array-drop-target")) {
+          if (hasTextSelection(input)) {
+            insertIntoExpressionInput(input, functionTemplate, true);
+          } else {
+            replaceExpressionInput(input, functionTemplate, true);
+          }
+          return;
+        }
+        const value = target.hasAttribute("data-array-drop-target") ? expression : relativizePath(expression, target);
+        if (!target.hasAttribute("data-array-drop-target") && hasTextSelection(input)) {
+          insertIntoExpressionInput(input, value, false);
+          return;
+        }
+        input.value = value;
         if (target.hasAttribute("data-array-drop-target")) {
           const aliasInput = target.querySelector(".bm-array-alias-input");
-          updateTemplateSource(target.getAttribute("data-array-target-path"), path, aliasInput ? aliasInput.value : "item");
+          updateTemplateSource(target.getAttribute("data-array-target-path"), expression, aliasInput ? aliasInput.value : "item");
         }
         input.focus();
         scheduleVisualSync();
