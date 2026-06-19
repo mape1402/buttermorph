@@ -912,6 +912,9 @@ textarea,
 }
 
 .bm-target-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-height: calc(100% - 2px);
 }
 
@@ -948,6 +951,8 @@ textarea,
 }
 
 .bm-json-canvas {
+  min-height: 0;
+  overflow: auto;
   padding: 0.75rem;
 }
 
@@ -1119,6 +1124,13 @@ textarea,
   font-family: Consolas, "Cascadia Code", "Courier New", monospace;
   font-size: 0.82rem;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bm-dsl-form .CodeMirror-scroll {
+  height: calc(100% - 50px) !important;
+  max-height: calc(100% - 50px);
   min-height: 0;
 }
 

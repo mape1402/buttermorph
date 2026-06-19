@@ -112,6 +112,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("::file-selector-button", css, StringComparison.Ordinal);
         Assert.Contains("bm-function-item", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-form .CodeMirror", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-form .CodeMirror-scroll", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-json-canvas", css, StringComparison.Ordinal);
         Assert.Contains(".CodeMirror-hints", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-diagnostic-underline", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-diagnostic-gutter", css, StringComparison.Ordinal);
