@@ -17,6 +17,35 @@ document.addEventListener("DOMContentLoaded", function () {
   const leftDockModeKey = "ButterMorphDesigner.LeftDockMode";
   const leftDockPanelKey = "ButterMorphDesigner.LeftDockPanel";
   const legacyToolboxModeKey = "ButterMorphDesigner.ToolboxMode";
+  function completeHostPopupFlow(response) {
+    const completed = response
+      ? readValue(response, "hostSaveCompleted")
+      : workbench && workbench.getAttribute("data-host-save-completed") === "true";
+    if (!completed) {
+      return;
+    }
+    const contextKey = response
+      ? readValue(response, "savedContextKey") || ""
+      : workbench.getAttribute("data-host-context-key") || "";
+    const returnUrl = response
+      ? readValue(response, "safeReturnUrl") || ""
+      : workbench.getAttribute("data-host-return-url") || "";
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        type: "ButterMorphDesignerSaved",
+        contextKey: contextKey
+      }, window.location.origin);
+      window.close();
+      return;
+    }
+    if (returnUrl.length > 0) {
+      const destination = new URL(returnUrl, window.location.origin);
+      if (contextKey.length > 0) {
+        destination.searchParams.set("buttermorphSavedContext", contextKey);
+      }
+      window.location.assign(destination.pathname + destination.search + destination.hash);
+    }
+  }
   function configureDslMode() {
     if (!window.CodeMirror || window.CodeMirror.modes.buttermorphDsl) {
       return;
@@ -774,6 +803,28 @@ document.addEventListener("DOMContentLoaded", function () {
       updateErrorMessage(error.message);
     });
   }
+  function saveTargetMappings(event) {
+    if (event) {
+      event.preventDefault();
+    }
+    postForm("SaveTargetMappings", collectVisualMappings()).then(function (response) {
+      applyDslDiagnostics(response);
+      if (readValue(response, "succeeded")) {
+        setDslValue(readValue(response, "dslContent"));
+        updateVisualMappings(readValue(response, "mappings"));
+        completeHostPopupFlow(response);
+        updateMessage(response);
+        return;
+      }
+      if ((readValue(response, "editorDiagnostics") || []).length > 0) {
+        hideMessage();
+      } else {
+        updateMessage(response);
+      }
+    }).catch(function (error) {
+      updateErrorMessage(error.message);
+    });
+  }
   function hasTextSelection(input) {
     return input && input.selectionStart >= 0 && input.selectionEnd > input.selectionStart;
   }
@@ -1240,6 +1291,10 @@ document.addEventListener("DOMContentLoaded", function () {
       scheduleVisualSync();
     });
   });
+  document.querySelectorAll(".bm-target-form").forEach(function (form) {
+    form.addEventListener("submit", saveTargetMappings);
+  });
   loadActiveDockPanel();
   loadLeftDockMode();
+  completeHostPopupFlow();
 });

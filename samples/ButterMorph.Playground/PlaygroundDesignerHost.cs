@@ -7,6 +7,9 @@ using ButterMorph.Web.Razor;
 /// </summary>
 internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
 {
+    // Stores mapping saves for the playground shell.
+    private readonly PlaygroundMappingStore _mappingStore;
+
     // Context value for the customer order scenario.
     private const string ComplexContext = "complex";
 
@@ -15,6 +18,15 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
 
     // Context value for the support case scenario.
     private const string SupportContext = "support";
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PlaygroundDesignerHost"/> class.
+    /// </summary>
+    /// <param name="mappingStore">The mapping save store.</param>
+    public PlaygroundDesignerHost(PlaygroundMappingStore mappingStore)
+    {
+        _mappingStore = mappingStore;
+    }
 
     /// <summary>
     /// Loads schemas and an initial mapping document for a known playground context.
@@ -123,6 +135,14 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
                 Message = "Mappings saved."
             });
         }
+
+        _mappingStore.Save(new PlaygroundMappingSave
+        {
+            ContextKey = request.ContextKey,
+            DslContent = request.DslContent,
+            SavedAt = DateTimeOffset.UtcNow.ToString("O"),
+            MappingCount = request.Document.Mappings.Count
+        });
 
         return Task.FromResult(new ButterMorphDesignerSaveResult
         {

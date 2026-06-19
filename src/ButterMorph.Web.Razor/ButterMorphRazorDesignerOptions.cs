@@ -19,4 +19,14 @@ public sealed class ButterMorphRazorDesignerOptions
     /// Gets or sets a value indicating whether host preload integration is enabled.
     /// </summary>
     public bool UseHostPreload { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the query parameter that enables popup completion behavior.
+    /// </summary>
+    public string PopupQueryParameter { get; set; } = "popup";
+
+    /// <summary>
+    /// Gets or sets the query parameter that identifies the host return URL.
+    /// </summary>
+    public string ReturnUrlQueryParameter { get; set; } = "returnUrl";
 }

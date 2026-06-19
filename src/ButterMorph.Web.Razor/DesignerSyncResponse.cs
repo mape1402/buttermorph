@@ -34,4 +34,19 @@ public sealed class DesignerSyncResponse
     /// Gets or sets diagnostics that can be rendered in the DSL editor.
     /// </summary>
     public IReadOnlyCollection<DesignerEditorDiagnostic> EditorDiagnostics { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the host save flow completed.
+    /// </summary>
+    public bool HostSaveCompleted { get; set; }
+
+    /// <summary>
+    /// Gets or sets the saved host context key.
+    /// </summary>
+    public string SavedContextKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the safe local return URL for non-popup host flows.
+    /// </summary>
+    public string SafeReturnUrl { get; set; } = string.Empty;
 }

@@ -104,6 +104,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-dsl-diagnostics-toggle", script, StringComparison.Ordinal);
         Assert.Contains("createFunctionDescriptionMap", script, StringComparison.Ordinal);
         Assert.Contains("handleDslFunctionHover", script, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesignerSaved", script, StringComparison.Ordinal);
+        Assert.Contains("window.opener.postMessage", script, StringComparison.Ordinal);
+        Assert.Contains("window.close()", script, StringComparison.Ordinal);
         Assert.Contains("getDslValue", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
@@ -214,6 +217,42 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that the playground shell renders host simulation controls.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundHomeRendersHostSimulation()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/");
+
+        Assert.Contains("ButterMorph host playground", html, StringComparison.Ordinal);
+        Assert.Contains("data-context=\"complex\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-context=\"invoice\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-context=\"support\"", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesignerSaved", html, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/designer\" + queryMarker + \"context=", html, StringComparison.Ordinal);
+        Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that an empty playground save can be queried.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundSaveEndpointReturnsEmptyResultBeforeSave()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string json = await client.GetStringAsync("/playground/saves/invoice");
+
+        Assert.Equal("invoice", ReadString(json, "contextKey"));
+        Assert.Equal(string.Empty, ReadString(json, "dslContent"));
+        Assert.Equal(0, ReadNumber(json, "mappingCount"));
+    }
+
+    /// <summary>
     /// Confirms that host-provided schemas can preload the designer and hide schema actions.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -279,6 +318,112 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("atlas-save-123", host.LastSaveRequest.ContextKey);
         Assert.Single(host.LastSaveRequest.Document.Mappings);
         Assert.Contains("$customer.Name", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that popup saves render host completion metadata.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerPopupSaveRendersHostCompletionSignal()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                ShowSchemaActions = false
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=popup-save&popup=true&returnUrl=/");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=popup-save&popup=true&returnUrl=/&handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Name"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Name")
+            ]));
+        string savedJson = await response.Content.ReadAsStringAsync();
+        using JsonDocument savedDocument = JsonDocument.Parse(savedJson);
+        JsonElement root = savedDocument.RootElement;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(root.GetProperty("hostSaveCompleted").GetBoolean());
+        Assert.Equal("popup-save", root.GetProperty("savedContextKey").GetString());
+        Assert.Equal("/", root.GetProperty("safeReturnUrl").GetString());
+    }
+
+    /// <summary>
+    /// Confirms that external return URLs are not rendered after popup save.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerPopupSaveIgnoresExternalReturnUrl()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                ShowSchemaActions = false
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=popup-external&popup=true&returnUrl=https://evil.example");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=popup-external&popup=true&returnUrl=https://evil.example&handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Name"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Name")
+            ]));
+        string savedJson = await response.Content.ReadAsStringAsync();
+        using JsonDocument savedDocument = JsonDocument.Parse(savedJson);
+        JsonElement root = savedDocument.RootElement;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(root.GetProperty("hostSaveCompleted").GetBoolean());
+        Assert.Equal(string.Empty, root.GetProperty("safeReturnUrl").GetString());
+        Assert.DoesNotContain("evil.example", savedJson, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the playground host stores saved DSL content.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundHostStoresSavedMappingDsl()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=invoice&popup=true&returnUrl=/");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=invoice&popup=true&returnUrl=/&handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Document.Number"),
+                new KeyValuePair<string, string>("Expressions", "$invoice.Header.InvoiceNumber")
+            ]));
+        string json = await client.GetStringAsync("/playground/saves/invoice");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("invoice", ReadString(json, "contextKey"));
+        Assert.Contains("$invoice.Header.InvoiceNumber", ReadString(json, "dslContent"), StringComparison.Ordinal);
+        Assert.True(ReadNumber(json, "mappingCount") > 0);
     }
 
     /// <summary>

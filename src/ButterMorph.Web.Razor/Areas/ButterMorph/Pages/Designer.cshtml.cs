@@ -213,6 +213,21 @@ public sealed class DesignerModel : PageModel
     public bool ShowSchemaActions { get; private set; } = true;
 
     /// <summary>
+    /// Gets a value indicating whether the host save flow completed.
+    /// </summary>
+    public bool HostSaveCompleted { get; private set; }
+
+    /// <summary>
+    /// Gets the context key that was saved by the host flow.
+    /// </summary>
+    public string SavedContextKey { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the local return URL used after popup save.
+    /// </summary>
+    public string SafeReturnUrl { get; private set; } = string.Empty;
+
+    /// <summary>
     /// Displays the designer.
     /// </summary>
     /// <returns>The asynchronous page task.</returns>
@@ -388,7 +403,12 @@ public sealed class DesignerModel : PageModel
 
             if (Diagnostics.Count == 0)
             {
-                await SaveHostState();
+                bool hostSaved = await SaveHostState();
+
+                if (hostSaved)
+                {
+                    ResolveHostCompletionState();
+                }
             }
             else
             {
@@ -403,7 +423,7 @@ public sealed class DesignerModel : PageModel
 
         LoadViewState();
 
-        return Page();
+        return new JsonResult(CreateSyncResponse(Diagnostics.Count == 0, Message));
     }
 
     /// <summary>
@@ -465,6 +485,12 @@ public sealed class DesignerModel : PageModel
     // Gets the host context key for the current request.
     private string ContextKey => DesignerSessionKeyResolver.ResolveContextKey(this, _options);
 
+    // Gets a value indicating whether the designer is running as a popup.
+    private bool IsPopupRequest => string.Equals(
+        Request.Query[_options.PopupQueryParameter],
+        "true",
+        StringComparison.OrdinalIgnoreCase);
+
     // Gets web-only state for the current designer context.
     private DesignerContextState ContextState => ContextStates.GetOrCreate(SessionKey, _options);
 
@@ -508,14 +534,14 @@ public sealed class DesignerModel : PageModel
     }
 
     // Saves the current session through the optional host integration.
-    private async Task SaveHostState()
+    private async Task<bool> SaveHostState()
     {
         IButterMorphDesignerHost host = FindHost();
 
         if (host == null)
         {
             Message = "Mappings saved.";
-            return;
+            return true;
         }
 
         ButterMorphDesignerSaveResult result = await host.Save(new ButterMorphDesignerSaveRequest
@@ -528,11 +554,43 @@ public sealed class DesignerModel : PageModel
         if (result.Succeeded)
         {
             Message = ResolveMessage(result.Message, "Mappings saved.");
-            return;
+            return true;
         }
 
         Diagnostics = result.Diagnostics;
         Message = ResolveMessage(result.Message, "Mappings could not be saved.");
+        return false;
+    }
+
+    // Resolves popup completion state after a successful host save.
+    private void ResolveHostCompletionState()
+    {
+        if (!IsPopupRequest || Diagnostics.Count > 0)
+        {
+            return;
+        }
+
+        HostSaveCompleted = true;
+        SavedContextKey = ContextKey;
+        SafeReturnUrl = ResolveSafeReturnUrl();
+    }
+
+    // Resolves a local return URL that is safe to use after popup completion.
+    private string ResolveSafeReturnUrl()
+    {
+        string returnUrl = Request.Query[_options.ReturnUrlQueryParameter];
+
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return string.Empty;
+        }
+
+        if (!Url.IsLocalUrl(returnUrl))
+        {
+            return string.Empty;
+        }
+
+        return returnUrl;
     }
 
     // Resolves fallback message text when a host does not provide one.
@@ -1308,7 +1366,10 @@ public sealed class DesignerModel : PageModel
             DslContent = dslContent,
             Mappings = CreateExpressionDictionary(document),
             DiagnosticsCount = Diagnostics.Count,
-            EditorDiagnostics = CreateEditorDiagnostics(dslContent, Diagnostics)
+            EditorDiagnostics = CreateEditorDiagnostics(dslContent, Diagnostics),
+            HostSaveCompleted = HostSaveCompleted,
+            SavedContextKey = SavedContextKey,
+            SafeReturnUrl = SafeReturnUrl
         };
     }
 
