@@ -6,6 +6,8 @@
         <summary class="bm-source-branch"
                  draggable="@Model.CanDrag.ToString().ToLowerInvariant()"
                  data-path="@Model.Path"
+                 data-kind="@Model.Kind"
+                 data-data-type="@Model.DataType"
                  title="@Model.Path">
             <span class="bm-node-name">@Model.Name</span>
             <span class="bm-node-meta">@Model.Kind</span>
@@ -24,6 +26,8 @@ else
             class="bm-source-field"
             draggable="@Model.CanDrag.ToString().ToLowerInvariant()"
             data-path="@Model.Path"
+            data-kind="@Model.Kind"
+            data-data-type="@Model.DataType"
             title="@Model.Path">
         <span class="bm-node-name">@Model.Name</span>
         <span class="bm-node-meta">@Model.DataType</span>

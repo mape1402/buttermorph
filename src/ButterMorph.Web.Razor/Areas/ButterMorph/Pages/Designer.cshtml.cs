@@ -1307,8 +1307,152 @@ public sealed class DesignerModel : PageModel
             Message = message,
             DslContent = dslContent,
             Mappings = CreateExpressionDictionary(document),
-            DiagnosticsCount = Diagnostics.Count
+            DiagnosticsCount = Diagnostics.Count,
+            EditorDiagnostics = CreateEditorDiagnostics(dslContent, Diagnostics)
         };
+    }
+
+    // Creates DSL editor diagnostics from regular diagnostics.
+    private static IReadOnlyCollection<DesignerEditorDiagnostic> CreateEditorDiagnostics(
+        string dslContent,
+        IReadOnlyCollection<DiagnosticEntry> diagnostics)
+    {
+        List<DesignerEditorDiagnostic> editorDiagnostics = [];
+
+        foreach (DiagnosticEntry diagnostic in diagnostics)
+        {
+            DesignerEditorDiagnostic editorDiagnostic = LocateEditorDiagnostic(dslContent, diagnostic);
+            editorDiagnostics.Add(editorDiagnostic);
+        }
+
+        return editorDiagnostics;
+    }
+
+    // Resolves the most useful editor location for a diagnostic.
+    private static DesignerEditorDiagnostic LocateEditorDiagnostic(string dslContent, DiagnosticEntry diagnostic)
+    {
+        DesignerEditorDiagnostic editorDiagnostic = new()
+        {
+            Code = diagnostic.Code,
+            Message = diagnostic.Message,
+            Severity = diagnostic.Severity,
+            Path = diagnostic.Path,
+            Line = 1,
+            Column = 1,
+            Length = ResolveDiagnosticLength(diagnostic)
+        };
+
+        if (TryReadLineColumn(diagnostic.Message, editorDiagnostic))
+        {
+            return editorDiagnostic;
+        }
+
+        int pathIndex = FindDiagnosticPathIndex(dslContent, diagnostic.Path);
+
+        if (pathIndex >= 0)
+        {
+            ApplyTextLocation(dslContent, pathIndex, editorDiagnostic);
+        }
+
+        return editorDiagnostic;
+    }
+
+    // Resolves a useful highlighted length.
+    private static int ResolveDiagnosticLength(DiagnosticEntry diagnostic)
+    {
+        if (!string.IsNullOrWhiteSpace(diagnostic.Path))
+        {
+            return Math.Max(1, diagnostic.Path.Length);
+        }
+
+        return 1;
+    }
+
+    // Finds the diagnostic path or target assignment in the DSL text.
+    private static int FindDiagnosticPathIndex(string dslContent, string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return -1;
+        }
+
+        int assignmentIndex = dslContent.IndexOf(path + ":", StringComparison.Ordinal);
+
+        if (assignmentIndex >= 0)
+        {
+            return assignmentIndex;
+        }
+
+        return dslContent.IndexOf(path, StringComparison.Ordinal);
+    }
+
+    // Applies one-based line and column from a zero-based text index.
+    private static void ApplyTextLocation(string text, int index, DesignerEditorDiagnostic diagnostic)
+    {
+        int line = 1;
+        int column = 1;
+
+        for (int characterIndex = 0; characterIndex < index && characterIndex < text.Length; characterIndex++)
+        {
+            if (text[characterIndex] == '\n')
+            {
+                line++;
+                column = 1;
+                continue;
+            }
+
+            column++;
+        }
+
+        diagnostic.Line = line;
+        diagnostic.Column = column;
+    }
+
+    // Tries to parse messages that contain line and column data.
+    private static bool TryReadLineColumn(string message, DesignerEditorDiagnostic diagnostic)
+    {
+        const string lineMarker = "Line ";
+        const string columnMarker = "column ";
+        int lineMarkerIndex = message.IndexOf(lineMarker, StringComparison.OrdinalIgnoreCase);
+        int columnMarkerIndex = message.IndexOf(columnMarker, StringComparison.OrdinalIgnoreCase);
+
+        if (lineMarkerIndex < 0 || columnMarkerIndex < 0)
+        {
+            return false;
+        }
+
+        int lineStart = lineMarkerIndex + lineMarker.Length;
+        int columnStart = columnMarkerIndex + columnMarker.Length;
+        string lineText = ReadNumberText(message, lineStart);
+        string columnText = ReadNumberText(message, columnStart);
+
+        if (!int.TryParse(lineText, CultureInfo.InvariantCulture, out int line))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(columnText, CultureInfo.InvariantCulture, out int column))
+        {
+            return false;
+        }
+
+        diagnostic.Line = Math.Max(1, line);
+        diagnostic.Column = Math.Max(1, column);
+
+        return true;
+    }
+
+    // Reads a contiguous number from a text position.
+    private static string ReadNumberText(string text, int start)
+    {
+        int end = start;
+
+        while (end < text.Length && char.IsDigit(text[end]))
+        {
+            end++;
+        }
+
+        return text[start..end];
     }
 
     // Runs semantic diagnostics without exposing analyzer workflow in the UI.

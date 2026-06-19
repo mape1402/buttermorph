@@ -8,6 +8,9 @@ document.addEventListener("DOMContentLoaded", function () {
   let dslSelectionStart = 0;
   let dslSelectionEnd = 0;
   let dslCodeEditor = null;
+  let dslDiagnosticMarkers = [];
+  let dslDiagnosticLineClasses = [];
+  let functionTooltip = null;
   const workbench = document.querySelector(".bm-workbench");
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
@@ -80,14 +83,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const template = item.getAttribute("data-function-template") || "";
       const description = item.getAttribute("title") || "";
       if (key && template.length > 0) {
+        const functionKey = key.textContent;
         suggestions.push({
           text: template,
-          displayText: key.textContent,
+          displayText: functionKey,
           className: "bm-dsl-function-hint",
           description: description,
           isFunction: true,
+          category: "function",
+          key: functionKey,
           render: function (element) {
-            element.appendChild(createCompletionElement(key.textContent, description, kind ? kind.textContent : "Function"));
+            element.appendChild(createCompletionElement(functionKey, description, kind ? kind.textContent : "Function"));
           }
         });
       }
@@ -100,12 +106,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const path = item.getAttribute("data-path") || "";
       const name = item.querySelector(".bm-node-name");
       const meta = item.querySelector(".bm-node-meta");
+      const schemaKind = item.getAttribute("data-kind") || "";
+      const dataType = item.getAttribute("data-data-type") || "";
       if (path.length > 0) {
         suggestions.push({
           text: path,
           displayText: path,
           className: "bm-dsl-source-hint",
           description: path,
+          category: "source",
+          schemaKind: schemaKind,
+          dataType: dataType,
           render: function (element) {
             element.appendChild(createCompletionElement(name ? name.textContent : path, path, meta ? meta.textContent : "Source"));
           }
@@ -114,12 +125,136 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     return suggestions;
   }
+  function createTargetSuggestions() {
+    const suggestions = [];
+    document.querySelectorAll(".bm-expression-input[data-target-path]").forEach(function (input) {
+      const targetPath = input.getAttribute("data-target-path") || "";
+      if (targetPath.length === 0 || targetPath.indexOf("::projection::") >= 0) {
+        return;
+      }
+      suggestions.push({
+        text: targetPath,
+        displayText: targetPath,
+        className: "bm-dsl-target-hint",
+        description: "Target path",
+        category: "target",
+        render: function (element) {
+          element.appendChild(createCompletionElement(targetPath, "Target path", "Target"));
+        }
+      });
+    });
+    return suggestions;
+  }
+  function singularizeName(value) {
+    const text = value || "item";
+    if (text.length > 3 && text.toLowerCase().lastIndexOf("ies") === text.length - 3) {
+      return text.substring(0, text.length - 3) + "y";
+    }
+    if (text.length > 1 && text.toLowerCase().lastIndexOf("s") === text.length - 1) {
+      return text.substring(0, text.length - 1);
+    }
+    return text;
+  }
+  function toAliasName(path) {
+    const cleanPath = path.replace(/\[[0-9]+\]/g, "");
+    const parts = cleanPath.split(".");
+    const last = parts.length > 0 ? parts[parts.length - 1] : "item";
+    return singularizeName(last).replace(/[^A-Za-z0-9_]/g, "") || "item";
+  }
+  function collectArrayItemFields(arrayPath, alias) {
+    const fields = [];
+    document.querySelectorAll(".bm-source-field[data-path]").forEach(function (item) {
+      const path = item.getAttribute("data-path") || "";
+      const itemPrefix = arrayPath + ".$item.";
+      const indexedPrefix = arrayPath + "[0].";
+      let fieldPath = "";
+      if (path.indexOf(itemPrefix) === 0) {
+        fieldPath = path.substring(itemPrefix.length);
+      } else if (path.indexOf(indexedPrefix) === 0) {
+        fieldPath = path.substring(indexedPrefix.length);
+      }
+      if (fieldPath.length === 0 || fieldPath.indexOf(".") >= 0) {
+        return;
+      }
+      fields.push({
+        name: fieldPath,
+        expression: alias + "." + fieldPath
+      });
+    });
+    return fields;
+  }
+  function createProjectBody(fields, alias) {
+    if (fields.length === 0) {
+      return alias;
+    }
+    const parts = [];
+    fields.forEach(function (field) {
+      parts.push(field.name + ": " + field.expression);
+    });
+    return "{ " + parts.join(", ") + " }";
+  }
+  function createProjectSuggestions() {
+    const suggestions = [];
+    createSourceSuggestions().forEach(function (source) {
+      if (source.schemaKind !== "Array") {
+        return;
+      }
+      const alias = toAliasName(source.text);
+      const fields = collectArrayItemFields(source.text, alias);
+      const snippet = "project " + source.text + " as " + alias + " => " + createProjectBody(fields, alias);
+      suggestions.push({
+        text: snippet,
+        displayText: "project " + source.text,
+        className: "bm-dsl-project-hint",
+        description: "Projects " + source.text + " as " + alias + ".",
+        category: "project",
+        render: function (element) {
+          element.appendChild(createCompletionElement("project " + source.text, "Projects " + source.text + " as " + alias + ".", "Project"));
+        }
+      });
+    });
+    suggestions.push({
+      text: "project source as item => item",
+      displayText: "project",
+      description: "Projects a collection using an item alias.",
+      category: "project"
+    });
+    return suggestions;
+  }
+  function createAliasSuggestions(editor) {
+    const cursor = editor.getCursor();
+    const line = editor.getLine(cursor.line);
+    const match = line.match(/\bproject\s+[$A-Za-z0-9_.\[\]]+\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*=>/);
+    const suggestions = [];
+    if (!match) {
+      return suggestions;
+    }
+    const alias = match[1];
+    suggestions.push({
+      text: alias,
+      displayText: alias,
+      description: "Projection alias",
+      category: "alias"
+    });
+    document.querySelectorAll(".bm-expression-input").forEach(function (input) {
+      const value = input.value || "";
+      if (value.indexOf(alias + ".") !== 0) {
+        return;
+      }
+      suggestions.push({
+        text: value,
+        displayText: value,
+        description: "Alias path",
+        category: "alias"
+      });
+    });
+    return suggestions;
+  }
   function createKeywordSuggestions() {
     return [
       { text: "target {\n  \n}", displayText: "target block", description: "Creates target mappings." },
       { text: "validate {\n  \n}", displayText: "validate block", description: "Creates validation rules." },
       { text: "metadata {\n  key: \"value\"\n}", displayText: "metadata block", description: "Creates document metadata." },
-      { text: "project source as item => item", displayText: "project", description: "Projects a collection using an item alias." },
       { text: "when(condition, thenExpression, elseExpression)", displayText: "when", description: "Creates a conditional expression.", isFunction: true },
       { text: "true", displayText: "true", description: "Boolean literal." },
       { text: "false", displayText: "false", description: "Boolean literal." },
@@ -136,12 +271,61 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     return "";
   }
+  function getDslCompletionContext(editor, prefix) {
+    const cursor = editor.getCursor();
+    const line = editor.getLine(cursor.line);
+    const beforeCursor = line.substring(0, cursor.ch);
+    const fullTextBeforeCursor = editor.getRange(window.CodeMirror.Pos(0, 0), cursor);
+    const metadataIndex = fullTextBeforeCursor.lastIndexOf("metadata");
+    const targetIndex = fullTextBeforeCursor.lastIndexOf("target");
+    const validateIndex = fullTextBeforeCursor.lastIndexOf("validate");
+    if (prefix.indexOf("$") === 0) {
+      return "source-path";
+    }
+    if (beforeCursor.indexOf("=>") >= 0) {
+      return "projection-body";
+    }
+    if (validateIndex > metadataIndex && validateIndex > targetIndex) {
+      return beforeCursor.indexOf(":") >= 0 ? "validation-expression" : "target-path";
+    }
+    if (metadataIndex > targetIndex && metadataIndex > validateIndex) {
+      return "metadata";
+    }
+    if (beforeCursor.indexOf(":") >= 0) {
+      return "expression";
+    }
+    return "general";
+  }
+  function getSuggestionsForContext(editor, context) {
+    if (context === "source-path") {
+      return createSourceSuggestions();
+    }
+    if (context === "target-path") {
+      return createTargetSuggestions();
+    }
+    if (context === "metadata") {
+      return [
+        { text: "key: \"value\"", displayText: "metadata entry", description: "Adds document metadata." }
+      ];
+    }
+    if (context === "projection-body") {
+      return createAliasSuggestions(editor).concat(createFunctionSuggestions()).concat(createKeywordSuggestions());
+    }
+    if (context === "validation-expression") {
+      return createFunctionSuggestions().concat(createKeywordSuggestions());
+    }
+    return createKeywordSuggestions()
+      .concat(createProjectSuggestions())
+      .concat(createFunctionSuggestions())
+      .concat(createSourceSuggestions());
+  }
   function createDslHintProvider(editor) {
     const prefix = getCompletionPrefix(editor);
     const lowerPrefix = prefix.toLowerCase();
     const cursor = editor.getCursor();
     const from = window.CodeMirror.Pos(cursor.line, cursor.ch - prefix.length);
-    const suggestions = createKeywordSuggestions().concat(createFunctionSuggestions()).concat(createSourceSuggestions());
+    const context = getDslCompletionContext(editor, prefix);
+    const suggestions = getSuggestionsForContext(editor, context);
     const filtered = [];
     suggestions.forEach(function (suggestion) {
       const displayText = suggestion.displayText || suggestion.text;
@@ -195,6 +379,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     dslCodeEditor.on("cursorActivity", rememberDslSelection);
     dslCodeEditor.on("focus", rememberDslSelection);
+    dslCodeEditor.getWrapperElement().addEventListener("mousemove", handleDslFunctionHover);
+    dslCodeEditor.getWrapperElement().addEventListener("mouseleave", hideFunctionTooltip);
     window.CodeMirror.on(dslCodeEditor, "endCompletion", rememberDslSelection);
     refreshDslEditor();
   }
@@ -286,6 +472,109 @@ document.addEventListener("DOMContentLoaded", function () {
     const pascalKey = key.charAt(0).toUpperCase() + key.slice(1);
     return source[pascalKey];
   }
+  function clearDslDiagnostics() {
+    if (!dslCodeEditor) {
+      return;
+    }
+    dslDiagnosticMarkers.forEach(function (marker) {
+      marker.clear();
+    });
+    dslDiagnosticMarkers = [];
+    dslDiagnosticLineClasses.forEach(function (lineClass) {
+      dslCodeEditor.removeLineClass(lineClass.line, "background", lineClass.className);
+      dslCodeEditor.setGutterMarker(lineClass.line, "CodeMirror-linenumbers", null);
+    });
+    dslDiagnosticLineClasses = [];
+  }
+  function createDslDiagnosticGutter(diagnostic) {
+    const marker = document.createElement("span");
+    marker.className = "bm-dsl-diagnostic-gutter";
+    marker.title = diagnostic.message || diagnostic.Message || "";
+    marker.textContent = "!";
+    return marker;
+  }
+  function normalizeEditorDiagnostic(diagnostic) {
+    return {
+      code: readValue(diagnostic, "code") || "",
+      message: readValue(diagnostic, "message") || "",
+      severity: readValue(diagnostic, "severity") || "Error",
+      path: readValue(diagnostic, "path") || "",
+      line: readValue(diagnostic, "line") || 1,
+      column: readValue(diagnostic, "column") || 1,
+      length: readValue(diagnostic, "length") || 1
+    };
+  }
+  function applyDslDiagnostics(response) {
+    clearDslDiagnostics();
+    if (!dslCodeEditor) {
+      return;
+    }
+    const diagnostics = readValue(response, "editorDiagnostics") || [];
+    diagnostics.forEach(function (rawDiagnostic) {
+      const diagnostic = normalizeEditorDiagnostic(rawDiagnostic);
+      const lineIndex = Math.max(0, diagnostic.line - 1);
+      const columnIndex = Math.max(0, diagnostic.column - 1);
+      const length = Math.max(1, diagnostic.length);
+      const from = window.CodeMirror.Pos(lineIndex, columnIndex);
+      const to = window.CodeMirror.Pos(lineIndex, columnIndex + length);
+      const marker = dslCodeEditor.markText(from, to, {
+        className: "bm-dsl-diagnostic-underline",
+        title: diagnostic.code.length > 0 ? diagnostic.code + ": " + diagnostic.message : diagnostic.message
+      });
+      dslDiagnosticMarkers.push(marker);
+      dslCodeEditor.addLineClass(lineIndex, "background", "bm-dsl-diagnostic-line");
+      dslCodeEditor.setGutterMarker(lineIndex, "CodeMirror-linenumbers", createDslDiagnosticGutter(diagnostic));
+      dslDiagnosticLineClasses.push({
+        line: lineIndex,
+        className: "bm-dsl-diagnostic-line"
+      });
+    });
+  }
+  function createFunctionDescriptionMap() {
+    const map = {};
+    document.querySelectorAll(".bm-function-item").forEach(function (item) {
+      const key = item.querySelector(".bm-function-key");
+      if (!key) {
+        return;
+      }
+      map[key.textContent] = item.getAttribute("title") || "";
+    });
+    return map;
+  }
+  function hideFunctionTooltip() {
+    if (functionTooltip && functionTooltip.parentNode) {
+      functionTooltip.parentNode.removeChild(functionTooltip);
+    }
+    functionTooltip = null;
+  }
+  function showFunctionTooltip(text, left, top) {
+    hideFunctionTooltip();
+    if (text.length === 0) {
+      return;
+    }
+    functionTooltip = document.createElement("div");
+    functionTooltip.className = "bm-dsl-function-tooltip";
+    functionTooltip.textContent = text;
+    functionTooltip.style.left = left + "px";
+    functionTooltip.style.top = top + "px";
+    document.body.appendChild(functionTooltip);
+  }
+  function handleDslFunctionHover(event) {
+    if (!dslCodeEditor) {
+      return;
+    }
+    const position = dslCodeEditor.coordsChar({ left: event.clientX, top: event.clientY }, "client");
+    const token = dslCodeEditor.getTokenAt(position);
+    const descriptions = createFunctionDescriptionMap();
+    const tokenText = token.string || "";
+    const line = dslCodeEditor.getLine(position.line);
+    const nextCharacter = line.substring(token.end, token.end + 1);
+    if (descriptions[tokenText] && nextCharacter === "(") {
+      showFunctionTooltip(descriptions[tokenText], event.pageX + 12, event.pageY + 12);
+      return;
+    }
+    hideFunctionTooltip();
+  }
   function updateVisualMappings(mappings) {
     if (!mappings) {
       return;
@@ -360,9 +649,11 @@ document.addEventListener("DOMContentLoaded", function () {
     postForm("SyncVisual", collectVisualMappings()).then(function (response) {
       if (readValue(response, "succeeded") && dslEditor) {
         setDslValue(readValue(response, "dslContent"));
+        applyDslDiagnostics(response);
         hideMessage();
         return;
       }
+      applyDslDiagnostics(response);
       updateMessage(response);
     }).catch(function (error) {
       updateErrorMessage(error.message);
@@ -376,6 +667,7 @@ document.addEventListener("DOMContentLoaded", function () {
     formData.append("DslContent", getDslValue());
     formData.append("ActiveView", "Dsl");
     postForm("SyncDsl", formData).then(function (response) {
+      applyDslDiagnostics(response);
       if (readValue(response, "succeeded")) {
         updateVisualMappings(readValue(response, "mappings"));
         hideMessage();

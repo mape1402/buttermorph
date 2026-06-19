@@ -29,4 +29,9 @@ public sealed class DesignerSyncResponse
     /// Gets or sets the current diagnostics count.
     /// </summary>
     public int DiagnosticsCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets diagnostics that can be rendered in the DSL editor.
+    /// </summary>
+    public IReadOnlyCollection<DesignerEditorDiagnostic> EditorDiagnostics { get; set; } = [];
 }

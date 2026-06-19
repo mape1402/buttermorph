@@ -93,6 +93,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("initializeDslCodeEditor", script, StringComparison.Ordinal);
         Assert.Contains("buttermorphDsl", script, StringComparison.Ordinal);
         Assert.Contains("createDslHintProvider", script, StringComparison.Ordinal);
+        Assert.Contains("getDslCompletionContext", script, StringComparison.Ordinal);
+        Assert.Contains("createProjectSuggestions", script, StringComparison.Ordinal);
+        Assert.Contains("applyDslDiagnostics", script, StringComparison.Ordinal);
+        Assert.Contains("createFunctionDescriptionMap", script, StringComparison.Ordinal);
+        Assert.Contains("handleDslFunctionHover", script, StringComparison.Ordinal);
         Assert.Contains("getDslValue", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
@@ -104,6 +109,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-function-item", css, StringComparison.Ordinal);
         Assert.Contains(".bm-dsl-form .CodeMirror", css, StringComparison.Ordinal);
         Assert.Contains(".CodeMirror-hints", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-diagnostic-underline", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-diagnostic-gutter", css, StringComparison.Ordinal);
+        Assert.Contains(".bm-dsl-function-tooltip", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
     }
@@ -372,6 +380,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(string.Empty, ReadString(json, "message"));
         Assert.Contains("$source.Customer.Name", ReadString(json, "dslContent"), StringComparison.Ordinal);
+        Assert.Equal(0, ReadArrayCount(json, "editorDiagnostics"));
     }
 
     /// <summary>
@@ -477,6 +486,36 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.False(ReadBoolean(json, "succeeded"));
         Assert.Equal("$source.Customer.Name", ReadMapping(json, "Customer.Name"));
+        Assert.True(ReadArrayCount(json, "editorDiagnostics") > 0);
+        Assert.True(ReadFirstDiagnosticLine(json) > 0);
+    }
+
+    /// <summary>
+    /// Confirms that semantic DSL diagnostics are returned for editor markers.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncDslReturnsEditorDiagnosticsForSemanticErrors()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncDsl",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("DslContent", "target { Customer { Name: $missing.Customer.Name } }"),
+                new KeyValuePair<string, string>("ActiveView", "Dsl")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.True(ReadNumber(json, "diagnosticsCount") > 0);
+        Assert.True(ReadArrayCount(json, "editorDiagnostics") > 0);
+        Assert.Equal("Customer.Name", ReadFirstDiagnosticPath(json));
     }
 
     /// <summary>
@@ -599,6 +638,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("value=\"item.Sku\"", complexHtml, StringComparison.Ordinal);
         Assert.Contains("data-array-target-path=\"Lines\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("data-path=\"$invoice.Header.InvoiceNumber\"", invoiceHtml, StringComparison.Ordinal);
+        Assert.Contains("data-kind=\"Array\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"$invoice.Lines\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("value=\"line.Sku\"", invoiceHtml, StringComparison.Ordinal);
         Assert.Contains("data-array-target-path=\"Messages\"", supportHtml, StringComparison.Ordinal);
@@ -849,6 +889,27 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         using JsonDocument document = JsonDocument.Parse(json);
         return document.RootElement.GetProperty(propertyName).GetInt32();
+    }
+
+    // Reads an array length from a JSON response.
+    private static int ReadArrayCount(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty(propertyName).GetArrayLength();
+    }
+
+    // Reads the first editor diagnostic line from a JSON response.
+    private static int ReadFirstDiagnosticLine(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty("editorDiagnostics")[0].GetProperty("line").GetInt32();
+    }
+
+    // Reads the first editor diagnostic path from a JSON response.
+    private static string ReadFirstDiagnosticPath(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty("editorDiagnostics")[0].GetProperty("path").GetString();
     }
 
     // Reads a mapping value from a JSON response.
