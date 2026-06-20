@@ -109,6 +109,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             ContextKey = request.ContextKey,
             Kind = "type",
+            Key = request.Result.Key,
             DisplayName = request.Result.Name,
             Description = request.Result.Description,
             DesignerPath = "/buttermorph/schema-types/designer",
@@ -192,6 +193,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
             {
+                Key = ResolveValue(save.Key, ResolveSchemaKey(request.ContextKey)),
+                Name = ResolveSavedDisplayName(request.ContextKey, save),
+                Description = save.Description,
                 JsonSchema = save.JsonSchema,
                 SchemaTypes = CreateTypeCatalog(),
                 MetadataFields = CreateMetadataCatalog(),
@@ -201,6 +205,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
         {
+            Key = ResolveSchemaKey(request.ContextKey),
+            Name = ResolveDisplayName(request.ContextKey),
+            Description = ResolveDescription(request.ContextKey),
             JsonSchema = CreatePayloadJson(request.ContextKey),
             SchemaTypes = CreateTypeCatalog(),
             MetadataFields = CreateMetadataCatalog(),
@@ -219,8 +226,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             ContextKey = request.ContextKey,
             Kind = "payload",
-            DisplayName = ResolveDisplayName(request.ContextKey),
-            Description = "Payload schema",
+            Key = request.Result.Key,
+            DisplayName = request.Result.Name,
+            Description = request.Result.Description,
             DesignerPath = "/buttermorph/payload-schema/designer",
             JsonSchema = request.Result.JsonSchema,
             SavedAt = DateTimeOffset.UtcNow.ToString("O")
@@ -357,6 +365,12 @@ internal sealed class PlaygroundSchemaDesignerHost :
             view.VersionNumber = input.VersionNumber;
             view.BaseType = input.BaseType;
             view.Comment = input.Comment;
+            view.Key = input.Key;
+        }
+
+        if (view.Kind == "payload")
+        {
+            view.Key = ResolveSchemaKey(contextKey);
         }
 
         return view;
@@ -387,7 +401,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
     {
         if (string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
         {
-            return "{\"type\":\"string\",\"description\":\"Customer code used by integrations.\",\"minLength\":3,\"maxLength\":24,\"pattern\":\"^[A-Z0-9-]+$\"}";
+            return "{\"key\":\"customer-code\",\"name\":\"CustomerCode\",\"type\":\"string\",\"description\":\"Customer code used by integrations.\",\"minLength\":3,\"maxLength\":24,\"pattern\":\"^[A-Z0-9-]+$\"}";
         }
 
         if (string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
@@ -408,6 +422,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
 
         return new SchemaTypeDesignInput
         {
+            Key = "customer-code",
             Name = "CustomerCode",
             Description = "Customer code used by integrations.",
             VersionNumber = "1.0.0",
@@ -425,6 +440,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
         SchemaTypeDesignInput input = new()
         {
             Name = save.DisplayName,
+            Key = ResolveValue(save.Key, ResolveSchemaKey(save.ContextKey)),
             Description = save.Description,
             VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
             BaseType = ResolveValue(save.BaseType, "string"),
@@ -454,6 +470,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 input.BaseType = ResolveValue(typeElement.ToString(), input.BaseType);
             }
 
+            ReadSchemaString(root, "key", value => input.Key = ResolveValue(input.Key, value));
+            ReadSchemaString(root, "name", value => input.Name = ResolveValue(input.Name, value));
             ReadSchemaString(root, "description", value => input.Description = ResolveValue(input.Description, value));
             ReadSchemaString(root, "minLength", value => input.MinLength = value);
             ReadSchemaString(root, "maxLength", value => input.MaxLength = value);
@@ -559,7 +577,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
     {
         if (!string.Equals(contextKey, "payload-customer-profile", StringComparison.OrdinalIgnoreCase))
         {
-            return "{\"type\":\"" + MapType + "\",\"properties\":{}}";
+            string key = ResolveSchemaKey(contextKey);
+            return "{\"key\":\"" + key + "\",\"name\":\"" + key + "\",\"type\":\"" + MapType + "\",\"properties\":{}}";
         }
 
         JsonSchemaConversionResult result = exporter.Export(new JsonSchemaExportRequest
@@ -691,6 +710,27 @@ internal sealed class PlaygroundSchemaDesignerHost :
         return "payload";
     }
 
+    // Resolves a canonical schema key for known playground contexts.
+    private static string ResolveSchemaKey(string contextKey)
+    {
+        if (string.Equals(contextKey, "payload-customer-profile", StringComparison.OrdinalIgnoreCase))
+        {
+            return "customer-profile";
+        }
+
+        if (contextKey.StartsWith("payload-", StringComparison.OrdinalIgnoreCase))
+        {
+            return contextKey["payload-".Length..];
+        }
+
+        if (contextKey.StartsWith("datatype-", StringComparison.OrdinalIgnoreCase))
+        {
+            return contextKey["datatype-".Length..];
+        }
+
+        return contextKey;
+    }
+
     // Resolves designer path for saved items.
     private static string ResolveDesignerPath(string contextKey, PlaygroundSchemaSave save)
     {
@@ -785,3 +825,4 @@ internal sealed class PlaygroundSchemaDesignerHost :
         }
     }
 }
+

@@ -62,6 +62,7 @@ public sealed class DesignExplorerTests
     {
         return new StructureSchema
         {
+            Key = "schema",
             Name = "Schema",
             Root = new SchemaNode
             {

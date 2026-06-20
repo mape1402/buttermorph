@@ -80,6 +80,7 @@ public sealed class SchemaPathResolverTests
     {
         return new StructureSchema
         {
+            Key = "test",
             Name = "Test",
             Root = new SchemaNode
             {

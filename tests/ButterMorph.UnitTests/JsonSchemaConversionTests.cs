@@ -35,6 +35,42 @@ public sealed class JsonSchemaConversionTests
     }
 
     /// <summary>
+    /// Confirms that ButterMorph identity keywords import as schema identity.
+    /// </summary>
+    [Fact]
+    public void ImportUsesButterMorphIdentityKeywords()
+    {
+        JsonSchemaImporter importer = new();
+
+        JsonSchemaConversionResult result = importer.Import(new JsonSchemaImportRequest
+        {
+            JsonSchema = "{\"key\":\"customer\",\"name\":\"Customer\",\"description\":\"Customer schema\",\"type\":\"string\"}"
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("customer", result.Schema.Key);
+        Assert.Equal("Customer", result.Schema.Name);
+        Assert.Equal("Customer schema", result.Schema.Description);
+    }
+
+    /// <summary>
+    /// Confirms that import fails when no canonical key is available.
+    /// </summary>
+    [Fact]
+    public void ImportWithoutKeyFails()
+    {
+        JsonSchemaImporter importer = new();
+
+        JsonSchemaConversionResult result = importer.Import(new JsonSchemaImportRequest
+        {
+            JsonSchema = "{\"type\":\"string\"}"
+        });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => string.Equals(diagnostic.Code, "BMJS001", System.StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Confirms that map-shaped schemas import child properties and standard required names.
     /// </summary>
     [Fact]
@@ -45,6 +81,7 @@ public sealed class JsonSchemaConversionTests
 
         JsonSchemaConversionResult result = importer.Import(new JsonSchemaImportRequest
         {
+            Name = "customer",
             JsonSchema = json
         });
 
@@ -52,7 +89,8 @@ public sealed class JsonSchemaConversionTests
         ISchemaNode age = FindChild(result.Schema.Root, "age");
 
         Assert.True(result.Succeeded);
-        Assert.Equal("Customer", result.Schema.Name);
+        Assert.Equal("customer", result.Schema.Key);
+        Assert.Equal("customer", result.Schema.Name);
         Assert.Equal(SchemaNodeKind.Object, result.Schema.Root.Kind);
         Assert.True(name.IsRequired);
         Assert.False(age.IsRequired);
@@ -158,7 +196,9 @@ public sealed class JsonSchemaConversionTests
         JsonSchemaExporter exporter = new();
         IStructureSchema schema = new StructureSchema
         {
+            Key = "customer",
             Name = "Customer",
+            Description = "Customer schema",
             Root = new SchemaNode
             {
                 Name = "$root",
@@ -187,6 +227,9 @@ public sealed class JsonSchemaConversionTests
         JsonElement root = document.RootElement;
 
         Assert.True(result.Succeeded);
+        Assert.Equal("customer", root.GetProperty("key").GetString());
+        Assert.Equal("Customer", root.GetProperty("name").GetString());
+        Assert.Equal("Customer schema", root.GetProperty("description").GetString());
         Assert.Equal(MapType(), root.GetProperty("type").GetString());
         Assert.Equal("name", root.GetProperty("required")[0].GetString());
         Assert.Equal("string", root.GetProperty("properties").GetProperty("name").GetProperty("type").GetString());
@@ -201,6 +244,7 @@ public sealed class JsonSchemaConversionTests
         JsonSchemaExporter exporter = new();
         IStructureSchema schema = new StructureSchema
         {
+            Key = "value",
             Name = "Value",
             Root = new SchemaNode
             {
@@ -301,3 +345,4 @@ public sealed class JsonSchemaConversionTests
         return "obj" + "ect";
     }
 }
+

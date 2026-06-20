@@ -95,6 +95,7 @@ public sealed class ModelingBuilderTests
         ISchemaNode nameNode = Assert.Single(itemNode.Children);
 
         Assert.Equal("Customer", schema.Name);
+        Assert.Equal("customer", schema.Key);
         Assert.Equal(SchemaNodeKind.Array, arrayNode.Kind);
         Assert.Equal("String", nameNode.DataType);
         Assert.True(nameNode.IsRequired);
@@ -182,6 +183,7 @@ public sealed class ModelingBuilderTests
     public void BuildersRejectInvalidInputs()
     {
         Assert.Throws<ArgumentException>(() => ButterMorphModel.CreateSchema(string.Empty));
+        Assert.Throws<ArgumentException>(() => ButterMorphModel.CreateSchema("Customer").WithKey(string.Empty).Build());
         Assert.Throws<ArgumentException>(() => ButterMorphModel.CreateNode().Scalar(string.Empty, "String"));
         Assert.Throws<ArgumentException>(() => ButterMorphModel.Expressions.Path(string.Empty));
         Assert.Throws<ArgumentException>(() => ButterMorphModel.Expressions.Function(string.Empty, []));

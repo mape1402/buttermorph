@@ -6,9 +6,19 @@ namespace ButterMorph.Abstractions;
 public interface IStructureSchema
 {
     /// <summary>
+    /// Gets the canonical schema key.
+    /// </summary>
+    string Key { get; }
+
+    /// <summary>
     /// Gets the schema name.
     /// </summary>
     string Name { get; }
+
+    /// <summary>
+    /// Gets the schema description.
+    /// </summary>
+    string Description { get; }
 
     /// <summary>
     /// Gets the schema root node.

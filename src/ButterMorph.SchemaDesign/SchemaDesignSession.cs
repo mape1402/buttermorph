@@ -283,7 +283,9 @@ public sealed class SchemaDesignSession : ISchemaDesignSession
     {
         return new StructureSchema
         {
+            Key = "schema",
             Name = "Schema",
+            Description = string.Empty,
             Root = new SchemaNode
             {
                 Name = "$root",
@@ -357,7 +359,9 @@ public sealed class SchemaDesignSession : ISchemaDesignSession
     {
         return new StructureSchema
         {
+            Key = source.Key,
             Name = source.Name,
+            Description = source.Description,
             Root = CloneNode(source.Root),
             Metadata = new Dictionary<string, string>(source.Metadata, StringComparer.Ordinal)
         };

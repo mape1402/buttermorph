@@ -31,11 +31,15 @@
             @Html.AntiForgeryToken()
             <div class="atlas-editor-scroll">
                 <section class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Nombre</label>
-                        <input class="form-control" asp-for="Input.Name" placeholder="CustomerCode" />
+                    <div class="col-md-3">
+                        <label class="form-label">Key</label>
+                        <input class="form-control" asp-for="Input.Key" placeholder="customer-code" required />
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Nombre</label>
+                        <input class="form-control" asp-for="Input.Name" placeholder="Customer Code" required />
+                    </div>
+                    <div class="col-md-5">
                         <label class="form-label">Descripcion</label>
                         <input class="form-control" asp-for="Input.Description" placeholder="Describe el tipo personalizado" />
                     </div>

@@ -45,6 +45,15 @@ public sealed class MappingDesignSession : IMappingDesignSession
     /// <returns>The operation result.</returns>
     public IMappingOperationResult LoadDocument(ITransformationDocument document)
     {
+        List<DiagnosticEntry> diagnostics = [];
+        foreach (KeyValuePair<string, IStructureSchema> schema in document.SourceSchemas)
+        {
+            AddSchemaIdentityDiagnostics(diagnostics, schema.Key, schema.Value);
+        }
+
+        AddTargetSchemaIdentityDiagnostics(diagnostics, document.TargetSchema);
+        AddDuplicateSchemaKeyDiagnostics(diagnostics, document.SourceSchemas);
+
         _document = new TransformationDocument
         {
             Definition = document.Definition,
@@ -55,7 +64,7 @@ public sealed class MappingDesignSession : IMappingDesignSession
             Metadata = document.Metadata
         };
 
-        return Success();
+        return ResultFromDiagnostics(diagnostics);
     }
 
     /// <summary>
@@ -71,13 +80,18 @@ public sealed class MappingDesignSession : IMappingDesignSession
             return Failure("BMDG001", "Source schema key cannot be blank.", string.Empty);
         }
 
+        List<DiagnosticEntry> diagnostics = [];
+        AddSchemaIdentityDiagnostics(diagnostics, key, schema);
+
         Dictionary<string, IStructureSchema> schemas = new(_document.SourceSchemas, StringComparer.Ordinal)
         {
             [key] = schema
         };
+
+        AddDuplicateSchemaKeyDiagnostics(diagnostics, schemas);
         _document.SourceSchemas = schemas;
 
-        return Success();
+        return ResultFromDiagnostics(diagnostics);
     }
 
     /// <summary>
@@ -87,8 +101,10 @@ public sealed class MappingDesignSession : IMappingDesignSession
     /// <returns>The operation result.</returns>
     public IMappingOperationResult LoadTargetSchema(IStructureSchema schema)
     {
+        List<DiagnosticEntry> diagnostics = [];
+        AddTargetSchemaIdentityDiagnostics(diagnostics, schema);
         _document.TargetSchema = schema;
-        return Success();
+        return ResultFromDiagnostics(diagnostics);
     }
 
     /// <summary>
@@ -297,6 +313,16 @@ public sealed class MappingDesignSession : IMappingDesignSession
         };
     }
 
+    // Creates a successful operation result with non-blocking diagnostics.
+    private static IMappingOperationResult ResultFromDiagnostics(IReadOnlyCollection<DiagnosticEntry> diagnostics)
+    {
+        return new MappingOperationResult
+        {
+            Succeeded = HasNoErrors(diagnostics),
+            Diagnostics = diagnostics
+        };
+    }
+
     // Creates a failed operation result.
     private static IMappingOperationResult Failure(string code, string message, string path)
     {
@@ -313,6 +339,87 @@ public sealed class MappingDesignSession : IMappingDesignSession
                     Severity = "Error"
                 }
             ]
+        };
+    }
+
+    // Determines whether diagnostics contain blocking errors.
+    private static bool HasNoErrors(IReadOnlyCollection<DiagnosticEntry> diagnostics)
+    {
+        foreach (DiagnosticEntry diagnostic in diagnostics)
+        {
+            if (string.Equals(diagnostic.Severity, "Error", StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Adds schema identity diagnostics for source schemas.
+    private static void AddSchemaIdentityDiagnostics(List<DiagnosticEntry> diagnostics, string alias, IStructureSchema schema)
+    {
+        if (string.IsNullOrWhiteSpace(schema.Key))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG008", "Source schema canonical key cannot be blank.", alias, "Error"));
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(schema.Name))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG009", "Source schema name cannot be blank.", alias, "Error"));
+        }
+
+        if (!string.Equals(alias, schema.Key, StringComparison.Ordinal))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG010", "Source alias differs from schema key. Paths use the alias, but schema identity uses the key.", alias, "Warning"));
+        }
+    }
+
+    // Adds schema identity diagnostics for target schemas.
+    private static void AddTargetSchemaIdentityDiagnostics(List<DiagnosticEntry> diagnostics, IStructureSchema schema)
+    {
+        if (string.IsNullOrWhiteSpace(schema.Key))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG012", "Target schema canonical key cannot be blank.", "target", "Error"));
+        }
+
+        if (string.IsNullOrWhiteSpace(schema.Name))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG013", "Target schema name cannot be blank.", "target", "Error"));
+        }
+    }
+
+    // Adds duplicate canonical schema key diagnostics.
+    private static void AddDuplicateSchemaKeyDiagnostics(List<DiagnosticEntry> diagnostics, IReadOnlyDictionary<string, IStructureSchema> schemas)
+    {
+        Dictionary<string, string> aliasesBySchemaKey = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, IStructureSchema> pair in schemas)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Value.Key))
+            {
+                continue;
+            }
+
+            if (aliasesBySchemaKey.ContainsKey(pair.Value.Key))
+            {
+                diagnostics.Add(CreateDiagnostic("BMDG011", "Multiple source schemas use the same canonical schema key.", pair.Value.Key, "Warning"));
+                continue;
+            }
+
+            aliasesBySchemaKey[pair.Value.Key] = pair.Key;
+        }
+    }
+
+    // Creates one design diagnostic entry.
+    private static DiagnosticEntry CreateDiagnostic(string code, string message, string path, string severity)
+    {
+        return new DiagnosticEntry
+        {
+            Code = code,
+            Message = message,
+            Path = path,
+            Severity = severity
         };
     }
 }

@@ -371,6 +371,7 @@ public sealed class TransformationSemanticAnalyzerTests
     {
         return new StructureSchema
         {
+            Key = "source",
             Name = "Source",
             Root = new SchemaNode
             {
@@ -424,6 +425,7 @@ public sealed class TransformationSemanticAnalyzerTests
     {
         return new StructureSchema
         {
+            Key = "target",
             Name = "Target",
             Root = new SchemaNode
             {
@@ -475,6 +477,7 @@ public sealed class TransformationSemanticAnalyzerTests
     {
         return new StructureSchema
         {
+            Key = "target",
             Name = "Target",
             Root = new SchemaNode
             {

@@ -6,6 +6,11 @@ namespace ButterMorph.SchemaDesign;
 public sealed class SchemaTypeDesignInput
 {
     /// <summary>
+    /// Gets or sets the canonical type key.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the type name.
     /// </summary>
     public string Name { get; set; } = string.Empty;

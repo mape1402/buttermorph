@@ -14,6 +14,16 @@ public sealed class SchemaExplorer : ISchemaExplorer
     /// <returns>The schema tree root.</returns>
     public ISchemaTreeNode Explore(IStructureSchema schema)
     {
+        if (string.IsNullOrWhiteSpace(schema.Key))
+        {
+            throw new InvalidOperationException("Schema key is required before exploring a schema.");
+        }
+
+        if (string.IsNullOrWhiteSpace(schema.Name))
+        {
+            throw new InvalidOperationException("Schema name is required before exploring a schema.");
+        }
+
         return CreateNode(schema.Root, string.Empty);
     }
 

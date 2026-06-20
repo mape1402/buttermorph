@@ -412,6 +412,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new FormUrlEncodedContent(
             [
                 new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("Input.Key", "saved-type"),
                 new KeyValuePair<string, string>("Input.Name", "SavedType"),
                 new KeyValuePair<string, string>("Input.Description", "Saved description"),
                 new KeyValuePair<string, string>("Input.VersionNumber", "2.0.0"),
@@ -438,6 +439,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("Guardar tipo", savedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("type-base-select", savedJson, StringComparison.Ordinal);
         Assert.Equal("SavedType", ReadString(viewJson, "displayName"));
+        Assert.Equal("saved-type", ReadString(viewJson, "key"));
         Assert.Equal("Saved description", ReadString(viewJson, "description"));
         Assert.Equal("2.0.0", ReadString(viewJson, "versionNumber"));
         Assert.Equal("Saved comment", ReadString(viewJson, "comment"));
@@ -482,6 +484,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         request.Content = new FormUrlEncodedContent(
         [
             new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("Input.Key", "host-flow-type"),
             new KeyValuePair<string, string>("Input.Name", "HostFlowType"),
             new KeyValuePair<string, string>("Input.Description", "Host flow description"),
             new KeyValuePair<string, string>("Input.VersionNumber", "1.0.0"),
@@ -508,6 +511,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("ButterMorph Designer", json, StringComparison.Ordinal);
         Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
         Assert.Equal("HostFlowType", ReadString(viewJson, "displayName"));
+        Assert.Equal("host-flow-type", ReadString(viewJson, "key"));
     }
 
     /// <summary>
@@ -523,6 +527,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string action = ExtractFormAction(html);
         using MultipartFormDataContent content = new();
         content.Add(new StringContent(token), "__RequestVerificationToken");
+        content.Add(new StringContent("multipart-type"), "Input.Key");
         content.Add(new StringContent("MultipartType"), "Input.Name");
         content.Add(new StringContent("Multipart description"), "Input.Description");
         content.Add(new StringContent("1.0.0"), "Input.VersionNumber");
@@ -541,6 +546,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
         Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
         Assert.Equal("MultipartType", ReadString(viewJson, "displayName"));
+        Assert.Equal("multipart-type", ReadString(viewJson, "key"));
         Assert.Equal("Multipart description", ReadString(viewJson, "description"));
         Assert.Equal("Multipart comment", ReadString(viewJson, "comment"));
     }
@@ -638,6 +644,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         request.Content = new FormUrlEncodedContent(
         [
             new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("SchemaKey", "payload-host-flow"),
+            new KeyValuePair<string, string>("SchemaName", "Payload Host Flow"),
+            new KeyValuePair<string, string>("SchemaDescription", "Payload host flow schema"),
             new KeyValuePair<string, string>("PayloadSchemaJson", schema)
         ]);
 
@@ -654,6 +663,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("returnUrl", json, StringComparison.Ordinal);
         Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
         Assert.Equal("payload", ReadString(viewJson, "kind"));
+        Assert.Equal("payload-host-flow", ReadString(viewJson, "key"));
+        Assert.Equal("Payload Host Flow", ReadString(viewJson, "displayName"));
         Assert.Contains("Code", ReadString(viewJson, "jsonSchema"), StringComparison.Ordinal);
     }
 
@@ -1606,6 +1617,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         return new StructureSchema
         {
+            Key = name.ToLowerInvariant(),
             Name = name,
             Root = new SchemaNode
             {

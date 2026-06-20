@@ -43,6 +43,24 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     public string PayloadSchemaJson { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the canonical schema key.
+    /// </summary>
+    [BindProperty]
+    public string SchemaKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the display schema name.
+    /// </summary>
+    [BindProperty]
+    public string SchemaName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the schema description.
+    /// </summary>
+    [BindProperty]
+    public string SchemaDescription { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets available schema types.
     /// </summary>
     public IReadOnlyCollection<SchemaTypeCatalogItem> SchemaTypes { get; set; } = [];
@@ -126,7 +144,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         await ApplyHostLoadCatalogOnly();
         PayloadSchemaDesignResult result = payloadBuilder.Build(new PayloadSchemaDesignInput
         {
-            Name = "Payload",
+            Key = SchemaKey,
+            Name = SchemaName,
+            Description = SchemaDescription,
             JsonSchema = PayloadSchemaJson
         }, SchemaTypes, MetadataFields);
         RefreshCatalogs();
@@ -191,6 +211,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
                 ContextKey = ResolveContextKey()
             });
             PayloadSchemaJson = result.JsonSchema;
+            SchemaKey = result.Key;
+            SchemaName = result.Name;
+            SchemaDescription = result.Description;
             SchemaTypes = result.SchemaTypes;
             MetadataFields = result.MetadataFields;
             ShowManualActions = result.ShowManualActions;
@@ -198,6 +221,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             return;
         }
 
+        SchemaKey = "payload";
+        SchemaName = "Payload";
+        SchemaDescription = string.Empty;
         PayloadSchemaJson = "{\"type\":\"" + ("obj" + "ect") + "\",\"properties\":{}}";
     }
 

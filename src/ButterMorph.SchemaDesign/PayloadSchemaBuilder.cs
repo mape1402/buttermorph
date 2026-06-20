@@ -1,5 +1,6 @@
 namespace ButterMorph.SchemaDesign;
 
+using System.Text;
 using System.Text.Json;
 using ButterMorph.Abstractions;
 
@@ -21,6 +22,16 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
     public PayloadSchemaDesignResult Build(PayloadSchemaDesignInput input, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields)
     {
         input = NormalizeInput(input);
+        if (string.IsNullOrWhiteSpace(input.Key))
+        {
+            return Fail("BMSD300", "Payload schema key is required.", "Key");
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Name))
+        {
+            return Fail("BMSD304", "Payload schema name is required.", "Name");
+        }
+
         if (string.IsNullOrWhiteSpace(input.JsonSchema))
         {
             return Fail("BMSD301", "Payload JSON Schema is required.", "JsonSchema");
@@ -45,7 +56,10 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             {
                 Succeeded = true,
                 Diagnostics = [],
-                JsonSchema = SchemaDesignJsonTools.Compact(input.JsonSchema)
+                Key = input.Key.Trim(),
+                Name = input.Name.Trim(),
+                Description = input.Description.Trim(),
+                JsonSchema = AddSchemaIdentity(input.JsonSchema, input.Key, input.Name, input.Description)
             };
         }
         catch (JsonException exception)
@@ -65,8 +79,50 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
         return new PayloadSchemaDesignInput
         {
             Name = SafeString(input.Name),
+            Key = SafeString(input.Key),
+            Description = SafeString(input.Description),
             JsonSchema = SafeString(input.JsonSchema)
         };
+    }
+
+    // Adds canonical ButterMorph schema identity to the payload JSON Schema.
+    private static string AddSchemaIdentity(string jsonSchema, string key, string name, string description)
+    {
+        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
+
+        writer.WriteStartObject();
+        writer.WriteString("key", key.Trim());
+        writer.WriteString("name", name.Trim());
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            writer.WriteString("description", description.Trim());
+        }
+
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            if (IsIdentityProperty(property.Name))
+            {
+                continue;
+            }
+
+            property.WriteTo(writer);
+        }
+
+        writer.WriteEndObject();
+        writer.Flush();
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // Detects root identity keywords already controlled by ButterMorph.
+    private static bool IsIdentityProperty(string propertyName)
+    {
+        return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "name", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "description", StringComparison.Ordinal);
     }
 
     // Converts model-bound null strings into empty text.
@@ -99,3 +155,4 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
         };
     }
 }
+

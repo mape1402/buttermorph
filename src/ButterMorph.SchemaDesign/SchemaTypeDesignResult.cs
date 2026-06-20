@@ -18,6 +18,11 @@ public sealed class SchemaTypeDesignResult
     public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the canonical type key.
+    /// </summary>
+    public string Key { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the type name.
     /// </summary>
     public string Name { get; set; } = string.Empty;

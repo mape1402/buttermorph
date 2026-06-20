@@ -257,6 +257,7 @@
                 description: "",
                 designerPath: designerPaths.type,
                 jsonSchema: "",
+                key: "",
                 versionNumber: "1.0.0",
                 baseType: "string",
                 comment: ""
@@ -285,6 +286,7 @@
             displayName: "",
             description: "",
             designerPath: designerPaths.payload,
+            key: "",
             jsonSchema: "{\"type\":\"object\",\"properties\":{}}"
         });
     }
@@ -355,6 +357,7 @@
 
         if (item.kind === "type") {
             return JSON.stringify({
+                key: item.key || "",
                 name: item.displayName || "",
                 description: item.description || "",
                 versionNumber: item.versionNumber || "",

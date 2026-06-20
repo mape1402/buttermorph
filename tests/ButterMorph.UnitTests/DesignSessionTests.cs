@@ -131,6 +131,7 @@ public sealed class DesignSessionTests
     {
         return new StructureSchema
         {
+            Key = name.ToLowerInvariant(),
             Name = name,
             Root = new SchemaNode
             {

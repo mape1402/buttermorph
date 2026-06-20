@@ -17,6 +17,8 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         "items",
         "required",
         "$defs",
+        "key",
+        "name",
         "title",
         "description",
         "format",
@@ -46,7 +48,13 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         {
             using JsonDocument document = JsonDocument.Parse(request.JsonSchema);
             JsonElement rootElement = document.RootElement;
-            string schemaName = ResolveSchemaName(request.Name, rootElement);
+            string schemaKey = ResolveSchemaKey(request.Name, rootElement);
+            if (string.IsNullOrWhiteSpace(schemaKey))
+            {
+                return CreateFailure("Schema key is required.");
+            }
+
+            string schemaName = ResolveSchemaName(schemaKey, rootElement);
             Dictionary<string, string> schemaMetadata = ReadMetadata(rootElement);
 
             if (rootElement.TryGetProperty("$defs", out JsonElement definitions))
@@ -59,7 +67,9 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
                 Succeeded = true,
                 Schema = new StructureSchema
                 {
+                    Key = schemaKey,
                     Name = schemaName,
+                    Description = ResolveSchemaDescription(rootElement),
                     Root = ImportNode("$root", rootElement, ReadRequiredNames(rootElement)),
                     Metadata = schemaMetadata
                 },
@@ -254,25 +264,57 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         return false;
     }
 
-    // Resolves the ButterMorph schema name.
-    private static string ResolveSchemaName(string requestedName, JsonElement rootElement)
+    // Resolves the ButterMorph schema key.
+    private static string ResolveSchemaKey(string requestedName, JsonElement rootElement)
     {
+        if (rootElement.TryGetProperty("key", out JsonElement keyElement) && keyElement.ValueKind == JsonValueKind.String)
+        {
+            string key = keyElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                return key;
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(requestedName))
         {
             return requestedName;
         }
 
-        if (rootElement.TryGetProperty("title", out JsonElement titleElement) && titleElement.ValueKind == JsonValueKind.String)
-        {
-            string title = titleElement.GetString();
+        return string.Empty;
+    }
 
-            if (!string.IsNullOrWhiteSpace(title))
+    // Resolves the ButterMorph schema name.
+    private static string ResolveSchemaName(string schemaKey, JsonElement rootElement)
+    {
+        if (rootElement.TryGetProperty("name", out JsonElement nameElement) && nameElement.ValueKind == JsonValueKind.String)
+        {
+            string name = nameElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(name))
             {
-                return title;
+                return name;
             }
         }
 
-        return "Schema";
+        return schemaKey;
+    }
+
+    // Resolves the ButterMorph schema description.
+    private static string ResolveSchemaDescription(JsonElement rootElement)
+    {
+        if (rootElement.TryGetProperty("description", out JsonElement descriptionElement) && descriptionElement.ValueKind == JsonValueKind.String)
+        {
+            string description = descriptionElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                return description;
+            }
+        }
+
+        return string.Empty;
     }
 
     // Determines whether a schema type represents a map-shaped node.
@@ -300,3 +342,4 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         };
     }
 }
+

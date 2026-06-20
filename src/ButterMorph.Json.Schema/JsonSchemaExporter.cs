@@ -37,13 +37,23 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
     /// <returns>The conversion result.</returns>
     public JsonSchemaConversionResult Export(JsonSchemaExportRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Schema.Key))
+        {
+            return CreateFailure("Schema key is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Schema.Name))
+        {
+            return CreateFailure("Schema name is required.");
+        }
+
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions
         {
             Indented = false
         });
 
-        WriteNode(writer, request.Schema.Root, true);
+        WriteNode(writer, request.Schema.Root, true, request.Schema);
         writer.Flush();
 
         string jsonSchema = Encoding.UTF8.GetString(stream.ToArray());
@@ -58,15 +68,16 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
     }
 
     // Writes one schema node as JSON Schema.
-    private static void WriteNode(Utf8JsonWriter writer, ISchemaNode node, bool includeSchemaMetadata)
+    private static void WriteNode(Utf8JsonWriter writer, ISchemaNode node, bool includeSchemaMetadata, IStructureSchema schema)
     {
         writer.WriteStartObject();
 
         if (node.Kind == SchemaNodeKind.Object)
         {
             writer.WriteString("type", SchemaText.Map);
+            WriteSchemaIdentity(writer, includeSchemaMetadata, schema);
             WriteMetadata(writer, node.Metadata);
-            WriteProperties(writer, node);
+            WriteProperties(writer, node, schema);
             writer.WriteEndObject();
             return;
         }
@@ -74,19 +85,38 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
         if (node.Kind == SchemaNodeKind.Array)
         {
             writer.WriteString("type", SchemaText.Array);
+            WriteSchemaIdentity(writer, includeSchemaMetadata, schema);
             WriteMetadata(writer, node.Metadata);
-            WriteItems(writer, node);
+            WriteItems(writer, node, schema);
             writer.WriteEndObject();
             return;
         }
 
         writer.WriteString("type", NormalizeScalarType(node.DataType));
+        WriteSchemaIdentity(writer, includeSchemaMetadata, schema);
         WriteMetadata(writer, node.Metadata);
         writer.WriteEndObject();
     }
 
+    // Writes schema-level identity keywords.
+    private static void WriteSchemaIdentity(Utf8JsonWriter writer, bool includeSchemaMetadata, IStructureSchema schema)
+    {
+        if (!includeSchemaMetadata)
+        {
+            return;
+        }
+
+        writer.WriteString("key", schema.Key);
+        writer.WriteString("name", schema.Name);
+
+        if (!string.IsNullOrWhiteSpace(schema.Description))
+        {
+            writer.WriteString("description", schema.Description);
+        }
+    }
+
     // Writes child schema nodes as properties.
-    private static void WriteProperties(Utf8JsonWriter writer, ISchemaNode node)
+    private static void WriteProperties(Utf8JsonWriter writer, ISchemaNode node, IStructureSchema schema)
     {
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
@@ -94,7 +124,7 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
         foreach (ISchemaNode child in node.Children)
         {
             writer.WritePropertyName(child.Name);
-            WriteNode(writer, child, false);
+            WriteNode(writer, child, false, schema);
         }
 
         writer.WriteEndObject();
@@ -102,7 +132,7 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
     }
 
     // Writes array item schema.
-    private static void WriteItems(Utf8JsonWriter writer, ISchemaNode node)
+    private static void WriteItems(Utf8JsonWriter writer, ISchemaNode node, IStructureSchema schema)
     {
         ISchemaNode item = new ButterMorph.Core.SchemaNode
         {
@@ -119,7 +149,7 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
         }
 
         writer.WritePropertyName("items");
-        WriteNode(writer, item, false);
+        WriteNode(writer, item, false, schema);
     }
 
     // Writes standard required names.
@@ -239,4 +269,24 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
 
         return dataType;
     }
+
+    // Creates a failed conversion result.
+    private static JsonSchemaConversionResult CreateFailure(string message)
+    {
+        return new JsonSchemaConversionResult
+        {
+            Succeeded = false,
+            Diagnostics =
+            [
+                new DiagnosticEntry
+                {
+                    Code = "BMJS002",
+                    Message = message,
+                    Path = string.Empty,
+                    Severity = "Error"
+                }
+            ]
+        };
+    }
 }
+

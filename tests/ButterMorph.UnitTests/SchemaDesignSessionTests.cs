@@ -75,6 +75,7 @@ public sealed class SchemaDesignSessionTests
 
         SchemaTypeDesignResult result = builder.Build(new SchemaTypeDesignInput
         {
+            Key = "customer-code",
             Name = "CustomerCode",
             BaseType = "string",
             VersionNumber = "1.0.0",
@@ -85,6 +86,7 @@ public sealed class SchemaDesignSessionTests
         }, []);
 
         Assert.True(result.Succeeded);
+        Assert.Contains("\"key\":\"customer-code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"minLength\":3", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"maxLength\":24", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"enum\":[\"ABC\"]", result.JsonSchema, StringComparison.Ordinal);
@@ -100,6 +102,7 @@ public sealed class SchemaDesignSessionTests
 
         SchemaTypeDesignResult result = builder.Build(new SchemaTypeDesignInput
         {
+            Key = "codes",
             Name = "Codes",
             BaseType = "array",
             VersionNumber = "1.0.0",
@@ -158,10 +161,13 @@ public sealed class SchemaDesignSessionTests
 
         PayloadSchemaDesignResult result = builder.Build(new PayloadSchemaDesignInput
         {
+            Key = "payload",
+            Name = "Payload",
             JsonSchema = "{\"type\":\"" + mapType + "\",\"properties\":{\"Code\":{\"type\":\"string\",\"required\":true}}}"
         }, [], []);
 
         Assert.True(result.Succeeded);
+        Assert.Contains("\"key\":\"payload\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"Code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"required\":true", result.JsonSchema, StringComparison.Ordinal);
     }
@@ -172,3 +178,4 @@ public sealed class SchemaDesignSessionTests
         return new SchemaDesignSession(new JsonSchemaImporter(), new JsonSchemaExporter());
     }
 }
+

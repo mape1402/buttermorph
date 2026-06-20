@@ -440,7 +440,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "customer",
             Name = "Customer source",
+            Description = "Customer source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Identity", SchemaNodeKind.Object, string.Empty,
@@ -474,7 +476,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "orders",
             Name = "Orders source",
+            Description = "Orders source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Orders", SchemaNodeKind.Array, string.Empty,
@@ -506,7 +510,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "customer-order-summary",
             Name = "Customer order summary",
+            Description = "Customer order target schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Customer", SchemaNodeKind.Object, string.Empty,
@@ -592,7 +598,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "invoice",
             Name = "Invoice source",
+            Description = "Invoice source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Header", SchemaNodeKind.Object, string.Empty,
@@ -629,7 +637,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "payment",
             Name = "Payment source",
+            Description = "Payment source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Payment", SchemaNodeKind.Object, string.Empty,
@@ -653,7 +663,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "vendor",
             Name = "Vendor source",
+            Description = "Vendor source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Vendor", SchemaNodeKind.Object, string.Empty,
@@ -676,7 +688,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "accounting-entry",
             Name = "Accounting entry",
+            Description = "Accounting entry target schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Document", SchemaNodeKind.Object, string.Empty,
@@ -769,7 +783,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "ticket",
             Name = "Ticket source",
+            Description = "Ticket source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Ticket", SchemaNodeKind.Object, string.Empty,
@@ -804,7 +820,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "profile",
             Name = "Profile source",
+            Description = "Profile source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Customer", SchemaNodeKind.Object, string.Empty,
@@ -831,7 +849,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "asset",
             Name = "Asset source",
+            Description = "Asset source schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Device", SchemaNodeKind.Object, string.Empty,
@@ -854,7 +874,9 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     {
         return new StructureSchema
         {
+            Key = "case-packet",
             Name = "Case packet",
+            Description = "Case packet target schema.",
             Root = Node("$root", SchemaNodeKind.Object, string.Empty,
             [
                 Node("Case", SchemaNodeKind.Object, string.Empty,

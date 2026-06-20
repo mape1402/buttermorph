@@ -35,6 +35,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             {
                 Succeeded = false,
                 Diagnostics = diagnostics,
+                Key = input.Key,
                 Name = input.Name,
                 Description = input.Description,
                 VersionNumber = input.VersionNumber,
@@ -49,6 +50,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         {
             Succeeded = true,
             Diagnostics = [],
+            Key = input.Key.Trim(),
             Name = input.Name.Trim(),
             Description = input.Description.Trim(),
             VersionNumber = input.VersionNumber.Trim(),
@@ -69,6 +71,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         return new SchemaTypeDesignInput
         {
             Name = SafeString(input.Name),
+            Key = SafeString(input.Key),
             Description = SafeString(input.Description),
             VersionNumber = SafeString(input.VersionNumber),
             BaseType = SafeString(input.BaseType),
@@ -104,6 +107,11 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     private static List<DiagnosticEntry> Validate(SchemaTypeDesignInput input)
     {
         List<DiagnosticEntry> diagnostics = [];
+
+        if (string.IsNullOrWhiteSpace(input.Key))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSD100", "Type key is required.", "Key"));
+        }
 
         if (string.IsNullOrWhiteSpace(input.Name))
         {
@@ -163,12 +171,14 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     {
         if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
         {
-            return SchemaDesignJsonTools.Compact(input.PayloadSchemaJson);
+            return AddSchemaIdentity(input.PayloadSchemaJson, input.Key, input.Name, input.Description);
         }
 
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
         writer.WriteStartObject();
+        writer.WriteString("key", input.Key.Trim());
+        writer.WriteString("name", input.Name.Trim());
         writer.WriteString("type", NormalizeBaseType(input.BaseType));
         WriteDescription(writer, input.Description);
         WriteConstraints(writer, input);
@@ -178,6 +188,42 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         writer.Flush();
 
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // Adds canonical ButterMorph schema identity to a JSON Schema root.
+    private static string AddSchemaIdentity(string jsonSchema, string key, string name, string description)
+    {
+        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
+
+        writer.WriteStartObject();
+        writer.WriteString("key", key.Trim());
+        writer.WriteString("name", name.Trim());
+        WriteDescription(writer, description);
+
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            if (IsIdentityProperty(property.Name))
+            {
+                continue;
+            }
+
+            property.WriteTo(writer);
+        }
+
+        writer.WriteEndObject();
+        writer.Flush();
+
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // Detects root identity keywords already controlled by ButterMorph.
+    private static bool IsIdentityProperty(string propertyName)
+    {
+        return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "name", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "description", StringComparison.Ordinal);
     }
 
     // Normalizes the selected type.
@@ -321,3 +367,4 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         document.RootElement.WriteTo(writer);
     }
 }
+

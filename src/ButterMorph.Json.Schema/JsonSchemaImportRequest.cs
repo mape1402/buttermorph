@@ -6,7 +6,7 @@ namespace ButterMorph.Json.Schema;
 public sealed class JsonSchemaImportRequest
 {
     /// <summary>
-    /// Gets or sets the schema name.
+    /// Gets or sets the explicit schema key used when the JSON Schema does not contain one.
     /// </summary>
     public string Name { get; set; } = string.Empty;
 

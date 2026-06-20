@@ -8,9 +8,19 @@ using ButterMorph.Abstractions;
 public sealed class StructureSchema : IStructureSchema
 {
     /// <summary>
+    /// Gets or sets the canonical schema key.
+    /// </summary>
+    public string Key { get; set; } = "schema";
+
+    /// <summary>
     /// Gets or sets the schema name.
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = "Schema";
+
+    /// <summary>
+    /// Gets or sets the schema description.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the schema root node.
