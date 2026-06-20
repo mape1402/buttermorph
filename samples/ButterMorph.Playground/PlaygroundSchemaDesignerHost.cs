@@ -193,8 +193,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
             {
-                Key = ResolveValue(save.Key, ResolveSchemaKey(request.ContextKey)),
-                Name = ResolveSavedDisplayName(request.ContextKey, save),
+                Key = save.Key,
+                Name = save.DisplayName,
                 Description = save.Description,
                 JsonSchema = save.JsonSchema,
                 SchemaTypes = CreateTypeCatalog(),
@@ -440,7 +440,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
         SchemaTypeDesignInput input = new()
         {
             Name = save.DisplayName,
-            Key = ResolveValue(save.Key, ResolveSchemaKey(save.ContextKey)),
+            Key = save.Key,
             Description = save.Description,
             VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
             BaseType = ResolveValue(save.BaseType, "string"),
