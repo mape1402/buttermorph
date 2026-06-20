@@ -42,11 +42,50 @@
         handleSchemaDesignerSave(event.data);
     });
 
+    window.addEventListener("storage", function (event) {
+        if (event.key !== "ButterMorph.SchemaDesigner.LastSave" || !event.newValue) {
+            return;
+        }
+
+        try {
+            handleSchemaDesignerSave(JSON.parse(event.newValue));
+        } catch (error) {
+        }
+    });
+
+    if (window.BroadcastChannel) {
+        const saveChannel = new BroadcastChannel("ButterMorph.SchemaDesigner");
+        saveChannel.addEventListener("message", function (event) {
+            handleSchemaDesignerSave(event.data);
+        });
+    }
+
     initialize();
 
     async function initialize() {
         await seedStorage();
+        await refreshReturnedSchema();
         renderWorkbench();
+    }
+
+    async function refreshReturnedSchema() {
+        const parameters = new URLSearchParams(window.location.search);
+        const queryContext = parameters.get("buttermorphSavedSchemaContext") || "";
+        if (queryContext) {
+            await refreshSavedItem(queryContext);
+            return;
+        }
+
+        try {
+            const rawSave = window.localStorage.getItem("ButterMorph.SchemaDesigner.LastSave") || "";
+            if (!rawSave) {
+                return;
+            }
+
+            const save = JSON.parse(rawSave);
+            await refreshSavedItem(save.contextKey || "");
+        } catch (error) {
+        }
     }
 
     async function seedStorage() {
@@ -75,7 +114,10 @@
                 key: view.key || "",
                 dataType: view.dataType || "string",
                 appliesToJson: view.appliesToJson || "",
-                validationJson: view.validationJson || ""
+                validationJson: view.validationJson || "",
+                isRequired: view.isRequired,
+                isActive: view.isActive,
+                sortOrder: view.sortOrder
             }));
         }
 
@@ -140,7 +182,7 @@
         }
         document.querySelector("[data-schema-context]").textContent = item.displayName || item.contextKey;
         document.querySelector("[data-schema-time]").textContent = item.savedAt || "Local draft";
-        document.querySelector("[data-schema-json]").value = item.jsonSchema || "";
+        document.querySelector("[data-schema-json]").value = formatItemResult(item);
         edit.disabled = false;
         remove.disabled = false;
     }
@@ -163,15 +205,29 @@
     }
 
     async function openDesigner(item, mode) {
-        await preloadItem(item);
         const width = Math.min(1280, screen.availWidth - 80);
         const height = Math.min(820, screen.availHeight - 80);
         const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
         const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
         const path = item.designerPath || designerPaths[item.kind] || designerPaths.payload;
-        const features = "popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
+        const features = "toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
         const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true";
-        window.open(url, "buttermorph-schema-" + item.contextKey, features);
+        const popup = window.open("about:blank", "buttermorph-schema-" + item.contextKey, features);
+        if (popup) {
+            try {
+                popup.opener = window;
+            } catch (error) {
+            }
+            popup.focus();
+        }
+
+        await preloadItem(item);
+        if (popup) {
+            popup.location.href = url;
+            return;
+        }
+
+        window.location.href = url;
     }
 
     async function preloadItem(item) {
@@ -244,7 +300,10 @@
                 key: "",
                 dataType: "string",
                 validationJson: "",
-                appliesToJson: ""
+                appliesToJson: "",
+                isRequired: false,
+                isActive: true,
+                sortOrder: 10
             });
         }
         return normalizeItem({
@@ -295,8 +354,65 @@
             key: item.key || item.Key || "",
             dataType: item.dataType || item.DataType || "",
             appliesToJson: item.appliesToJson || item.AppliesToJson || "",
-            validationJson: item.validationJson || item.ValidationJson || ""
+            validationJson: item.validationJson || item.ValidationJson || "",
+            isRequired: readBoolean(item, "isRequired", "IsRequired"),
+            isActive: readBoolean(item, "isActive", "IsActive"),
+            sortOrder: readNumber(item, "sortOrder", "SortOrder")
         };
+    }
+
+    function formatItemResult(item) {
+        if (!item) {
+            return "";
+        }
+
+        if (item.kind === "field") {
+            return JSON.stringify({
+                name: item.displayName || "",
+                key: item.key || "",
+                description: item.description || "",
+                dataType: item.dataType || "",
+                appliesTo: parseJsonText(item.appliesToJson, []),
+                isRequired: item.isRequired,
+                isActive: item.isActive,
+                sortOrder: item.sortOrder,
+                validation: parseJsonText(item.validationJson, {})
+            }, null, 2);
+        }
+
+        return prettyJson(item.jsonSchema || "");
+    }
+
+    function prettyJson(value) {
+        const parsed = parseJsonText(value, null);
+        if (parsed === null) {
+            return value || "";
+        }
+
+        return JSON.stringify(parsed, null, 2);
+    }
+
+    function parseJsonText(value, fallback) {
+        if (!value) {
+            return fallback;
+        }
+
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    function readBoolean(item, camelName, pascalName) {
+        const value = item[camelName] !== undefined ? item[camelName] : item[pascalName];
+        return value === true || value === "true" || value === "True";
+    }
+
+    function readNumber(item, camelName, pascalName) {
+        const value = item[camelName] !== undefined ? item[camelName] : item[pascalName];
+        const number = Number(value);
+        return Number.isFinite(number) ? number : 0;
     }
 
     function normalizeKind(kind) {

@@ -79,4 +79,19 @@ internal sealed class PlaygroundSchemaSave
     /// Gets or sets the validation JSON.
     /// </summary>
     public string ValidationJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the metadata value is required.
+    /// </summary>
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the metadata field is active.
+    /// </summary>
+    public bool IsActive { get; set; }
+
+    /// <summary>
+    /// Gets or sets the metadata sort order.
+    /// </summary>
+    public int SortOrder { get; set; }
 }

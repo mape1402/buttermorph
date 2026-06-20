@@ -20,6 +20,7 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
     /// <returns>The design result.</returns>
     public PayloadSchemaDesignResult Build(PayloadSchemaDesignInput input, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields)
     {
+        input = NormalizeInput(input);
         if (string.IsNullOrWhiteSpace(input.JsonSchema))
         {
             return Fail("BMSD301", "Payload JSON Schema is required.", "JsonSchema");
@@ -51,6 +52,32 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
         {
             return Fail("BMSD303", exception.Message, "JsonSchema");
         }
+    }
+
+    // Normalizes model-bound values that can arrive as null from form posts.
+    private static PayloadSchemaDesignInput NormalizeInput(PayloadSchemaDesignInput input)
+    {
+        if (input == null)
+        {
+            input = new PayloadSchemaDesignInput();
+        }
+
+        return new PayloadSchemaDesignInput
+        {
+            Name = SafeString(input.Name),
+            JsonSchema = SafeString(input.JsonSchema)
+        };
+    }
+
+    // Converts model-bound null strings into empty text.
+    private static string SafeString(string value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        return value;
     }
 
     // Creates a failed result.

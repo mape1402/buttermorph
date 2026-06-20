@@ -239,7 +239,7 @@ public partial class Program
     </section>
     <section data-schema-workbench>
       <h2>Schema designer</h2>
-      <p>Create and maintain schemas in ButterMorph, then persist JSON Schema from the host.</p>
+      <p>Create and maintain schemas, metadata fields and payload definitions in ButterMorph, then persist the full host result.</p>
       <div class="schema-grid">
         <div>
           <div class="schema-tabs">
@@ -259,7 +259,7 @@ public partial class Program
             <span data-schema-context>No schema selected</span>
             <span data-schema-time>Not saved yet</span>
           </div>
-          <textarea readonly class="schema-json" data-schema-json placeholder="Select a schema demo to view its JSON Schema."></textarea>
+          <textarea readonly class="schema-json" data-schema-json placeholder="Select an item to view the saved host result."></textarea>
         </div>
       </div>
     </section>

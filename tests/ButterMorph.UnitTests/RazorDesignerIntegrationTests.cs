@@ -256,9 +256,13 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("/playground/schema-items/", schemaScript, StringComparison.Ordinal);
         Assert.Contains("ButterMorph.Playground.SchemaTypes", schemaScript, StringComparison.Ordinal);
         Assert.Contains("cache: \"no-store\"", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("formatItemResult", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("validation: parseJsonText", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("buttermorphSavedSchemaContext", schemaScript, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
         Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json", html, StringComparison.Ordinal);
+        Assert.Contains("full host result", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -530,6 +534,118 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("MultipartType", ReadString(viewJson, "displayName"));
         Assert.Equal("Multipart description", ReadString(viewJson, "description"));
         Assert.Equal("Multipart comment", ReadString(viewJson, "comment"));
+    }
+
+    /// <summary>
+    /// Confirms that popup metadata field saves return host-flow JSON and persist in the playground.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task MetadataFieldDesignerHostFlowSaveReturnsJson()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-host-flow-local&mode=create&popup=true");
+        string token = ExtractToken(html);
+        string action = ExtractFormAction(html);
+        using HttpRequestMessage request = new(HttpMethod.Post, action);
+        request.Headers.Add("X-ButterMorph-Host-Flow", "true");
+        request.Content = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("Input.Name", "Region"),
+            new KeyValuePair<string, string>("Input.Key", "region"),
+            new KeyValuePair<string, string>("Input.Description", "Region metadata"),
+            new KeyValuePair<string, string>("Input.DataType", "string"),
+            new KeyValuePair<string, string>("Input.AppliesTo", "Payload"),
+            new KeyValuePair<string, string>("Input.IsRequired", "true"),
+            new KeyValuePair<string, string>("Input.IsActive", "true"),
+            new KeyValuePair<string, string>("Input.SortOrder", "20"),
+            new KeyValuePair<string, string>("Input.AllowedValues", "North\nSouth")
+        ]);
+
+        HttpResponseMessage response = await client.SendAsync(request);
+        string json = await response.Content.ReadAsStringAsync();
+        string viewJson = await client.GetStringAsync("/playground/schemas/metadata-host-flow-local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
+        Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
+        Assert.Equal("metadata-host-flow-local", ReadString(json, "savedContextKey"));
+        Assert.Equal("ButterMorphFieldMetadataDesignerSaved", ReadString(json, "messageType"));
+        Assert.DoesNotContain("ButterMorph Designer", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
+        Assert.Equal("Region", ReadString(viewJson, "displayName"));
+        Assert.Equal("Region metadata", ReadString(viewJson, "description"));
+        Assert.Equal("region", ReadString(viewJson, "key"));
+        Assert.Equal("string", ReadString(viewJson, "dataType"));
+        Assert.Equal("true", ReadBooleanText(viewJson, "isRequired"));
+        Assert.Equal("true", ReadBooleanText(viewJson, "isActive"));
+        Assert.Equal(20, ReadNumber(viewJson, "sortOrder"));
+        Assert.Contains("North", ReadString(viewJson, "validationJson"), StringComparison.Ordinal);
+
+        using HttpRequestMessage editRequest = new(HttpMethod.Post, action);
+        editRequest.Headers.Add("X-ButterMorph-Host-Flow", "true");
+        editRequest.Content = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("Input.Name", "Region Updated"),
+            new KeyValuePair<string, string>("Input.Key", "regionUpdated"),
+            new KeyValuePair<string, string>("Input.Description", "Updated metadata"),
+            new KeyValuePair<string, string>("Input.DataType", "number"),
+            new KeyValuePair<string, string>("Input.AppliesTo", "Command"),
+            new KeyValuePair<string, string>("Input.IsActive", "true"),
+            new KeyValuePair<string, string>("Input.SortOrder", "33"),
+            new KeyValuePair<string, string>("Input.Minimum", "1"),
+            new KeyValuePair<string, string>("Input.Maximum", "9")
+        ]);
+
+        HttpResponseMessage editResponse = await client.SendAsync(editRequest);
+        string editedViewJson = await client.GetStringAsync("/playground/schemas/metadata-host-flow-local");
+
+        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
+        Assert.Equal("Region Updated", ReadString(editedViewJson, "displayName"));
+        Assert.Equal("regionUpdated", ReadString(editedViewJson, "key"));
+        Assert.Equal("number", ReadString(editedViewJson, "dataType"));
+        Assert.Equal("false", ReadBooleanText(editedViewJson, "isRequired"));
+        Assert.Equal(33, ReadNumber(editedViewJson, "sortOrder"));
+        Assert.Contains("minimum", ReadString(editedViewJson, "validationJson"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that popup payload schema saves return host-flow JSON and persist in the playground.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PayloadSchemaDesignerHostFlowSaveReturnsJson()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-host-flow-local&mode=create&popup=true");
+        string token = ExtractToken(html);
+        string action = ExtractFormAction(html);
+        string schema = "{\"type\":\"" + ("obj" + "ect") + "\",\"properties\":{\"Code\":{\"type\":\"string\"}}}";
+        using HttpRequestMessage request = new(HttpMethod.Post, action);
+        request.Headers.Add("X-ButterMorph-Host-Flow", "true");
+        request.Content = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("PayloadSchemaJson", schema)
+        ]);
+
+        HttpResponseMessage response = await client.SendAsync(request);
+        string json = await response.Content.ReadAsStringAsync();
+        string viewJson = await client.GetStringAsync("/playground/schemas/payload-host-flow-local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
+        Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
+        Assert.Equal("payload-host-flow-local", ReadString(json, "savedContextKey"));
+        Assert.Equal("ButterMorphPayloadSchemaDesignerSaved", ReadString(json, "messageType"));
+        Assert.DoesNotContain("ButterMorph Designer", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
+        Assert.Equal("payload", ReadString(viewJson, "kind"));
+        Assert.Contains("Code", ReadString(viewJson, "jsonSchema"), StringComparison.Ordinal);
     }
 
     /// <summary>

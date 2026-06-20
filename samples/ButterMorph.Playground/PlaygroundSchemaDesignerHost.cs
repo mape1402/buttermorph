@@ -168,7 +168,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Key = request.Result.Key,
             DataType = request.Result.DataType,
             AppliesToJson = request.Result.AppliesToJson,
-            ValidationJson = request.Result.ValidationJson
+            ValidationJson = request.Result.ValidationJson,
+            IsRequired = request.Result.IsRequired,
+            IsActive = request.Result.IsActive,
+            SortOrder = request.Result.SortOrder
         });
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerSaveResult
@@ -316,11 +319,14 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 Key = save.Key,
                 DataType = save.DataType,
                 AppliesToJson = save.AppliesToJson,
-                ValidationJson = save.ValidationJson
+                ValidationJson = save.ValidationJson,
+                IsRequired = save.IsRequired,
+                IsActive = save.IsActive,
+                SortOrder = save.SortOrder
             };
         }
 
-        return new PlaygroundSchemaView
+        PlaygroundSchemaView view = new()
         {
             ContextKey = contextKey,
             Kind = ResolveKind(contextKey),
@@ -330,6 +336,30 @@ internal sealed class PlaygroundSchemaDesignerHost :
             JsonSchema = CreateInitialJson(contextKey),
             SavedAt = string.Empty
         };
+
+        if (view.Kind == "field")
+        {
+            FieldMetadataDesignInput input = CreateMetadataInput(contextKey);
+            FieldMetadataDefinitionBuilder builder = new();
+            FieldMetadataDesignResult result = builder.Build(input);
+            view.Key = input.Key;
+            view.DataType = input.DataType;
+            view.AppliesToJson = result.AppliesToJson;
+            view.ValidationJson = result.ValidationJson;
+            view.IsRequired = input.IsRequired;
+            view.IsActive = input.IsActive;
+            view.SortOrder = input.SortOrder;
+        }
+
+        if (view.Kind == "type")
+        {
+            SchemaTypeDesignInput input = CreateTypeInput(contextKey);
+            view.VersionNumber = input.VersionNumber;
+            view.BaseType = input.BaseType;
+            view.Comment = input.Comment;
+        }
+
+        return view;
     }
 
     /// <summary>
@@ -517,9 +547,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Description = save.Description,
             DataType = ResolveValue(save.DataType, "string"),
             AppliesTo = ConvertJsonArrayToLines(save.AppliesToJson),
-            IsRequired = false,
-            IsActive = true,
-            SortOrder = 10,
+            IsRequired = save.IsRequired,
+            IsActive = save.IsActive,
+            SortOrder = save.SortOrder,
             AllowedValues = ConvertAllowedValuesToLines(save.ValidationJson)
         };
     }

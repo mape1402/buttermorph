@@ -42,7 +42,10 @@ internal sealed class PlaygroundSchemaStore
             Key = item.Key,
             DataType = item.DataType,
             AppliesToJson = item.AppliesToJson,
-            ValidationJson = item.ValidationJson
+            ValidationJson = item.ValidationJson,
+            IsRequired = item.IsRequired,
+            IsActive = item.IsActive,
+            SortOrder = item.SortOrder
         };
     }
 

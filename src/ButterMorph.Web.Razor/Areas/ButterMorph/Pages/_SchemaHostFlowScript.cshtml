@@ -1,10 +1,5 @@
 <script>
     (function () {
-        var form = document.querySelector("[data-schema-host-form='true']");
-        if (!form) {
-            return;
-        }
-
         completeHostFlow();
 
         var parameters = new URLSearchParams(window.location.search);
@@ -12,36 +7,40 @@
             return;
         }
 
-        var isSubmitting = false;
-        var submitButtons = form.querySelectorAll("button[type='submit'],input[type='submit']");
-
         document.addEventListener("submit", function (event) {
-            if (event.target !== form) {
+            var form = resolveHostForm(event.target);
+            if (!form) {
                 return;
             }
 
             event.preventDefault();
-            sendHostFlowSave();
+            sendHostFlowSave(form);
         }, true);
 
-        form.onsubmit = function () {
-            sendHostFlowSave();
-            return false;
-        };
+        document.addEventListener("click", function (event) {
+            var button = event.target && event.target.closest
+                ? event.target.closest("button[type='submit'],input[type='submit']")
+                : null;
 
-        submitButtons.forEach(function (button) {
-            button.addEventListener("click", function (event) {
-                event.preventDefault();
-                sendHostFlowSave();
-            }, true);
-        });
-
-        async function sendHostFlowSave() {
-            if (isSubmitting) {
+            if (!button) {
                 return;
             }
 
-            isSubmitting = true;
+            var form = resolveHostForm(button.form);
+            if (!form) {
+                return;
+            }
+
+            event.preventDefault();
+            sendHostFlowSave(form);
+        }, true);
+
+        async function sendHostFlowSave(form) {
+            if (form.getAttribute("data-schema-host-submitting") === "true") {
+                return;
+            }
+
+            form.setAttribute("data-schema-host-submitting", "true");
             var response = await fetch(form.action, {
                 method: "POST",
                 body: new FormData(form),
@@ -50,7 +49,7 @@
                     "X-ButterMorph-Host-Flow": "true"
                 }
             });
-            isSubmitting = false;
+            form.removeAttribute("data-schema-host-submitting");
 
             var contentType = response.headers.get("content-type") || "";
             if (!response.ok || contentType.indexOf("application/json") < 0) {
@@ -61,17 +60,33 @@
             }
 
             var result = await response.json();
-            if (!result.hostSaveCompleted) {
+            if (!readValue(result, "hostSaveCompleted")) {
                 return;
             }
 
             completeHostFlow(result);
         }
 
+        function resolveHostForm(candidate) {
+            if (!candidate) {
+                return null;
+            }
+
+            if (candidate.matches && candidate.matches("[data-schema-host-form='true']")) {
+                return candidate;
+            }
+
+            if (candidate.closest) {
+                return candidate.closest("[data-schema-host-form='true']");
+            }
+
+            return null;
+        }
+
         function completeHostFlow(response) {
             var body = document.body;
             var completed = response
-                ? response.hostSaveCompleted
+                ? readValue(response, "hostSaveCompleted")
                 : body && body.getAttribute("data-schema-host-save-completed") === "true";
 
             if (!completed) {
@@ -79,15 +94,71 @@
             }
 
             var message = {
-                type: response ? response.messageType || "" : body.getAttribute("data-schema-host-message-type") || "",
-                contextKey: response ? response.savedContextKey || "" : body.getAttribute("data-schema-host-context-key") || ""
+                type: response ? readValue(response, "messageType") || "" : body.getAttribute("data-schema-host-message-type") || "",
+                contextKey: response ? readValue(response, "savedContextKey") || "" : body.getAttribute("data-schema-host-context-key") || ""
             };
 
+            if (body) {
+                body.setAttribute("data-schema-host-close-requested", "true");
+            }
+
+            notifyHost(message);
+            closeHostPopup(message.contextKey);
+        }
+
+        function closeHostPopup(contextKey) {
+            window.close();
+            window.setTimeout(function () {
+                window.open("", "_self");
+                window.close();
+            }, 150);
+            window.setTimeout(function () {
+                if (!window.closed) {
+                    var marker = contextKey ? "?buttermorphSavedSchemaContext=" + encodeURIComponent(contextKey) : "";
+                    window.location.replace("/" + marker);
+                }
+            }, 600);
+        }
+
+        function notifyHost(message) {
             if (window.opener && !window.opener.closed) {
                 window.opener.postMessage(message, window.location.origin);
             }
 
-            window.close();
+            try {
+                window.localStorage.setItem("ButterMorph.SchemaDesigner.LastSave", JSON.stringify({
+                    type: message.type,
+                    contextKey: message.contextKey,
+                    savedAt: new Date().toISOString()
+                }));
+            } catch (error) {
+            }
+
+            if (window.BroadcastChannel) {
+                try {
+                    var channel = new BroadcastChannel("ButterMorph.SchemaDesigner");
+                    channel.postMessage(message);
+                    channel.close();
+                } catch (error) {
+                }
+            }
+        }
+
+        function readValue(source, camelName) {
+            if (!source) {
+                return "";
+            }
+
+            if (source[camelName] !== undefined) {
+                return source[camelName];
+            }
+
+            var pascalName = camelName.charAt(0).toUpperCase() + camelName.slice(1);
+            if (source[pascalName] !== undefined) {
+                return source[pascalName];
+            }
+
+            return "";
         }
     }());
 </script>

@@ -16,6 +16,7 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
     /// <returns>The design result.</returns>
     public FieldMetadataDesignResult Build(FieldMetadataDesignInput input)
     {
+        input = NormalizeInput(input);
         List<DiagnosticEntry> diagnostics = Validate(input);
 
         if (diagnostics.Count > 0)
@@ -48,6 +49,46 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             SortOrder = input.SortOrder,
             ValidationJson = CreateValidationJson(input)
         };
+    }
+
+    // Normalizes model-bound values that can arrive as null from form posts.
+    private static FieldMetadataDesignInput NormalizeInput(FieldMetadataDesignInput input)
+    {
+        if (input == null)
+        {
+            input = new FieldMetadataDesignInput();
+        }
+
+        return new FieldMetadataDesignInput
+        {
+            Name = SafeString(input.Name),
+            Key = SafeString(input.Key),
+            Description = SafeString(input.Description),
+            DataType = SafeString(input.DataType),
+            AppliesTo = SafeString(input.AppliesTo),
+            IsRequired = input.IsRequired,
+            IsActive = input.IsActive,
+            SortOrder = input.SortOrder,
+            MinLength = SafeString(input.MinLength),
+            MaxLength = SafeString(input.MaxLength),
+            Pattern = SafeString(input.Pattern),
+            Minimum = SafeString(input.Minimum),
+            Maximum = SafeString(input.Maximum),
+            DateMinimum = SafeString(input.DateMinimum),
+            DateMaximum = SafeString(input.DateMaximum),
+            AllowedValues = SafeString(input.AllowedValues)
+        };
+    }
+
+    // Converts model-bound null strings into empty text.
+    private static string SafeString(string value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        return value;
     }
 
     // Validates required metadata fields.
