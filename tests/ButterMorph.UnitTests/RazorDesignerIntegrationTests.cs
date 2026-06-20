@@ -258,6 +258,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("cache: \"no-store\"", schemaScript, StringComparison.Ordinal);
         Assert.Contains("formatItemResult", schemaScript, StringComparison.Ordinal);
         Assert.Contains("validation: parseJsonText", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("versionNumber: item.versionNumber", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("jsonSchema: parseJsonText(item.jsonSchema", schemaScript, StringComparison.Ordinal);
         Assert.Contains("buttermorphSavedSchemaContext", schemaScript, StringComparison.Ordinal);
         string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js" + QueryMarker() + "v=5");
         Assert.Contains("ButterMorphPayloadSchemaSync", payloadBuilderScript, StringComparison.Ordinal);

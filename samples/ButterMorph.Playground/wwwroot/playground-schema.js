@@ -380,6 +380,17 @@
             }, null, 2);
         }
 
+        if (item.kind === "type") {
+            return JSON.stringify({
+                name: item.displayName || "",
+                description: item.description || "",
+                versionNumber: item.versionNumber || "",
+                baseType: item.baseType || "",
+                comment: item.comment || "",
+                jsonSchema: parseJsonText(item.jsonSchema, {})
+            }, null, 2);
+        }
+
         return prettyJson(item.jsonSchema || "");
     }
 
