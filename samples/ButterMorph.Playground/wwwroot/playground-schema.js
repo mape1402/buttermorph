@@ -42,24 +42,6 @@
         handleSchemaDesignerSave(event.data);
     });
 
-    window.addEventListener("storage", function (event) {
-        if (event.key !== "ButterMorph.SchemaDesigner.LastSave" || !event.newValue) {
-            return;
-        }
-
-        try {
-            handleSchemaDesignerSave(JSON.parse(event.newValue));
-        } catch (error) {
-        }
-    });
-
-    if (window.BroadcastChannel) {
-        const saveChannel = new BroadcastChannel("ButterMorph.SchemaDesigner");
-        saveChannel.addEventListener("message", function (event) {
-            handleSchemaDesignerSave(event.data);
-        });
-    }
-
     initialize();
 
     async function initialize() {
@@ -76,16 +58,7 @@
             return;
         }
 
-        try {
-            const rawSave = window.localStorage.getItem("ButterMorph.SchemaDesigner.LastSave") || "";
-            if (!rawSave) {
-                return;
-            }
-
-            const save = JSON.parse(rawSave);
-            await refreshSavedItem(save.contextKey || "");
-        } catch (error) {
-        }
+        return;
     }
 
     async function seedStorage() {
@@ -211,7 +184,7 @@
         const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
         const path = item.designerPath || designerPaths[item.kind] || designerPaths.payload;
         const features = "toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
-        const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true";
+        const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true&returnUrl=/";
         const popup = window.open("about:blank", "buttermorph-schema-" + item.contextKey, features);
         if (popup) {
             try {

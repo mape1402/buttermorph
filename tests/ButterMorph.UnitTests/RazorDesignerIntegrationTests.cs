@@ -261,6 +261,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("versionNumber: item.versionNumber", schemaScript, StringComparison.Ordinal);
         Assert.Contains("jsonSchema: parseJsonText(item.jsonSchema", schemaScript, StringComparison.Ordinal);
         Assert.Contains("buttermorphSavedSchemaContext", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("&returnUrl=/", schemaScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("BroadcastChannel", schemaScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("SchemaDesigner.LastSave", schemaScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("addEventListener(\"storage\"", schemaScript, StringComparison.Ordinal);
         string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js" + QueryMarker() + "v=5");
         Assert.Contains("ButterMorphPayloadSchemaSync", payloadBuilderScript, StringComparison.Ordinal);
         Assert.Contains("syncPayloadSchemaInput", payloadBuilderScript, StringComparison.Ordinal);
@@ -470,7 +474,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     public async Task SchemaTypeDesignerHostFlowSaveReturnsJson()
     {
         HttpClient client = _factory.CreateClient();
-        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-host-flow-local&mode=create&popup=true");
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-host-flow-local&mode=create&popup=true&returnUrl=/");
         string token = ExtractToken(html);
         string action = ExtractFormAction(html);
         using HttpRequestMessage request = new(HttpMethod.Post, action);
@@ -500,8 +504,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
         Assert.Equal("datatype-host-flow-local", ReadString(json, "savedContextKey"));
         Assert.Equal("ButterMorphSchemaTypeDesignerSaved", ReadString(json, "messageType"));
+        Assert.Equal("/", ReadString(json, "safeReturnUrl"));
         Assert.DoesNotContain("ButterMorph Designer", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("returnUrl", json, StringComparison.Ordinal);
         Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
         Assert.Equal("HostFlowType", ReadString(viewJson, "displayName"));
     }

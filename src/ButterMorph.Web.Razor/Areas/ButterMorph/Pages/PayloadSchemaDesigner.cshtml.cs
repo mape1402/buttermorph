@@ -262,8 +262,26 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             HostSaveCompleted = HostSaveCompleted,
             SavedContextKey = ResolveContextKey(),
             MessageType = messageType,
-            Message = Message
+            Message = Message,
+            SafeReturnUrl = ResolveSafeReturnUrl()
         };
+    }
+
+    // Resolves a local return URL that is safe to use after popup completion.
+    private string ResolveSafeReturnUrl()
+    {
+        string returnUrl = Request.Query[options.ReturnUrlQueryParameter];
+        if (string.IsNullOrWhiteSpace(returnUrl))
+        {
+            return string.Empty;
+        }
+
+        if (!Url.IsLocalUrl(returnUrl))
+        {
+            return string.Empty;
+        }
+
+        return returnUrl;
     }
 
     // Detects popup-host requests.

@@ -24,4 +24,9 @@ public sealed class SchemaDesignerHostSaveResponse
     /// Gets or sets the user-facing save message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the safe local return URL for non-opener host flows.
+    /// </summary>
+    public string SafeReturnUrl { get; set; } = string.Empty;
 }

@@ -97,6 +97,9 @@
                 : body && body.getAttribute("data-schema-host-save-completed") === "true";
 
             if (!completed) {
+                if (response) {
+                    showHostFlowMessage(readValue(response, "message") || "Save failed.");
+                }
                 return;
             }
 
@@ -104,51 +107,42 @@
                 type: response ? readValue(response, "messageType") || "" : body.getAttribute("data-schema-host-message-type") || "",
                 contextKey: response ? readValue(response, "savedContextKey") || "" : body.getAttribute("data-schema-host-context-key") || ""
             };
+            var returnUrl = response ? readValue(response, "safeReturnUrl") || "" : "";
 
             if (body) {
                 body.setAttribute("data-schema-host-close-requested", "true");
             }
 
-            notifyHost(message);
-            closeHostPopup(message.contextKey);
+            completePopup(message, returnUrl);
         }
 
-        function closeHostPopup(contextKey) {
-            window.close();
-            window.setTimeout(function () {
-                window.open("", "_self");
-                window.close();
-            }, 150);
-            window.setTimeout(function () {
-                if (!window.closed) {
-                    var marker = contextKey ? "?buttermorphSavedSchemaContext=" + encodeURIComponent(contextKey) : "";
-                    window.location.replace("/" + marker);
-                }
-            }, 600);
-        }
-
-        function notifyHost(message) {
+        function completePopup(message, returnUrl) {
             if (window.opener && !window.opener.closed) {
                 window.opener.postMessage(message, window.location.origin);
+                window.close();
+                return;
             }
 
-            try {
-                window.localStorage.setItem("ButterMorph.SchemaDesigner.LastSave", JSON.stringify({
-                    type: message.type,
-                    contextKey: message.contextKey,
-                    savedAt: new Date().toISOString()
-                }));
-            } catch (error) {
+            if (returnUrl.length > 0) {
+                var destination = new URL(returnUrl, window.location.origin);
+                if (message.contextKey.length > 0) {
+                    destination.searchParams.set("buttermorphSavedSchemaContext", message.contextKey);
+                }
+                window.location.assign(destination.pathname + destination.search + destination.hash);
             }
+        }
 
-            if (window.BroadcastChannel) {
-                try {
-                    var channel = new BroadcastChannel("ButterMorph.SchemaDesigner");
-                    channel.postMessage(message);
-                    channel.close();
-                } catch (error) {
+        function showHostFlowMessage(message) {
+            var alert = document.querySelector(".atlas-alert");
+            if (!alert) {
+                alert = document.createElement("div");
+                alert.className = "atlas-alert";
+                var form = document.querySelector("[data-schema-host-form='true']");
+                if (form && form.parentElement) {
+                    form.parentElement.insertBefore(alert, form);
                 }
             }
+            alert.textContent = message || "Save failed.";
         }
 
         function readValue(source, camelName) {
