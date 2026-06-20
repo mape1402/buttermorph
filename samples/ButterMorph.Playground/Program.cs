@@ -286,7 +286,7 @@ public partial class Program
       if (schemaButton) {
         path = schemaButton.getAttribute("data-designer-path") || path;
       }
-      const url = path + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
+      const url = path + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true";
       window.open(url, "buttermorph-schema-" + contextKey, popupOptions + ",width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
     }
     async function loadScenarios() {
@@ -438,7 +438,7 @@ public partial class Program
       }
     });
   </script>
-  <script src="/playground-schema.js"></script>
+  <script src="/playground-schema.js{{QueryMarker()}}v=2"></script>
 </body>
 </html>
 """;

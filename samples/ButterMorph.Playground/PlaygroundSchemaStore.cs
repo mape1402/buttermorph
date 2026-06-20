@@ -8,6 +8,9 @@ internal sealed class PlaygroundSchemaStore
     // Keeps schema saves by context key.
     private readonly ConcurrentDictionary<string, PlaygroundSchemaSave> saves = new(StringComparer.OrdinalIgnoreCase);
 
+    // Keeps browser draft state used only to preload designer popups.
+    private readonly ConcurrentDictionary<string, PlaygroundSchemaSave> drafts = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Saves a schema result.
     /// </summary>
@@ -15,15 +18,16 @@ internal sealed class PlaygroundSchemaStore
     public void Save(PlaygroundSchemaSave save)
     {
         saves[save.ContextKey] = save;
+        drafts.TryRemove(save.ContextKey, out PlaygroundSchemaSave removedDraft);
     }
 
     /// <summary>
-    /// Saves schema item state received from the browser.
+    /// Saves schema item draft state received from the browser.
     /// </summary>
     /// <param name="item">The browser schema item.</param>
     public void SaveClientItem(PlaygroundSchemaClientItem item)
     {
-        saves[item.ContextKey] = new PlaygroundSchemaSave
+        drafts[item.ContextKey] = new PlaygroundSchemaSave
         {
             ContextKey = item.ContextKey,
             Kind = item.Kind,
@@ -34,6 +38,7 @@ internal sealed class PlaygroundSchemaStore
             SavedAt = item.SavedAt,
             VersionNumber = item.VersionNumber,
             BaseType = item.BaseType,
+            Comment = item.Comment,
             Key = item.Key,
             DataType = item.DataType,
             AppliesToJson = item.AppliesToJson,
@@ -50,5 +55,16 @@ internal sealed class PlaygroundSchemaStore
     public bool TryGet(string contextKey, out PlaygroundSchemaSave save)
     {
         return saves.TryGetValue(contextKey, out save);
+    }
+
+    /// <summary>
+    /// Attempts to get a schema draft.
+    /// </summary>
+    /// <param name="contextKey">The context key.</param>
+    /// <param name="save">The schema draft.</param>
+    /// <returns><see langword="true"/> when a draft exists.</returns>
+    public bool TryGetDraft(string contextKey, out PlaygroundSchemaSave save)
+    {
+        return drafts.TryGetValue(contextKey, out save);
     }
 }

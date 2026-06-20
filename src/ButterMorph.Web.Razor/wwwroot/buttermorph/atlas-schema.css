@@ -64,7 +64,13 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .col-md-2 { grid-column: span 2; }
 .col-md-3 { grid-column: span 3; }
 .col-md-4 { grid-column: span 4; }
+.col-md-5 { grid-column: span 5; }
+.col-md-6 { grid-column: span 6; }
 .col-md-7 { grid-column: span 7; }
+.col-md-8 { grid-column: span 8; }
+.col-md-9 { grid-column: span 9; }
+.col-md-10 { grid-column: span 10; }
+.col-md-11 { grid-column: span 11; }
 .form-label { display: block; color: #4b4f74; font-size: .68rem; font-weight: 800; margin-bottom: .12rem; }
 .form-check { display: flex; align-items: center; gap: .35rem; min-height: 1.8rem; }
 .form-check-input, .atlas-checkbox { accent-color: var(--atlas-primary); }

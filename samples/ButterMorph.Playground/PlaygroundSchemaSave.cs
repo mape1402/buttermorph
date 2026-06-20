@@ -56,6 +56,11 @@ internal sealed class PlaygroundSchemaSave
     public string BaseType { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the schema type save comment.
+    /// </summary>
+    public string Comment { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the metadata key.
     /// </summary>
     public string Key { get; set; } = string.Empty;

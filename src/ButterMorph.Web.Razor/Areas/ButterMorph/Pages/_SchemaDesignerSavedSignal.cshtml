@@ -6,14 +6,15 @@
             var message = { type: "@Model.Item1", contextKey: new URLSearchParams(window.location.search).get("context") || "" };
             if (window.opener) {
                 window.opener.postMessage(message, window.location.origin);
-                window.close();
+                window.setTimeout(function () {
+                    window.close();
+                }, 150);
                 return;
             }
 
-            var returnUrl = "@Model.Item3";
-            if (returnUrl) {
-                window.location.href = returnUrl;
-            }
+            window.setTimeout(function () {
+                window.close();
+            }, 150);
         })();
     </script>
 }

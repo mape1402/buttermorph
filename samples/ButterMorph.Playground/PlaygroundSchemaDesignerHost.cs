@@ -80,7 +80,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The load result.</returns>
     public Task<ButterMorphSchemaTypeDesignerLoadResult> Load(ButterMorphSchemaTypeDesignerLoadRequest request)
     {
-        if (store.TryGet(request.ContextKey, out PlaygroundSchemaSave save))
+        if (TryGetDesignState(request.ContextKey, out PlaygroundSchemaSave save))
         {
             return Task.FromResult(new ButterMorphSchemaTypeDesignerLoadResult
             {
@@ -115,7 +115,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
             JsonSchema = request.Result.JsonSchema,
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
             VersionNumber = request.Result.VersionNumber,
-            BaseType = request.Result.BaseType
+            BaseType = request.Result.BaseType,
+            Comment = request.Result.Comment
         });
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerSaveResult
@@ -132,7 +133,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The load result.</returns>
     public Task<ButterMorphFieldMetadataDesignerLoadResult> Load(ButterMorphFieldMetadataDesignerLoadRequest request)
     {
-        if (store.TryGet(request.ContextKey, out PlaygroundSchemaSave save))
+        if (TryGetDesignState(request.ContextKey, out PlaygroundSchemaSave save))
         {
             return Task.FromResult(new ButterMorphFieldMetadataDesignerLoadResult
             {
@@ -184,7 +185,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The load result.</returns>
     public Task<ButterMorphPayloadSchemaDesignerLoadResult> Load(ButterMorphPayloadSchemaDesignerLoadRequest request)
     {
-        if (store.TryGet(request.ContextKey, out PlaygroundSchemaSave save))
+        if (TryGetDesignState(request.ContextKey, out PlaygroundSchemaSave save))
         {
             return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
             {
@@ -311,6 +312,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 SavedAt = save.SavedAt,
                 VersionNumber = save.VersionNumber,
                 BaseType = save.BaseType,
+                Comment = save.Comment,
                 Key = save.Key,
                 DataType = save.DataType,
                 AppliesToJson = save.AppliesToJson,
@@ -339,6 +341,17 @@ internal sealed class PlaygroundSchemaDesignerHost :
         store.SaveClientItem(item);
     }
 
+    // Resolves draft state first so popup edits can preload without committing to the playground list.
+    private bool TryGetDesignState(string contextKey, out PlaygroundSchemaSave save)
+    {
+        if (store.TryGetDraft(contextKey, out save))
+        {
+            return true;
+        }
+
+        return store.TryGet(contextKey, out save);
+    }
+
     // Creates initial JSON for the selected schema tool.
     private string CreateInitialJson(string contextKey)
     {
@@ -358,6 +371,11 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Creates schema type input for demo contexts.
     private static SchemaTypeDesignInput CreateTypeInput(string contextKey)
     {
+        if (!string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
+        {
+            return new SchemaTypeDesignInput();
+        }
+
         return new SchemaTypeDesignInput
         {
             Name = "CustomerCode",
@@ -374,20 +392,107 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Creates schema type input from a saved item.
     private static SchemaTypeDesignInput CreateTypeInput(PlaygroundSchemaSave save)
     {
-        return new SchemaTypeDesignInput
+        SchemaTypeDesignInput input = new()
         {
             Name = save.DisplayName,
             Description = save.Description,
             VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
             BaseType = ResolveValue(save.BaseType, "string"),
-            PayloadSchemaJson = save.JsonSchema,
-            Comment = "Local playground edit"
+            Comment = save.Comment
         };
+
+        HydrateTypeSchema(input, save.JsonSchema);
+
+        return input;
+    }
+
+    // Hydrates editable schema type fields from saved JSON Schema.
+    private static void HydrateTypeSchema(SchemaTypeDesignInput input, string jsonSchema)
+    {
+        if (string.IsNullOrWhiteSpace(jsonSchema))
+        {
+            return;
+        }
+
+        try
+        {
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(jsonSchema);
+            System.Text.Json.JsonElement root = document.RootElement;
+
+            if (root.TryGetProperty("type", out System.Text.Json.JsonElement typeElement))
+            {
+                input.BaseType = ResolveValue(typeElement.ToString(), input.BaseType);
+            }
+
+            ReadSchemaString(root, "description", value => input.Description = ResolveValue(input.Description, value));
+            ReadSchemaString(root, "minLength", value => input.MinLength = value);
+            ReadSchemaString(root, "maxLength", value => input.MaxLength = value);
+            ReadSchemaString(root, "pattern", value => input.Pattern = value);
+            ReadSchemaString(root, "minimum", value => input.Minimum = value);
+            ReadSchemaString(root, "maximum", value => input.Maximum = value);
+            ReadSchemaString(root, "precision", value => input.Precision = value);
+            ReadSchemaString(root, "scale", value => input.Scale = value);
+            ReadSchemaString(root, "minItems", value => input.MinItems = value);
+            ReadSchemaString(root, "maxItems", value => input.MaxItems = value);
+
+            if (root.TryGetProperty("enum", out System.Text.Json.JsonElement enumElement))
+            {
+                input.AllowedValuesJson = enumElement.GetRawText();
+            }
+
+            HydrateArrayItem(input, root);
+
+            if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase))
+            {
+                input.PayloadSchemaJson = jsonSchema;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            input.PayloadSchemaJson = jsonSchema;
+        }
+    }
+
+    // Hydrates array item type fields from saved JSON Schema.
+    private static void HydrateArrayItem(SchemaTypeDesignInput input, System.Text.Json.JsonElement root)
+    {
+        if (!root.TryGetProperty("items", out System.Text.Json.JsonElement itemsElement))
+        {
+            return;
+        }
+
+        if (itemsElement.TryGetProperty("typeVersionId", out System.Text.Json.JsonElement versionElement))
+        {
+            input.ArrayItemTypeVersionId = versionElement.ToString();
+        }
+
+        if (itemsElement.TryGetProperty("type", out System.Text.Json.JsonElement typeElement))
+        {
+            input.ArrayItemType = typeElement.ToString();
+        }
+    }
+
+    // Reads a JSON Schema property as compact text.
+    private static void ReadSchemaString(System.Text.Json.JsonElement root, string propertyName, Action<string> assign)
+    {
+        if (root.TryGetProperty(propertyName, out System.Text.Json.JsonElement element))
+        {
+            assign(element.ToString());
+        }
     }
 
     // Creates field metadata input for demo contexts.
     private static FieldMetadataDesignInput CreateMetadataInput(string contextKey)
     {
+        if (!string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
+        {
+            return new FieldMetadataDesignInput
+            {
+                DataType = "string",
+                IsActive = true
+            };
+        }
+
         return new FieldMetadataDesignInput
         {
             Name = "Classification",
@@ -422,6 +527,11 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Creates payload schema JSON.
     private string CreatePayloadJson(string contextKey)
     {
+        if (!string.Equals(contextKey, "payload-customer-profile", StringComparison.OrdinalIgnoreCase))
+        {
+            return "{\"type\":\"" + MapType + "\",\"properties\":{}}";
+        }
+
         JsonSchemaConversionResult result = exporter.Export(new JsonSchemaExportRequest
         {
             Schema = PlaygroundDesignerHost.CreateCustomerSchema()

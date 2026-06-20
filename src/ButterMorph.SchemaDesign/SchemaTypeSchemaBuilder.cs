@@ -21,6 +21,12 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     /// <returns>The design result.</returns>
     public SchemaTypeDesignResult Build(SchemaTypeDesignInput input, IReadOnlyCollection<SchemaTypeCatalogItem> catalog)
     {
+        input = NormalizeInput(input);
+        if (catalog == null)
+        {
+            catalog = [];
+        }
+
         List<DiagnosticEntry> diagnostics = Validate(input);
 
         if (diagnostics.Count > 0)
@@ -50,6 +56,48 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             JsonSchema = jsonSchema,
             Comment = input.Comment
         };
+    }
+
+    // Normalizes model-bound string values because browser posts may omit optional fields.
+    private static SchemaTypeDesignInput NormalizeInput(SchemaTypeDesignInput input)
+    {
+        if (input == null)
+        {
+            input = new SchemaTypeDesignInput();
+        }
+
+        return new SchemaTypeDesignInput
+        {
+            Name = SafeString(input.Name),
+            Description = SafeString(input.Description),
+            VersionNumber = SafeString(input.VersionNumber),
+            BaseType = SafeString(input.BaseType),
+            MinLength = SafeString(input.MinLength),
+            MaxLength = SafeString(input.MaxLength),
+            Pattern = SafeString(input.Pattern),
+            Minimum = SafeString(input.Minimum),
+            Maximum = SafeString(input.Maximum),
+            Precision = SafeString(input.Precision),
+            Scale = SafeString(input.Scale),
+            MinItems = SafeString(input.MinItems),
+            MaxItems = SafeString(input.MaxItems),
+            AllowedValuesJson = SafeString(input.AllowedValuesJson),
+            ArrayItemType = SafeString(input.ArrayItemType),
+            ArrayItemTypeVersionId = SafeString(input.ArrayItemTypeVersionId),
+            PayloadSchemaJson = SafeString(input.PayloadSchemaJson),
+            Comment = SafeString(input.Comment)
+        };
+    }
+
+    // Converts model-bound null strings to empty values.
+    private static string SafeString(string value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        return value;
     }
 
     // Validates required schema type fields.

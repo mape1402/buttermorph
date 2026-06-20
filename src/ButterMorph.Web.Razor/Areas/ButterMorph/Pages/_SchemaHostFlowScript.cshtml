@@ -1,0 +1,93 @@
+<script>
+    (function () {
+        var form = document.querySelector("[data-schema-host-form='true']");
+        if (!form) {
+            return;
+        }
+
+        completeHostFlow();
+
+        var parameters = new URLSearchParams(window.location.search);
+        if (parameters.get("popup") !== "true") {
+            return;
+        }
+
+        var isSubmitting = false;
+        var submitButtons = form.querySelectorAll("button[type='submit'],input[type='submit']");
+
+        document.addEventListener("submit", function (event) {
+            if (event.target !== form) {
+                return;
+            }
+
+            event.preventDefault();
+            sendHostFlowSave();
+        }, true);
+
+        form.onsubmit = function () {
+            sendHostFlowSave();
+            return false;
+        };
+
+        submitButtons.forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                sendHostFlowSave();
+            }, true);
+        });
+
+        async function sendHostFlowSave() {
+            if (isSubmitting) {
+                return;
+            }
+
+            isSubmitting = true;
+            var response = await fetch(form.action, {
+                method: "POST",
+                body: new FormData(form),
+                credentials: "same-origin",
+                headers: {
+                    "X-ButterMorph-Host-Flow": "true"
+                }
+            });
+            isSubmitting = false;
+
+            var contentType = response.headers.get("content-type") || "";
+            if (!response.ok || contentType.indexOf("application/json") < 0) {
+                document.open();
+                document.write(await response.text());
+                document.close();
+                return;
+            }
+
+            var result = await response.json();
+            if (!result.hostSaveCompleted) {
+                return;
+            }
+
+            completeHostFlow(result);
+        }
+
+        function completeHostFlow(response) {
+            var body = document.body;
+            var completed = response
+                ? response.hostSaveCompleted
+                : body && body.getAttribute("data-schema-host-save-completed") === "true";
+
+            if (!completed) {
+                return;
+            }
+
+            var message = {
+                type: response ? response.messageType || "" : body.getAttribute("data-schema-host-message-type") || "",
+                contextKey: response ? response.savedContextKey || "" : body.getAttribute("data-schema-host-context-key") || ""
+            };
+
+            if (window.opener && !window.opener.closed) {
+                window.opener.postMessage(message, window.location.origin);
+            }
+
+            window.close();
+        }
+    }());
+</script>

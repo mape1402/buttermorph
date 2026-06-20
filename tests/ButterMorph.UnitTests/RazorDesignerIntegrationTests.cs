@@ -255,6 +255,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string schemaScript = await client.GetStringAsync("/playground-schema.js");
         Assert.Contains("/playground/schema-items/", schemaScript, StringComparison.Ordinal);
         Assert.Contains("ButterMorph.Playground.SchemaTypes", schemaScript, StringComparison.Ordinal);
+        Assert.Contains("cache: \"no-store\"", schemaScript, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
         Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json", html, StringComparison.Ordinal);
@@ -313,25 +314,222 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
-    /// Confirms that browser schema item state can preload the backend host.
+    /// Confirms that browser schema item state preloads a popup without committing to the visible save list.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
-    public async Task PlaygroundSchemaItemEndpointStoresBrowserState()
+    public async Task PlaygroundSchemaItemEndpointStoresDraftOnly()
     {
         HttpClient client = _factory.CreateClient();
-        string payload = "{\"contextKey\":\"datatype-test-local\",\"kind\":\"type\",\"displayName\":\"LocalType\",\"description\":\"Local description\",\"designerPath\":\"/buttermorph/schema-types/designer\",\"jsonSchema\":\"{\\\"type\\\":\\\"string\\\"}\",\"versionNumber\":\"1.0.0\",\"baseType\":\"string\"}";
+        string payload = "{\"contextKey\":\"datatype-test-local\",\"kind\":\"type\",\"displayName\":\"LocalType\",\"description\":\"Local description\",\"designerPath\":\"/buttermorph/schema-types/designer\",\"jsonSchema\":\"{\\\"type\\\":\\\"string\\\",\\\"minLength\\\":5,\\\"maxLength\\\":12}\",\"versionNumber\":\"1.0.0\",\"baseType\":\"string\",\"comment\":\"Loaded comment\"}";
 
         HttpResponseMessage response = await client.PostAsync(
             "/playground/schema-items/datatype-test-local",
             new StringContent(payload, Encoding.UTF8, "application/json"));
         string json = await response.Content.ReadAsStringAsync();
+        string visibleJson = await client.GetStringAsync("/playground/schemas/datatype-test-local");
+        string popupHtml = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-test-local");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("datatype-test-local", ReadString(json, "contextKey"));
         Assert.Equal("type", ReadString(json, "kind"));
-        Assert.Equal("LocalType", ReadString(json, "displayName"));
-        Assert.Contains("string", ReadString(json, "jsonSchema"), StringComparison.Ordinal);
+        Assert.NotEqual("LocalType", ReadString(json, "displayName"));
+        Assert.NotEqual("LocalType", ReadString(visibleJson, "displayName"));
+        Assert.Contains("LocalType", popupHtml, StringComparison.Ordinal);
+        Assert.Contains("Loaded comment", popupHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"5\"", popupHtml, StringComparison.Ordinal);
+        Assert.Contains("value=\"12\"", popupHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that schema create does not persist browser storage until the popup reports a save.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundSchemaCreateDoesNotPersistBeforePopupSave()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string schemaScript = await client.GetStringAsync("/playground-schema.js");
+        int createStart = schemaScript.IndexOf("function createItem()", StringComparison.Ordinal);
+        int deleteStart = schemaScript.IndexOf("function deleteSelectedItem()", StringComparison.Ordinal);
+        string createFunction = schemaScript.Substring(createStart, deleteStart - createStart);
+
+        Assert.Contains("openDesigner(item, \"create\")", createFunction, StringComparison.Ordinal);
+        Assert.DoesNotContain("saveItems", createFunction, StringComparison.Ordinal);
+        Assert.DoesNotContain("items.push", createFunction, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that creating a schema type starts with empty user fields.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerCreateStartsEmpty()
+    {
+        HttpClient client = _factory.CreateClient();
+        string payload = "{\"contextKey\":\"datatype-empty-local\",\"kind\":\"type\",\"displayName\":\"\",\"description\":\"\",\"designerPath\":\"/buttermorph/schema-types/designer\",\"jsonSchema\":\"\",\"versionNumber\":\"1.0.0\",\"baseType\":\"string\",\"comment\":\"\"}";
+
+        await client.PostAsync(
+            "/playground/schema-items/datatype-empty-local",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-empty-local&mode=create");
+
+        Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"Input.Name\" value=\"\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"Input.Description\" value=\"\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"Input.Comment\" value=\"\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Initial version", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that saving a schema type persists it through the playground host.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerSavePersistsPlaygroundView()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-save-local&popup=true");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-save-local&popup=true&handler=Save",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("Input.Name", "SavedType"),
+                new KeyValuePair<string, string>("Input.Description", "Saved description"),
+                new KeyValuePair<string, string>("Input.VersionNumber", "2.0.0"),
+                new KeyValuePair<string, string>("Input.BaseType", "string"),
+                new KeyValuePair<string, string>("Input.Comment", "Saved comment"),
+                new KeyValuePair<string, string>("Input.MinLength", "2"),
+                new KeyValuePair<string, string>("Input.MaxLength", "40"),
+                new KeyValuePair<string, string>("Input.AllowedValuesJson", "[]"),
+                new KeyValuePair<string, string>("Input.ArrayItemType", "string"),
+                new KeyValuePair<string, string>("Input.ArrayItemTypeVersionId", string.Empty),
+                new KeyValuePair<string, string>("Input.PayloadSchemaJson", string.Empty)
+            ]));
+        string savedJson = await response.Content.ReadAsStringAsync();
+        string viewJson = await client.GetStringAsync("/playground/schemas/datatype-save-local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
+        Assert.Equal("true", ReadBooleanText(savedJson, "hostSaveCompleted"));
+        Assert.Equal("datatype-save-local", ReadString(savedJson, "savedContextKey"));
+        Assert.Equal("ButterMorphSchemaTypeDesignerSaved", ReadString(savedJson, "messageType"));
+        Assert.DoesNotContain("window.opener.location.href", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.location.href", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Schema type saved.", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guardar tipo", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("type-base-select", savedJson, StringComparison.Ordinal);
+        Assert.Equal("SavedType", ReadString(viewJson, "displayName"));
+        Assert.Equal("Saved description", ReadString(viewJson, "description"));
+        Assert.Equal("2.0.0", ReadString(viewJson, "versionNumber"));
+        Assert.Equal("Saved comment", ReadString(viewJson, "comment"));
+        Assert.Contains("minLength", ReadString(viewJson, "jsonSchema"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that accidental schema save GET requests do not act as a host return path.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerSaveGetSignalsHostWhenPopup()
+    {
+        HttpClient client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        HttpResponseMessage response = await client.GetAsync(
+            "/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-get-local&popup=true&handler=Save");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("requires POST", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("ButterMorphSchemaTypeDesignerSaved", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.location.href", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that popup schema type saves return host-flow JSON instead of rendering another designer page.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerHostFlowSaveReturnsJson()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-host-flow-local&mode=create&popup=true");
+        string token = ExtractToken(html);
+        string action = ExtractFormAction(html);
+        using HttpRequestMessage request = new(HttpMethod.Post, action);
+        request.Headers.Add("X-ButterMorph-Host-Flow", "true");
+        request.Content = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("__RequestVerificationToken", token),
+            new KeyValuePair<string, string>("Input.Name", "HostFlowType"),
+            new KeyValuePair<string, string>("Input.Description", "Host flow description"),
+            new KeyValuePair<string, string>("Input.VersionNumber", "1.0.0"),
+            new KeyValuePair<string, string>("Input.BaseType", "string"),
+            new KeyValuePair<string, string>("Input.Comment", "Host flow comment"),
+            new KeyValuePair<string, string>("Input.MinLength", "1"),
+            new KeyValuePair<string, string>("Input.MaxLength", "15"),
+            new KeyValuePair<string, string>("Input.AllowedValuesJson", "[]"),
+            new KeyValuePair<string, string>("Input.ArrayItemType", "string"),
+            new KeyValuePair<string, string>("Input.ArrayItemTypeVersionId", string.Empty),
+            new KeyValuePair<string, string>("Input.PayloadSchemaJson", string.Empty)
+        ]);
+
+        HttpResponseMessage response = await client.SendAsync(request);
+        string json = await response.Content.ReadAsStringAsync();
+        string viewJson = await client.GetStringAsync("/playground/schemas/datatype-host-flow-local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
+        Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
+        Assert.Equal("datatype-host-flow-local", ReadString(json, "savedContextKey"));
+        Assert.Equal("ButterMorphSchemaTypeDesignerSaved", ReadString(json, "messageType"));
+        Assert.DoesNotContain("ButterMorph Designer", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.location.href", json, StringComparison.Ordinal);
+        Assert.Equal("HostFlowType", ReadString(viewJson, "displayName"));
+    }
+
+    /// <summary>
+    /// Confirms browser multipart schema type saves tolerate omitted optional hidden fields.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaTypeDesignerHostFlowMultipartSaveAllowsMissingOptionalFields()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-multipart-local&mode=create&popup=true");
+        string token = ExtractToken(html);
+        string action = ExtractFormAction(html);
+        using MultipartFormDataContent content = new();
+        content.Add(new StringContent(token), "__RequestVerificationToken");
+        content.Add(new StringContent("MultipartType"), "Input.Name");
+        content.Add(new StringContent("Multipart description"), "Input.Description");
+        content.Add(new StringContent("1.0.0"), "Input.VersionNumber");
+        content.Add(new StringContent("string"), "Input.BaseType");
+        content.Add(new StringContent("Multipart comment"), "Input.Comment");
+
+        using HttpRequestMessage request = new(HttpMethod.Post, action);
+        request.Headers.Add("X-ButterMorph-Host-Flow", "true");
+        request.Content = content;
+
+        HttpResponseMessage response = await client.SendAsync(request);
+        string json = await response.Content.ReadAsStringAsync();
+        string viewJson = await client.GetStringAsync("/playground/schemas/datatype-multipart-local");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("application/json", response.Content.Headers.ContentType.ToString(), StringComparison.Ordinal);
+        Assert.Equal("true", ReadBooleanText(json, "hostSaveCompleted"));
+        Assert.Equal("MultipartType", ReadString(viewJson, "displayName"));
+        Assert.Equal("Multipart description", ReadString(viewJson, "description"));
+        Assert.Equal("Multipart comment", ReadString(viewJson, "comment"));
     }
 
     /// <summary>
@@ -369,9 +567,17 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         HttpClient client = _factory.CreateClient();
 
-        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-customer-code");
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-customer-code&popup=true");
 
         Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
+        Assert.Contains("context=datatype-customer-code", html, StringComparison.Ordinal);
+        Assert.Contains("popup=true", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
+        Assert.Contains("handler=Save", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-host-form=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("X-ButterMorph-Host-Flow", html, StringComparison.Ordinal);
+        Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
+        Assert.Contains("window.close", html, StringComparison.Ordinal);
         Assert.Contains("type-base-select", html, StringComparison.Ordinal);
         Assert.Contains("type-constraints-string", html, StringComparison.Ordinal);
         Assert.Contains("type-constraints-" + "obj" + "ect", html, StringComparison.Ordinal);
@@ -390,15 +596,44 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         HttpClient client = _factory.CreateClient();
 
-        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-classification");
+        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-classification&popup=true");
 
         Assert.Contains("Nuevo custom field", html, StringComparison.Ordinal);
+        Assert.Contains("context=metadata-classification", html, StringComparison.Ordinal);
+        Assert.Contains("popup=true", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
+        Assert.Contains("handler=Save", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-host-form=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("X-ButterMorph-Host-Flow", html, StringComparison.Ordinal);
+        Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
+        Assert.Contains("window.close", html, StringComparison.Ordinal);
         Assert.Contains("metadata-data-type", html, StringComparison.Ordinal);
         Assert.Contains("Validacion minima", html, StringComparison.Ordinal);
         Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
         Assert.Contains("Guardar custom field", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Definition JSON", html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that payload schema designer keeps host popup query values in the save form.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PayloadSchemaDesignerPreservesHostSaveAction()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
+
+        Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
+        Assert.Contains("popup=true", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
+        Assert.Contains("handler=Save", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-host-form=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("X-ButterMorph-Host-Flow", html, StringComparison.Ordinal);
+        Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
+        Assert.Contains("window.close", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1192,6 +1427,40 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         }
 
         return html[valueStart..valueEnd];
+    }
+
+    // Extracts the first form action from rendered Razor markup.
+    private static string ExtractFormAction(string html)
+    {
+        string marker = "<form";
+        int formIndex = html.IndexOf(marker, StringComparison.Ordinal);
+        if (formIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        string actionMarker = "action=\"";
+        int markerIndex = html.IndexOf(actionMarker, formIndex, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        int valueStart = markerIndex + actionMarker.Length;
+        int valueEnd = html.IndexOf("\"", valueStart, StringComparison.Ordinal);
+        if (valueEnd < valueStart)
+        {
+            return string.Empty;
+        }
+
+        return html[valueStart..valueEnd].Replace("&amp;", "&", StringComparison.Ordinal);
+    }
+
+    // Reads a JSON boolean as lowercase text.
+    private static string ReadBooleanText(string json, string propertyName)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.GetProperty(propertyName).GetBoolean().ToString().ToLowerInvariant();
     }
 
     // Creates a test client with a fake host integration.

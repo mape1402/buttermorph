@@ -39,13 +39,7 @@
         if (event.origin !== window.location.origin || !event.data) {
             return;
         }
-        const type = event.data.type || "";
-        if (type === "ButterMorphSchemaDesignerSaved" ||
-            type === "ButterMorphSchemaTypeDesignerSaved" ||
-            type === "ButterMorphFieldMetadataDesignerSaved" ||
-            type === "ButterMorphPayloadSchemaDesignerSaved") {
-            refreshSavedItem(event.data.contextKey || "");
-        }
+        handleSchemaDesignerSave(event.data);
     });
 
     initialize();
@@ -53,10 +47,6 @@
     async function initialize() {
         await seedStorage();
         renderWorkbench();
-        const savedSchemaContext = new URLSearchParams(window.location.search).get("buttermorphSavedSchemaContext");
-        if (savedSchemaContext) {
-            await refreshSavedItem(savedSchemaContext);
-        }
     }
 
     async function seedStorage() {
@@ -81,6 +71,7 @@
                 savedAt: view.savedAt || "",
                 versionNumber: view.versionNumber || "1.0.0",
                 baseType: view.baseType || "string",
+                comment: view.comment || "",
                 key: view.key || "",
                 dataType: view.dataType || "string",
                 appliesToJson: view.appliesToJson || "",
@@ -156,11 +147,6 @@
 
     function createItem() {
         const item = createDefaultItem(activeKind);
-        const items = readItems(activeKind);
-        items.push(item);
-        saveItems(activeKind, items);
-        selectedContext = item.contextKey;
-        renderWorkbench();
         openDesigner(item, "create");
     }
 
@@ -184,7 +170,7 @@
         const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
         const path = item.designerPath || designerPaths[item.kind] || designerPaths.payload;
         const features = "popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
-        const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true&returnUrl=/";
+        const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true";
         window.open(url, "buttermorph-schema-" + item.contextKey, features);
     }
 
@@ -201,7 +187,10 @@
         if (!contextKey) {
             return;
         }
-        const response = await fetch("/playground/schemas/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
+        const response = await fetch("/playground/schemas/" + encodeURIComponent(contextKey), { credentials: "same-origin", cache: "no-store" });
+        if (!response.ok) {
+            return;
+        }
         const view = await response.json();
         const kind = normalizeKind(view.kind || inferKind(view.designerPath));
         const item = normalizeItem(view);
@@ -215,39 +204,54 @@
         renderWorkbench();
     }
 
+    function handleSchemaDesignerSave(data) {
+        if (!data) {
+            return;
+        }
+
+        const type = data.type || "";
+        if (type === "ButterMorphSchemaDesignerSaved" ||
+            type === "ButterMorphSchemaTypeDesignerSaved" ||
+            type === "ButterMorphFieldMetadataDesignerSaved" ||
+            type === "ButterMorphPayloadSchemaDesignerSaved") {
+            refreshSavedItem(data.contextKey || "");
+        }
+    }
+
     function createDefaultItem(kind) {
         const stamp = String(Date.now());
         if (kind === "type") {
             return normalizeItem({
                 contextKey: "datatype-local-" + stamp,
                 kind: "type",
-                displayName: "NewCustomType",
-                description: "Local custom datatype.",
+                displayName: "",
+                description: "",
                 designerPath: designerPaths.type,
-                jsonSchema: "{\"type\":\"string\"}",
+                jsonSchema: "",
                 versionNumber: "1.0.0",
-                baseType: "string"
+                baseType: "string",
+                comment: ""
             });
         }
         if (kind === "field") {
             return normalizeItem({
                 contextKey: "metadata-local-" + stamp,
                 kind: "field",
-                displayName: "New custom field",
-                description: "Local metadata field.",
+                displayName: "",
+                description: "",
                 designerPath: designerPaths.field,
-                jsonSchema: "{\"dataType\":\"string\"}",
-                key: "newCustomField",
+                jsonSchema: "",
+                key: "",
                 dataType: "string",
-                validationJson: "{\"dataType\":\"string\"}",
-                appliesToJson: "[\"Payload\",\"Property\"]"
+                validationJson: "",
+                appliesToJson: ""
             });
         }
         return normalizeItem({
             contextKey: "payload-local-" + stamp,
             kind: "payload",
-            displayName: "New payload schema",
-            description: "Local payload schema.",
+            displayName: "",
+            description: "",
             designerPath: designerPaths.payload,
             jsonSchema: "{\"type\":\"object\",\"properties\":{}}"
         });
@@ -287,6 +291,7 @@
             savedAt: item.savedAt || item.SavedAt || "",
             versionNumber: item.versionNumber || item.VersionNumber || "",
             baseType: item.baseType || item.BaseType || "",
+            comment: item.comment || item.Comment || "",
             key: item.key || item.Key || "",
             dataType: item.dataType || item.DataType || "",
             appliesToJson: item.appliesToJson || item.AppliesToJson || "",

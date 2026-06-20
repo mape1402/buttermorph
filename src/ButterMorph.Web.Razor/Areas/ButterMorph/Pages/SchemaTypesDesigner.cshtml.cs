@@ -73,9 +73,9 @@ public sealed class SchemaTypesDesignerModel : PageModel
     public bool HostSaveCompleted { get; set; }
 
     /// <summary>
-    /// Gets or sets a safe local return URL.
+    /// Gets or sets the saved host context key.
     /// </summary>
-    public string SafeReturnUrl { get; set; } = string.Empty;
+    public string SavedContextKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the form title.
@@ -83,11 +83,17 @@ public sealed class SchemaTypesDesignerModel : PageModel
     public string FormTitle { get; set; } = "Nuevo tipo personalizado";
 
     /// <summary>
+    /// Gets or sets the form save URL.
+    /// </summary>
+    public string SaveActionUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// Handles initial display.
     /// </summary>
     /// <returns>The page result.</returns>
     public async Task<IActionResult> OnGet()
     {
+        SaveActionUrl = ResolveSaveActionUrl();
         FormTitle = ResolveFormTitle();
         await ApplyHostLoad();
         RefreshCatalog();
@@ -97,11 +103,21 @@ public sealed class SchemaTypesDesignerModel : PageModel
     }
 
     /// <summary>
+    /// Redirects accidental save GET requests back to the host.
+    /// </summary>
+    /// <returns>The redirect result.</returns>
+    public IActionResult OnGetSave()
+    {
+        return BadRequest("Schema designer save requires POST.");
+    }
+
+    /// <summary>
     /// Saves schema type state through the optional host.
     /// </summary>
     /// <returns>The page result.</returns>
     public async Task<IActionResult> OnPostSave()
     {
+        SaveActionUrl = ResolveSaveActionUrl();
         FormTitle = ResolveFormTitle();
         await ApplyHostLoadCatalogOnly();
         SchemaTypeDesignResult result = schemaTypeBuilder.Build(Input, SchemaTypes);
@@ -111,6 +127,11 @@ public sealed class SchemaTypesDesignerModel : PageModel
         if (!result.Succeeded)
         {
             Message = string.Join(" ", result.Diagnostics.Select(diagnostic => diagnostic.Message));
+            if (IsPopupRequest())
+            {
+                return new JsonResult(CreateHostSaveResponse("ButterMorphSchemaTypeDesignerSaved"));
+            }
+
             return Page();
         }
 
@@ -130,9 +151,24 @@ public sealed class SchemaTypesDesignerModel : PageModel
             break;
         }
 
-        Message = saveResult.Message;
         HostSaveCompleted = saveResult.Succeeded;
-        SafeReturnUrl = ResolveSafeReturnUrl();
+        SavedContextKey = ResolveContextKey();
+        if (saveResult.Succeeded && IsPopupRequest())
+        {
+            return new JsonResult(CreateHostSaveResponse("ButterMorphSchemaTypeDesignerSaved"));
+        }
+
+        if (IsPopupRequest())
+        {
+            Message = saveResult.Message;
+            return new JsonResult(CreateHostSaveResponse("ButterMorphSchemaTypeDesignerSaved"));
+        }
+
+        if (saveResult.Succeeded)
+        {
+            Message = saveResult.Message;
+            return Page();
+        }
 
         return Page();
     }
@@ -190,16 +226,41 @@ public sealed class SchemaTypesDesignerModel : PageModel
         return DesignerSessionKeyResolver.ResolveContextKey(this, options);
     }
 
-    // Resolves a safe return URL.
-    private string ResolveSafeReturnUrl()
+    // Resolves the form action while preserving host flow query parameters.
+    private string ResolveSaveActionUrl()
     {
-        string value = Request.Query[options.ReturnUrlQueryParameter].ToString();
-        if (!string.IsNullOrWhiteSpace(value) && Url.IsLocalUrl(value))
+        string path = Request.Path.ToString();
+        string query = Request.QueryString.ToString();
+        if (query.Contains("handler=", StringComparison.OrdinalIgnoreCase))
         {
-            return value;
+            return path + query;
         }
 
-        return string.Empty;
+        string separator = "&";
+        if (string.IsNullOrEmpty(query))
+        {
+            separator = Convert.ToChar(63).ToString();
+        }
+
+        return path + query + separator + "handler=Save";
+    }
+
+    // Creates the host flow save response.
+    private SchemaDesignerHostSaveResponse CreateHostSaveResponse(string messageType)
+    {
+        return new SchemaDesignerHostSaveResponse
+        {
+            HostSaveCompleted = HostSaveCompleted,
+            SavedContextKey = ResolveContextKey(),
+            MessageType = messageType,
+            Message = Message
+        };
+    }
+
+    // Detects popup-host requests.
+    private bool IsPopupRequest()
+    {
+        return string.Equals(Request.Query[options.PopupQueryParameter].ToString(), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     // Resolves the title based on popup mode.

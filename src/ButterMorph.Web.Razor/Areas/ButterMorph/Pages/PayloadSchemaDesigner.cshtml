@@ -11,7 +11,10 @@
     <title>ButterMorph Payload Schema Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=5" />
 </head>
-<body class="atlas-page">
+<body class="atlas-page"
+      data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
+      data-schema-host-context-key="@Model.SavedContextKey"
+      data-schema-host-message-type="ButterMorphPayloadSchemaDesignerSaved">
     <main class="atlas-shell">
         <section class="dashboard-section">
         <div class="platform-card event-editor">
@@ -24,7 +27,8 @@
             <div class="atlas-alert">@Model.Message</div>
         }
 
-        <form id="event-editor-form" method="post" asp-page-handler="Save" class="atlas-editor-form atlas-payload-card">
+        <form id="event-editor-form" method="post" action="@Model.SaveActionUrl" class="atlas-editor-form atlas-payload-card" data-schema-host-form="true">
+            @Html.AntiForgeryToken()
             <input type="hidden" id="payload-schema-json" asp-for="PayloadSchemaJson" />
             <div class="atlas-editor-scroll">
                 <section class="event-schema-block">
@@ -50,6 +54,6 @@
     <script id="field-metadata-catalog" type="application/json">@Html.Raw(Model.FieldMetadataCatalogJson)</script>
     @await Html.PartialAsync("_AtlasSchemaTemplate")
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=4"></script>
-    @await Html.PartialAsync("_SchemaDesignerSavedSignal", ("ButterMorphPayloadSchemaDesignerSaved", Model.HostSaveCompleted, Model.SafeReturnUrl))
+    @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>
