@@ -18,14 +18,20 @@
         rootList.appendChild(createFieldNode());
     });
 
+    window.ButterMorphPayloadSchemaSync = syncPayloadSchemaInput;
+
     form.addEventListener("submit", function () {
+        syncPayloadSchemaInput();
+    });
+
+    function syncPayloadSchemaInput() {
         const defs = {};
         const schema = buildRootSchema(rootList, defs);
         if (Object.keys(defs).length > 0) {
             schema.$defs = defs;
         }
         hiddenSchemaInput.value = JSON.stringify(schema);
-    });
+    }
 
     document.querySelectorAll("[data-modal-close]").forEach(function (button) {
         button.addEventListener("click", function () {
