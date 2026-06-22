@@ -22,6 +22,20 @@ public interface IStructureSchemaBuilder
     IStructureSchemaBuilder WithDescription(string description);
 
     /// <summary>
+    /// Sets the schema version.
+    /// </summary>
+    /// <param name="version">The schema version.</param>
+    /// <returns>The current builder.</returns>
+    IStructureSchemaBuilder WithVersion(string version);
+
+    /// <summary>
+    /// Sets the schema version comment.
+    /// </summary>
+    /// <param name="versionComment">The schema version comment.</param>
+    /// <returns>The current builder.</returns>
+    IStructureSchemaBuilder WithVersionComment(string versionComment);
+
+    /// <summary>
     /// Sets the schema root.
     /// </summary>
     /// <param name="root">The schema root.</param>

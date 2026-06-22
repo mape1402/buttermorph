@@ -40,7 +40,8 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
                 Description = input.Description,
                 VersionNumber = input.VersionNumber,
                 BaseType = input.BaseType,
-                Comment = input.Comment
+                Comment = input.Comment,
+                Metadata = CopyMetadata(input.Metadata)
             };
         }
 
@@ -56,7 +57,8 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             VersionNumber = input.VersionNumber.Trim(),
             BaseType = input.BaseType.Trim(),
             JsonSchema = jsonSchema,
-            Comment = input.Comment
+            Comment = input.Comment,
+            Metadata = CopyMetadata(input.Metadata)
         };
     }
 
@@ -88,7 +90,8 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             ArrayItemType = SafeString(input.ArrayItemType),
             ArrayItemTypeVersionId = SafeString(input.ArrayItemTypeVersionId),
             PayloadSchemaJson = SafeString(input.PayloadSchemaJson),
-            Comment = SafeString(input.Comment)
+            Comment = SafeString(input.Comment),
+            Metadata = CopyMetadata(input.Metadata)
         };
     }
 
@@ -171,7 +174,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     {
         if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
         {
-            return AddSchemaIdentity(input.PayloadSchemaJson, input.Key, input.Name, input.Description);
+            return AddSchemaIdentity(input.PayloadSchemaJson, input);
         }
 
         using MemoryStream stream = new();
@@ -179,8 +182,11 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         writer.WriteStartObject();
         writer.WriteString("key", input.Key.Trim());
         writer.WriteString("name", input.Name.Trim());
+        writer.WriteString("version", input.VersionNumber.Trim());
         writer.WriteString("type", NormalizeBaseType(input.BaseType));
         WriteDescription(writer, input.Description);
+        WriteVersionComment(writer, input.Comment);
+        WriteOpenMetadata(writer, input.Metadata);
         WriteConstraints(writer, input);
         WriteAllowedValues(writer, input.AllowedValuesJson);
         WriteArrayItems(writer, input, catalog);
@@ -191,16 +197,19 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     }
 
     // Adds canonical ButterMorph schema identity to a JSON Schema root.
-    private static string AddSchemaIdentity(string jsonSchema, string key, string name, string description)
+    private static string AddSchemaIdentity(string jsonSchema, SchemaTypeDesignInput input)
     {
         using JsonDocument document = JsonDocument.Parse(jsonSchema);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
 
         writer.WriteStartObject();
-        writer.WriteString("key", key.Trim());
-        writer.WriteString("name", name.Trim());
-        WriteDescription(writer, description);
+        writer.WriteString("key", input.Key.Trim());
+        writer.WriteString("name", input.Name.Trim());
+        writer.WriteString("version", input.VersionNumber.Trim());
+        WriteDescription(writer, input.Description);
+        WriteVersionComment(writer, input.Comment);
+        WriteOpenMetadata(writer, input.Metadata);
 
         foreach (JsonProperty property in document.RootElement.EnumerateObject())
         {
@@ -223,7 +232,21 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     {
         return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
             string.Equals(propertyName, "name", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "description", StringComparison.Ordinal);
+            string.Equals(propertyName, "description", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "version", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "versionComment", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "metadata", StringComparison.Ordinal);
+    }
+
+    // Copies open metadata safely.
+    private static IReadOnlyDictionary<string, string> CopyMetadata(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata == null)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        return new Dictionary<string, string>(metadata, StringComparer.Ordinal);
     }
 
     // Normalizes the selected type.
@@ -243,6 +266,66 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         if (!string.IsNullOrWhiteSpace(description))
         {
             writer.WriteString("description", description.Trim());
+        }
+    }
+
+    // Writes optional version comment.
+    private static void WriteVersionComment(Utf8JsonWriter writer, string comment)
+    {
+        if (!string.IsNullOrWhiteSpace(comment))
+        {
+            writer.WriteString("versionComment", comment.Trim());
+        }
+    }
+
+    // Writes the schema-level open metadata bag.
+    private static void WriteOpenMetadata(Utf8JsonWriter writer, IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("metadata");
+        writer.WriteStartObject();
+
+        foreach (KeyValuePair<string, string> pair in metadata)
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteOpenMetadataValue(writer, pair.Value);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    // Writes open metadata values preserving structured JSON when present.
+    private static void WriteOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (TryWriteRawOpenMetadataValue(writer, value))
+        {
+            return;
+        }
+
+        writer.WriteStringValue(value);
+    }
+
+    // Attempts to write a metadata value as raw JSON.
+    private static bool TryWriteRawOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(value);
+            document.RootElement.WriteTo(writer);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

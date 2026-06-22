@@ -117,7 +117,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
             VersionNumber = request.Result.VersionNumber,
             BaseType = request.Result.BaseType,
-            Comment = request.Result.Comment
+            Comment = request.Result.Comment,
+            VersionComment = request.Result.Comment,
+            MetadataJson = SerializeMetadata(request.Result.Metadata)
         });
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerSaveResult
@@ -196,6 +198,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 Key = save.Key,
                 Name = save.DisplayName,
                 Description = save.Description,
+                Version = ResolveValue(save.VersionNumber, "1.0.0"),
+                VersionComment = save.VersionComment,
+                Metadata = ParseMetadataJson(save.MetadataJson),
+                MetadataDefinition = CreatePayloadMetadataDefinition(),
                 JsonSchema = save.JsonSchema,
                 SchemaTypes = CreateTypeCatalog(),
                 MetadataFields = CreateMetadataCatalog(),
@@ -208,6 +214,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Key = ResolveSchemaKey(request.ContextKey),
             Name = ResolveDisplayName(request.ContextKey),
             Description = ResolveDescription(request.ContextKey),
+            Version = "1.0.0",
+            VersionComment = string.Empty,
+            Metadata = new Dictionary<string, string>(StringComparer.Ordinal),
+            MetadataDefinition = CreatePayloadMetadataDefinition(),
             JsonSchema = CreatePayloadJson(request.ContextKey),
             SchemaTypes = CreateTypeCatalog(),
             MetadataFields = CreateMetadataCatalog(),
@@ -231,7 +241,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Description = request.Result.Description,
             DesignerPath = "/buttermorph/payload-schema/designer",
             JsonSchema = request.Result.JsonSchema,
-            SavedAt = DateTimeOffset.UtcNow.ToString("O")
+            SavedAt = DateTimeOffset.UtcNow.ToString("O"),
+            VersionNumber = request.Result.Version,
+            VersionComment = request.Result.VersionComment,
+            MetadataJson = SerializeMetadata(request.Result.Metadata)
         });
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerSaveResult
@@ -321,9 +334,11 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 DesignerPath = ResolveDesignerPath(contextKey, save),
                 JsonSchema = save.JsonSchema,
                 SavedAt = save.SavedAt,
-                VersionNumber = save.VersionNumber,
+                VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
                 BaseType = save.BaseType,
                 Comment = save.Comment,
+                VersionComment = save.VersionComment,
+                MetadataJson = ResolveValue(save.MetadataJson, "{}"),
                 Key = save.Key,
                 DataType = save.DataType,
                 AppliesToJson = save.AppliesToJson,
@@ -365,12 +380,17 @@ internal sealed class PlaygroundSchemaDesignerHost :
             view.VersionNumber = input.VersionNumber;
             view.BaseType = input.BaseType;
             view.Comment = input.Comment;
+            view.VersionComment = input.Comment;
+            view.MetadataJson = SerializeMetadata(input.Metadata);
             view.Key = input.Key;
         }
 
         if (view.Kind == "payload")
         {
             view.Key = ResolveSchemaKey(contextKey);
+            view.VersionNumber = "1.0.0";
+            view.VersionComment = string.Empty;
+            view.MetadataJson = "{}";
         }
 
         return view;
@@ -401,7 +421,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
     {
         if (string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
         {
-            return "{\"key\":\"customer-code\",\"name\":\"CustomerCode\",\"type\":\"string\",\"description\":\"Customer code used by integrations.\",\"minLength\":3,\"maxLength\":24,\"pattern\":\"^[A-Z0-9-]+$\"}";
+            return "{\"key\":\"customer-code\",\"name\":\"CustomerCode\",\"version\":\"1.0.0\",\"type\":\"string\",\"description\":\"Customer code used by integrations.\",\"versionComment\":\"Initial version\",\"minLength\":3,\"maxLength\":24,\"pattern\":\"^[A-Z0-9-]+$\"}";
         }
 
         if (string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
@@ -430,7 +450,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
             MinLength = "3",
             MaxLength = "24",
             Pattern = "^[A-Z0-9-]+$",
-            Comment = "Initial version"
+            Comment = "Initial version",
+            Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
         };
     }
 
@@ -444,7 +465,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Description = save.Description,
             VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
             BaseType = ResolveValue(save.BaseType, "string"),
-            Comment = save.Comment
+            Comment = ResolveValue(save.Comment, save.VersionComment),
+            Metadata = ParseMetadataJson(save.MetadataJson)
         };
 
         HydrateTypeSchema(input, save.JsonSchema);
@@ -473,6 +495,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
             ReadSchemaString(root, "key", value => input.Key = ResolveValue(input.Key, value));
             ReadSchemaString(root, "name", value => input.Name = ResolveValue(input.Name, value));
             ReadSchemaString(root, "description", value => input.Description = ResolveValue(input.Description, value));
+            ReadSchemaString(root, "version", value => input.VersionNumber = ResolveValue(input.VersionNumber, value));
+            ReadSchemaString(root, "versionComment", value => input.Comment = ResolveValue(input.Comment, value));
             ReadSchemaString(root, "minLength", value => input.MinLength = value);
             ReadSchemaString(root, "maxLength", value => input.MaxLength = value);
             ReadSchemaString(root, "pattern", value => input.Pattern = value);
@@ -489,6 +513,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
             }
 
             HydrateArrayItem(input, root);
+            HydrateSchemaMetadata(input, root);
 
             if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase))
             {
@@ -518,6 +543,17 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             input.ArrayItemType = typeElement.ToString();
         }
+    }
+
+    // Hydrates open schema metadata from saved JSON Schema.
+    private static void HydrateSchemaMetadata(SchemaTypeDesignInput input, System.Text.Json.JsonElement root)
+    {
+        if (!root.TryGetProperty("metadata", out System.Text.Json.JsonElement metadataElement))
+        {
+            return;
+        }
+
+        input.Metadata = ReadMetadataElement(metadataElement);
     }
 
     // Reads a JSON Schema property as compact text.
@@ -578,7 +614,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
         if (!string.Equals(contextKey, "payload-customer-profile", StringComparison.OrdinalIgnoreCase))
         {
             string key = ResolveSchemaKey(contextKey);
-            return "{\"key\":\"" + key + "\",\"name\":\"" + key + "\",\"type\":\"" + MapType + "\",\"properties\":{}}";
+            return "{\"key\":\"" + key + "\",\"name\":\"" + key + "\",\"version\":\"1.0.0\",\"type\":\"" + MapType + "\",\"properties\":{}}";
         }
 
         JsonSchemaConversionResult result = exporter.Export(new JsonSchemaExportRequest
@@ -639,6 +675,76 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 Validation = "{}"
             }
         ];
+    }
+
+    // Creates host-defined payload metadata fields for the playground.
+    private static SchemaMetadataDefinition CreatePayloadMetadataDefinition()
+    {
+        return new SchemaMetadataDefinition
+        {
+            Fields =
+            [
+                CreateMetadataField("topic", "Topic", SchemaMetadataDataType.String, false, "Queue topic name."),
+                CreateMetadataField("retryCount", "Retry Count", SchemaMetadataDataType.Integer, false, "Maximum delivery attempts."),
+                CreateMetadataField("priority", "Priority", SchemaMetadataDataType.Number, false, "Routing priority."),
+                CreateMetadataField("active", "Active", SchemaMetadataDataType.Boolean, false, "Enables this schema route."),
+                CreateMetadataField("effectiveDate", "Effective Date", SchemaMetadataDataType.Date, false, "Date when the route starts."),
+                CreateMetadataField("publishedAt", "Published At", SchemaMetadataDataType.DateTime, false, "Date and time when the route is published."),
+                new SchemaMetadataFieldDefinition
+                {
+                    Key = "labels",
+                    Name = "Labels",
+                    Description = "Free-form labels.",
+                    DataType = SchemaMetadataDataType.Array,
+                    ArrayItem = CreateMetadataField("label", "Label", SchemaMetadataDataType.String, false, string.Empty)
+                },
+                new SchemaMetadataFieldDefinition
+                {
+                    Key = "routing",
+                    Name = "Routing",
+                    Description = "Nested routing settings.",
+                    DataType = SchemaMetadataDataType.Object,
+                    Children =
+                    [
+                        CreateMetadataField("exchange", "Exchange", SchemaMetadataDataType.String, false, "Exchange name."),
+                        CreateMetadataField("routingKey", "Routing Key", SchemaMetadataDataType.String, false, "Routing key."),
+                        CreateMetadataField("durable", "Durable", SchemaMetadataDataType.Boolean, false, "Durable route flag.")
+                    ]
+                },
+                new SchemaMetadataFieldDefinition
+                {
+                    Key = "targets",
+                    Name = "Targets",
+                    Description = "Target route collection.",
+                    DataType = SchemaMetadataDataType.Array,
+                    ArrayItem = new SchemaMetadataFieldDefinition
+                    {
+                        Key = "target",
+                        Name = "Target",
+                        DataType = SchemaMetadataDataType.Object,
+                        Children =
+                        [
+                            CreateMetadataField("name", "Name", SchemaMetadataDataType.String, true, "Target name."),
+                            CreateMetadataField("queue", "Queue", SchemaMetadataDataType.String, true, "Queue name."),
+                            CreateMetadataField("enabled", "Enabled", SchemaMetadataDataType.Boolean, false, "Target enabled flag.")
+                        ]
+                    }
+                }
+            ]
+        };
+    }
+
+    // Creates one payload metadata field definition.
+    private static SchemaMetadataFieldDefinition CreateMetadataField(string key, string name, SchemaMetadataDataType dataType, bool required, string description)
+    {
+        return new SchemaMetadataFieldDefinition
+        {
+            Key = key,
+            Name = name,
+            DataType = dataType,
+            IsRequired = required,
+            Description = description
+        };
     }
 
     // Creates a system catalog item.
@@ -823,6 +929,60 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             return string.Empty;
         }
+    }
+
+    // Serializes schema metadata for playground state.
+    private static string SerializeMetadata(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata == null || metadata.Count == 0)
+        {
+            return "{}";
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(metadata);
+    }
+
+    // Parses schema metadata stored as JSON text.
+    private static IReadOnlyDictionary<string, string> ParseMetadataJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        try
+        {
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(json);
+            return ReadMetadataElement(document.RootElement);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+    }
+
+    // Reads metadata element values as strings.
+    private static IReadOnlyDictionary<string, string> ReadMetadataElement(System.Text.Json.JsonElement element)
+    {
+        Dictionary<string, string> metadata = new(StringComparer.Ordinal);
+        if (element.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            return metadata;
+        }
+
+        foreach (System.Text.Json.JsonProperty property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                metadata[property.Name] = property.Value.GetString();
+            }
+            else
+            {
+                metadata[property.Name] = property.Value.GetRawText();
+            }
+        }
+
+        return metadata;
     }
 }
 

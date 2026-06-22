@@ -84,6 +84,8 @@
                 versionNumber: view.versionNumber || "1.0.0",
                 baseType: view.baseType || "string",
                 comment: view.comment || "",
+                versionComment: view.versionComment || "",
+                metadataJson: view.metadataJson || "{}",
                 key: view.key || "",
                 dataType: view.dataType || "string",
                 appliesToJson: view.appliesToJson || "",
@@ -260,7 +262,9 @@
                 key: "",
                 versionNumber: "1.0.0",
                 baseType: "string",
-                comment: ""
+                comment: "",
+                versionComment: "",
+                metadataJson: "{}"
             });
         }
         if (kind === "field") {
@@ -287,7 +291,10 @@
             description: "",
             designerPath: designerPaths.payload,
             key: "",
-            jsonSchema: "{\"type\":\"object\",\"properties\":{}}"
+            jsonSchema: "{\"type\":\"object\",\"properties\":{}}",
+            versionNumber: "1.0.0",
+            versionComment: "",
+            metadataJson: "{}"
         });
     }
 
@@ -326,6 +333,8 @@
             versionNumber: item.versionNumber || item.VersionNumber || "",
             baseType: item.baseType || item.BaseType || "",
             comment: item.comment || item.Comment || "",
+            versionComment: item.versionComment || item.VersionComment || "",
+            metadataJson: item.metadataJson || item.MetadataJson || "{}",
             key: item.key || item.Key || "",
             dataType: item.dataType || item.DataType || "",
             appliesToJson: item.appliesToJson || item.AppliesToJson || "",
@@ -363,11 +372,21 @@
                 versionNumber: item.versionNumber || "",
                 baseType: item.baseType || "",
                 comment: item.comment || "",
+                versionComment: item.versionComment || item.comment || "",
+                metadata: parseJsonText(item.metadataJson, {}),
                 jsonSchema: parseJsonText(item.jsonSchema, {})
             }, null, 2);
         }
 
-        return prettyJson(item.jsonSchema || "");
+        return JSON.stringify({
+            key: item.key || "",
+            name: item.displayName || "",
+            description: item.description || "",
+            version: item.versionNumber || "",
+            versionComment: item.versionComment || "",
+            metadata: parseJsonText(item.metadataJson, {}),
+            jsonSchema: parseJsonText(item.jsonSchema, {})
+        }, null, 2);
     }
 
     function prettyJson(value) {

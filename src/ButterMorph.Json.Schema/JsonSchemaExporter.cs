@@ -47,6 +47,11 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
             return CreateFailure("Schema name is required.");
         }
 
+        if (string.IsNullOrWhiteSpace(request.Schema.Version))
+        {
+            return CreateFailure("Schema version is required.");
+        }
+
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions
         {
@@ -108,10 +113,69 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
 
         writer.WriteString("key", schema.Key);
         writer.WriteString("name", schema.Name);
+        writer.WriteString("version", schema.Version);
 
         if (!string.IsNullOrWhiteSpace(schema.Description))
         {
             writer.WriteString("description", schema.Description);
+        }
+
+        if (!string.IsNullOrWhiteSpace(schema.VersionComment))
+        {
+            writer.WriteString("versionComment", schema.VersionComment);
+        }
+
+        WriteOpenMetadata(writer, schema.Metadata);
+    }
+
+    // Writes schema-level open metadata.
+    private static void WriteOpenMetadata(Utf8JsonWriter writer, IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("metadata");
+        writer.WriteStartObject();
+
+        foreach (KeyValuePair<string, string> pair in metadata)
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteOpenMetadataValue(writer, pair.Value);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    // Writes open metadata values preserving structured JSON when present.
+    private static void WriteOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (TryWriteRawOpenMetadataValue(writer, value))
+        {
+            return;
+        }
+
+        writer.WriteStringValue(value);
+    }
+
+    // Attempts to write a metadata value as raw JSON.
+    private static bool TryWriteRawOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(value);
+            document.RootElement.WriteTo(writer);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

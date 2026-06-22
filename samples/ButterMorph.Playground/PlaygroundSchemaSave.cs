@@ -61,7 +61,17 @@ internal sealed class PlaygroundSchemaSave
     public string Comment { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the metadata key.
+    /// Gets or sets the schema version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets schema-level metadata JSON.
+    /// </summary>
+    public string MetadataJson { get; set; } = "{}";
+
+    /// <summary>
+    /// Gets or sets the schema or metadata key.
     /// </summary>
     public string Key { get; set; } = string.Empty;
 

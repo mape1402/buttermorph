@@ -96,6 +96,11 @@
                                         <details class="bm-source-group">
                                             <summary class="bm-source-group-header">
                                                 <span class="bm-node-name">@source.Key</span>
+                                                <span class="bm-source-meta">@source.SchemaKey · v@source.Version</span>
+                                                @if (!string.IsNullOrWhiteSpace(source.Topic))
+                                                {
+                                                    <span class="bm-source-meta">topic: @source.Topic</span>
+                                                }
                                                 <span class="bm-source-badge">Source</span>
                                             </summary>
                                             <div class="bm-source-tree">

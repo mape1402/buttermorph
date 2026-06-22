@@ -24,6 +24,11 @@ public sealed class SchemaExplorer : ISchemaExplorer
             throw new InvalidOperationException("Schema name is required before exploring a schema.");
         }
 
+        if (string.IsNullOrWhiteSpace(schema.Version))
+        {
+            throw new InvalidOperationException("Schema version is required before exploring a schema.");
+        }
+
         return CreateNode(schema.Root, string.Empty);
     }
 

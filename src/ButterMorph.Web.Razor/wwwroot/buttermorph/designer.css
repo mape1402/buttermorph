@@ -763,9 +763,17 @@ textarea,
 
 .bm-source-group-header .bm-node-name {
   color: inherit;
-  flex: 1;
   font-size: 0.86rem;
   min-width: 0;
+}
+
+.bm-source-meta {
+  color: var(--bm-sidebar-muted);
+  font-size: 0.66rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bm-source-badge {

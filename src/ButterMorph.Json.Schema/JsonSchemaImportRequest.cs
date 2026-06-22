@@ -11,6 +11,11 @@ public sealed class JsonSchemaImportRequest
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the explicit schema version used when the JSON Schema does not contain one.
+    /// </summary>
+    public string Version { get; set; } = "1.0.0";
+
+    /// <summary>
     /// Gets or sets the JSON Schema text.
     /// </summary>
     public string JsonSchema { get; set; } = string.Empty;

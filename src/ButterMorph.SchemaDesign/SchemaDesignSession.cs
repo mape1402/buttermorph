@@ -286,6 +286,8 @@ public sealed class SchemaDesignSession : ISchemaDesignSession
             Key = "schema",
             Name = "Schema",
             Description = string.Empty,
+            Version = "1.0.0",
+            VersionComment = string.Empty,
             Root = new SchemaNode
             {
                 Name = "$root",
@@ -362,6 +364,8 @@ public sealed class SchemaDesignSession : ISchemaDesignSession
             Key = source.Key,
             Name = source.Name,
             Description = source.Description,
+            Version = source.Version,
+            VersionComment = source.VersionComment,
             Root = CloneNode(source.Root),
             Metadata = new Dictionary<string, string>(source.Metadata, StringComparer.Ordinal)
         };

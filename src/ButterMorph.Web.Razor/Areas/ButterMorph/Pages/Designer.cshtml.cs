@@ -670,6 +670,10 @@ public sealed class DesignerModel : PageModel
             sourceSchemas.Add(new SourceSchemaDisplayModel
             {
                 Key = schemaPair.Key,
+                SchemaKey = schemaPair.Value.Key,
+                SchemaName = schemaPair.Value.Name,
+                Version = schemaPair.Value.Version,
+                Topic = ReadMetadata(schemaPair.Value.Metadata, "topic", string.Empty),
                 Root = sourceTree
             });
             sourceNodes.AddRange(CreateSourceNodes(schemaPair.Key, SchemaTreeFlattener.Flatten(explored)));

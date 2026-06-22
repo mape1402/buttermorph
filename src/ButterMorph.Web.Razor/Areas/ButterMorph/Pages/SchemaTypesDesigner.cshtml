@@ -53,7 +53,7 @@
                 <section class="row g-3 mb-3">
                     <div class="col-md-3">
                         <label class="form-label">Version</label>
-                        <input class="form-control" asp-for="Input.VersionNumber" placeholder="1.0.0" />
+                        <input class="form-control" asp-for="Input.VersionNumber" placeholder="1.0.0" maxlength="13" required />
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Base type</label>
@@ -68,7 +68,15 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Comentario</label>
-                        <input class="form-control" asp-for="Input.Comment" placeholder="Comentario de version" />
+                        <input class="form-control" asp-for="Input.Comment" placeholder="Comentario de version" maxlength="1000" />
+                    </div>
+                </section>
+
+                <section class="row g-3 mb-3">
+                    <div class="col-12">
+                        <label class="form-label">Metadata</label>
+                        <textarea class="form-control" asp-for="MetadataText" rows="5" placeholder='{"topic":{"type":"string","value":"customer.profile.updated"}}'></textarea>
+                        <small class="text-muted d-block mt-1">JSON map para datos abiertos del host. Cada key puede guardar type y value.</small>
                     </div>
                 </section>
 

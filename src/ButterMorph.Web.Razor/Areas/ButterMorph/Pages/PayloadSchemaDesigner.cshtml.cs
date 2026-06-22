@@ -1,6 +1,7 @@
 namespace ButterMorph.Web.Razor;
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using ButterMorph.SchemaDesign;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -11,6 +12,9 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class PayloadSchemaDesignerModel : PageModel
 {
+    // Serializes metadata definition for browser rendering.
+    private static readonly JsonSerializerOptions MetadataJsonOptions = CreateMetadataJsonOptions();
+
     // Builds payload schema output.
     private readonly IPayloadSchemaBuilder payloadBuilder;
 
@@ -61,6 +65,24 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     public string SchemaDescription { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the schema version.
+    /// </summary>
+    [BindProperty]
+    public string SchemaVersion { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Gets or sets the schema version comment.
+    /// </summary>
+    [BindProperty]
+    public string SchemaVersionComment { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets schema-level metadata lines.
+    /// </summary>
+    [BindProperty]
+    public string SchemaMetadataText { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets available schema types.
     /// </summary>
     public IReadOnlyCollection<SchemaTypeCatalogItem> SchemaTypes { get; set; } = [];
@@ -79,6 +101,16 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// Gets or sets metadata catalog JSON used by client behavior.
     /// </summary>
     public string FieldMetadataCatalogJson { get; set; } = "[]";
+
+    /// <summary>
+    /// Gets or sets schema metadata definition JSON used by client behavior.
+    /// </summary>
+    public string SchemaMetadataDefinitionJson { get; set; } = "{\"fields\":[]}";
+
+    /// <summary>
+    /// Gets or sets the host-provided schema metadata definition.
+    /// </summary>
+    public SchemaMetadataDefinition MetadataDefinition { get; set; } = new();
 
     /// <summary>
     /// Gets or sets a value indicating whether manual actions are shown.
@@ -142,11 +174,26 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         SaveActionUrl = ResolveSaveActionUrl();
         FormTitle = ResolveFormTitle();
         await ApplyHostLoadCatalogOnly();
+        if (!TryParseMetadataText(SchemaMetadataText, out IReadOnlyDictionary<string, string> metadata, out string metadataError))
+        {
+            Message = metadataError;
+            if (IsPopupRequest())
+            {
+                return new JsonResult(CreateHostSaveResponse("ButterMorphPayloadSchemaDesignerSaved"));
+            }
+
+            RefreshCatalogs();
+            return Page();
+        }
+
         PayloadSchemaDesignResult result = payloadBuilder.Build(new PayloadSchemaDesignInput
         {
             Key = SchemaKey,
             Name = SchemaName,
             Description = SchemaDescription,
+            Version = SchemaVersion,
+            VersionComment = SchemaVersionComment,
+            Metadata = metadata,
             JsonSchema = PayloadSchemaJson
         }, SchemaTypes, MetadataFields);
         RefreshCatalogs();
@@ -163,6 +210,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         }
 
         PayloadSchemaJson = result.JsonSchema;
+        SchemaVersion = result.Version;
+        SchemaVersionComment = result.VersionComment;
+        SchemaMetadataText = FormatMetadataText(result.Metadata);
         ButterMorphPayloadSchemaDesignerSaveResult saveResult = new()
         {
             Succeeded = true,
@@ -214,6 +264,10 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             SchemaKey = result.Key;
             SchemaName = result.Name;
             SchemaDescription = result.Description;
+            SchemaVersion = result.Version;
+            SchemaVersionComment = result.VersionComment;
+            SchemaMetadataText = FormatMetadataText(result.Metadata);
+            MetadataDefinition = result.MetadataDefinition;
             SchemaTypes = result.SchemaTypes;
             MetadataFields = result.MetadataFields;
             ShowManualActions = result.ShowManualActions;
@@ -224,6 +278,10 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         SchemaKey = "payload";
         SchemaName = "Payload";
         SchemaDescription = string.Empty;
+        SchemaVersion = "1.0.0";
+        SchemaVersionComment = string.Empty;
+        SchemaMetadataText = string.Empty;
+        MetadataDefinition = new SchemaMetadataDefinition();
         PayloadSchemaJson = "{\"type\":\"" + ("obj" + "ect") + "\",\"properties\":{}}";
     }
 
@@ -238,6 +296,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             });
             SchemaTypes = result.SchemaTypes;
             MetadataFields = result.MetadataFields;
+            MetadataDefinition = result.MetadataDefinition;
             ShowManualActions = result.ShowManualActions;
             return;
         }
@@ -253,6 +312,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
 
         SchemaTypeCatalogJson = JsonSerializer.Serialize(SchemaTypes);
         FieldMetadataCatalogJson = JsonSerializer.Serialize(MetadataFields);
+        SchemaMetadataDefinitionJson = JsonSerializer.Serialize(MetadataDefinition, MetadataJsonOptions);
     }
 
     // Resolves the host context key.
@@ -352,5 +412,118 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             VersionNumber = "1.0.0",
             IsSystem = true
         };
+    }
+
+    // Creates JSON options for metadata definition payload.
+    private static JsonSerializerOptions CreateMetadataJsonOptions()
+    {
+        JsonSerializerOptions options = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
+
+    // Parses schema-level metadata JSON.
+    private static bool TryParseMetadataText(string text, out IReadOnlyDictionary<string, string> metadata, out string error)
+    {
+        Dictionary<string, string> values = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            metadata = values;
+            error = string.Empty;
+            return true;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(text);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                metadata = values;
+                error = "Metadata must be a JSON map.";
+                return false;
+            }
+
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                values[property.Name] = ReadMetadataValue(property.Value);
+            }
+
+            metadata = values;
+            error = string.Empty;
+            return true;
+        }
+        catch (JsonException exception)
+        {
+            metadata = values;
+            error = "Metadata JSON is invalid. " + exception.Message;
+            return false;
+        }
+    }
+
+    // Formats schema-level metadata JSON.
+    private static string FormatMetadataText(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = true });
+        writer.WriteStartObject();
+        foreach (KeyValuePair<string, string> pair in metadata)
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteMetadataValue(writer, pair.Value);
+        }
+
+        writer.WriteEndObject();
+        writer.Flush();
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // Reads a metadata value as structured JSON or text.
+    private static string ReadMetadataValue(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return element.GetString();
+        }
+
+        return element.GetRawText();
+    }
+
+    // Writes metadata values preserving nested JSON.
+    private static void WriteMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (TryWriteRawMetadataValue(writer, value))
+        {
+            return;
+        }
+
+        writer.WriteStringValue(value);
+    }
+
+    // Attempts to write a raw JSON metadata value.
+    private static bool TryWriteRawMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(value);
+            document.RootElement.WriteTo(writer);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

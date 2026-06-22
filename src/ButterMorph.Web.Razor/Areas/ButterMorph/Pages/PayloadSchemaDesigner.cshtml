@@ -36,13 +36,32 @@
                         <label class="form-label">Key</label>
                         <input class="form-control" asp-for="SchemaKey" placeholder="customer-profile" required />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Nombre</label>
                         <input class="form-control" asp-for="SchemaName" placeholder="Customer Profile" required />
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-2">
+                        <label class="form-label">Version</label>
+                        <input class="form-control" asp-for="SchemaVersion" placeholder="1.0.0" maxlength="13" required />
+                    </div>
+                    <div class="col-md-4">
                         <label class="form-label">Descripcion</label>
                         <input class="form-control" asp-for="SchemaDescription" placeholder="Describe el payload" />
+                    </div>
+                </section>
+                <section class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Comentario de version</label>
+                        <input class="form-control" asp-for="SchemaVersionComment" placeholder="Comentario opcional de version" maxlength="1000" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Metadata</label>
+                        <input type="hidden" id="schema-metadata-json" asp-for="SchemaMetadataText" />
+                        <div class="schema-metadata-launcher">
+                            <button type="button" class="btn btn-secondary" id="open-schema-metadata-btn">Metadata</button>
+                            <span id="schema-metadata-summary" class="schema-metadata-summary">No metadata captured.</span>
+                        </div>
+                        <small class="text-muted d-block mt-1">El host define los campos disponibles y ButterMorph captura los valores.</small>
                     </div>
                 </section>
                 <section class="event-schema-block">
@@ -66,8 +85,28 @@
 
     <script id="schema-type-catalog" type="application/json">@Html.Raw(Model.SchemaTypeCatalogJson)</script>
     <script id="field-metadata-catalog" type="application/json">@Html.Raw(Model.FieldMetadataCatalogJson)</script>
+    <script id="schema-metadata-definition" type="application/json">@Html.Raw(Model.SchemaMetadataDefinitionJson)</script>
     @await Html.PartialAsync("_AtlasSchemaTemplate")
+    <div class="modal fade" id="schema-metadata-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content schema-metadata-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Metadata del schema</h5>
+                    <button type="button" class="btn-close" data-modal-close="schema-metadata-modal" aria-label="Cerrar">×</button>
+                </div>
+                <div class="modal-body">
+                    <div id="schema-metadata-validation" class="alert alert-danger d-none"></div>
+                    <div id="schema-metadata-fields" class="schema-metadata-fields"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-modal-close="schema-metadata-modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="save-schema-metadata-btn">Aplicar</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=5"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-metadata-editor.js?v=1"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

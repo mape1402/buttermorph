@@ -51,4 +51,9 @@ public sealed class SchemaTypeDesignResult
     /// Gets or sets the save comment.
     /// </summary>
     public string Comment { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets open schema metadata.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
 }

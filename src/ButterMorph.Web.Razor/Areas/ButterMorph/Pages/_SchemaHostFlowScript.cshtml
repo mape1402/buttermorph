@@ -40,8 +40,11 @@
                 return;
             }
 
+            if (!syncHostForm(form)) {
+                return;
+            }
+
             form.setAttribute("data-schema-host-submitting", "true");
-            syncHostForm(form);
             var response = await fetch(form.action, {
                 method: "POST",
                 body: new FormData(form),
@@ -69,9 +72,15 @@
         }
 
         function syncHostForm(form) {
+            if (window.ButterMorphPayloadMetadataSync && !window.ButterMorphPayloadMetadataSync()) {
+                return false;
+            }
+
             if (window.ButterMorphPayloadSchemaSync) {
                 window.ButterMorphPayloadSchemaSync();
             }
+
+            return true;
         }
 
         function resolveHostForm(candidate) {

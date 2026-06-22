@@ -21,6 +21,16 @@ public interface IStructureSchema
     string Description { get; }
 
     /// <summary>
+    /// Gets the concrete schema version.
+    /// </summary>
+    string Version { get; }
+
+    /// <summary>
+    /// Gets the schema version comment.
+    /// </summary>
+    string VersionComment { get; }
+
+    /// <summary>
     /// Gets the schema root node.
     /// </summary>
     ISchemaNode Root { get; }

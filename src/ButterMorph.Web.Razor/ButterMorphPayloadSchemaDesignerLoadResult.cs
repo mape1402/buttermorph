@@ -23,6 +23,26 @@ public sealed class ButterMorphPayloadSchemaDesignerLoadResult
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the schema version.
+    /// </summary>
+    public string Version { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Gets or sets the schema version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets open schema metadata.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Gets or sets the host-provided schema metadata definition.
+    /// </summary>
+    public SchemaMetadataDefinition MetadataDefinition { get; set; } = new();
+
+    /// <summary>
     /// Gets or sets the payload JSON Schema.
     /// </summary>
     public string JsonSchema { get; set; } = string.Empty;

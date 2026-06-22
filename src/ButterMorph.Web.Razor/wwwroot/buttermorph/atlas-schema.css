@@ -121,4 +121,17 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .object-schema-breadcrumb button.active { background: var(--atlas-primary); color: #fff; }
 .field-modal-section-title { color: #4b4f74; font-size: .7rem; font-weight: 800; letter-spacing: .04em; margin: 0 0 .45rem; text-transform: uppercase; }
 .field-validation-section { border-bottom: 1px solid #eef0f6; padding-bottom: .75rem; }
+.schema-metadata-launcher { align-items: center; display: flex; gap: .65rem; min-height: 2rem; }
+.schema-metadata-summary { color: var(--atlas-muted); font-size: .74rem; }
+.schema-metadata-modal-content { min-height: min(720px, calc(100dvh - 3.5rem)); }
+.schema-metadata-fields { display: flex; flex-direction: column; gap: .65rem; }
+.schema-metadata-field { background: #fff; border: 1px solid var(--atlas-border); border-radius: 8px; padding: .65rem; }
+.schema-metadata-field-header { align-items: baseline; display: flex; gap: .5rem; justify-content: space-between; margin-bottom: .35rem; }
+.schema-metadata-required { color: var(--atlas-danger); font-size: .64rem; font-weight: 900; text-transform: uppercase; }
+.schema-metadata-object { background: #fbfbff; border: 1px dashed #d9dbeb; border-radius: 8px; display: flex; flex-direction: column; gap: .55rem; padding: .55rem; }
+.schema-metadata-array { background: #fbfbff; border: 1px dashed #d9dbeb; border-radius: 8px; padding: .55rem; }
+.schema-metadata-array-list { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .5rem; }
+.schema-metadata-array-item { align-items: start; background: #fff; border: 1px solid #e2e3ef; border-radius: 8px; display: grid; gap: .45rem; grid-template-columns: minmax(0, 1fr) auto; padding: .45rem; }
+.schema-metadata-array-item > .schema-metadata-object,
+.schema-metadata-array-item > .schema-metadata-array { grid-column: 1; }
 @media (max-width: 900px) { .atlas-form-grid { grid-template-columns: 1fr; } .atlas-col-span { grid-column: span 1; } .row { grid-template-columns: 1fr; } .col-md-1,.col-md-2,.col-md-3,.col-md-4,.col-md-7 { grid-column: span 1; } }

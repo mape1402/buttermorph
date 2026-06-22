@@ -17,6 +17,12 @@ public sealed class StructureSchemaBuilder : IStructureSchemaBuilder
     // Stores the schema description.
     private string _description = string.Empty;
 
+    // Stores the schema version.
+    private string _version = "1.0.0";
+
+    // Stores the schema version comment.
+    private string _versionComment = string.Empty;
+
     // Stores the root schema node.
     private ISchemaNode _root = new SchemaNode
     {
@@ -63,6 +69,29 @@ public sealed class StructureSchemaBuilder : IStructureSchemaBuilder
     }
 
     /// <summary>
+    /// Sets the schema version.
+    /// </summary>
+    /// <param name="version">The schema version.</param>
+    /// <returns>The current builder.</returns>
+    public IStructureSchemaBuilder WithVersion(string version)
+    {
+        Guard.NotBlank(version, nameof(version));
+        _version = version.Trim();
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the schema version comment.
+    /// </summary>
+    /// <param name="versionComment">The schema version comment.</param>
+    /// <returns>The current builder.</returns>
+    public IStructureSchemaBuilder WithVersionComment(string versionComment)
+    {
+        _versionComment = versionComment;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the schema root.
     /// </summary>
     /// <param name="root">The schema root.</param>
@@ -94,11 +123,14 @@ public sealed class StructureSchemaBuilder : IStructureSchemaBuilder
     {
         Guard.NotBlank(_key, nameof(_key));
         Guard.NotBlank(_name, nameof(_name));
+        Guard.NotBlank(_version, nameof(_version));
         return new StructureSchema
         {
             Key = _key,
             Name = _name,
             Description = _description,
+            Version = _version,
+            VersionComment = _versionComment,
             Root = _root,
             Metadata = new Dictionary<string, string>(_metadata, StringComparer.Ordinal)
         };

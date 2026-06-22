@@ -32,6 +32,11 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             return Fail("BMSD304", "Payload schema name is required.", "Name");
         }
 
+        if (string.IsNullOrWhiteSpace(input.Version))
+        {
+            return Fail("BMSD305", "Payload schema version is required.", "Version");
+        }
+
         if (string.IsNullOrWhiteSpace(input.JsonSchema))
         {
             return Fail("BMSD301", "Payload JSON Schema is required.", "JsonSchema");
@@ -59,7 +64,10 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
                 Key = input.Key.Trim(),
                 Name = input.Name.Trim(),
                 Description = input.Description.Trim(),
-                JsonSchema = AddSchemaIdentity(input.JsonSchema, input.Key, input.Name, input.Description)
+                Version = input.Version.Trim(),
+                VersionComment = input.VersionComment.Trim(),
+                Metadata = CopyMetadata(input.Metadata),
+                JsonSchema = AddSchemaIdentity(input.JsonSchema, input)
             };
         }
         catch (JsonException exception)
@@ -81,25 +89,36 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             Name = SafeString(input.Name),
             Key = SafeString(input.Key),
             Description = SafeString(input.Description),
+            Version = SafeString(input.Version),
+            VersionComment = SafeString(input.VersionComment),
+            Metadata = CopyMetadata(input.Metadata),
             JsonSchema = SafeString(input.JsonSchema)
         };
     }
 
     // Adds canonical ButterMorph schema identity to the payload JSON Schema.
-    private static string AddSchemaIdentity(string jsonSchema, string key, string name, string description)
+    private static string AddSchemaIdentity(string jsonSchema, PayloadSchemaDesignInput input)
     {
         using JsonDocument document = JsonDocument.Parse(jsonSchema);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
 
         writer.WriteStartObject();
-        writer.WriteString("key", key.Trim());
-        writer.WriteString("name", name.Trim());
+        writer.WriteString("key", input.Key.Trim());
+        writer.WriteString("name", input.Name.Trim());
+        writer.WriteString("version", input.Version.Trim());
 
-        if (!string.IsNullOrWhiteSpace(description))
+        if (!string.IsNullOrWhiteSpace(input.Description))
         {
-            writer.WriteString("description", description.Trim());
+            writer.WriteString("description", input.Description.Trim());
         }
+
+        if (!string.IsNullOrWhiteSpace(input.VersionComment))
+        {
+            writer.WriteString("versionComment", input.VersionComment.Trim());
+        }
+
+        WriteOpenMetadata(writer, input.Metadata);
 
         foreach (JsonProperty property in document.RootElement.EnumerateObject())
         {
@@ -122,7 +141,72 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
     {
         return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
             string.Equals(propertyName, "name", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "description", StringComparison.Ordinal);
+            string.Equals(propertyName, "description", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "version", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "versionComment", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "metadata", StringComparison.Ordinal);
+    }
+
+    // Copies open metadata safely.
+    private static IReadOnlyDictionary<string, string> CopyMetadata(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata == null)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        return new Dictionary<string, string>(metadata, StringComparer.Ordinal);
+    }
+
+    // Writes the schema-level open metadata bag.
+    private static void WriteOpenMetadata(Utf8JsonWriter writer, IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.Count == 0)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("metadata");
+        writer.WriteStartObject();
+
+        foreach (KeyValuePair<string, string> pair in metadata)
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteOpenMetadataValue(writer, pair.Value);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    // Writes open metadata values preserving structured JSON when present.
+    private static void WriteOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (TryWriteRawOpenMetadataValue(writer, value))
+        {
+            return;
+        }
+
+        writer.WriteStringValue(value);
+    }
+
+    // Attempts to write a metadata value as raw JSON.
+    private static bool TryWriteRawOpenMetadataValue(Utf8JsonWriter writer, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(value);
+            document.RootElement.WriteTo(writer);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
     // Converts model-bound null strings into empty text.

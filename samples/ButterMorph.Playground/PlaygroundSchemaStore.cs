@@ -39,6 +39,8 @@ internal sealed class PlaygroundSchemaStore
             VersionNumber = item.VersionNumber,
             BaseType = item.BaseType,
             Comment = item.Comment,
+            VersionComment = item.VersionComment,
+            MetadataJson = item.MetadataJson,
             Key = item.Key,
             DataType = item.DataType,
             AppliesToJson = item.AppliesToJson,

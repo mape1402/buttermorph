@@ -19,6 +19,9 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         "$defs",
         "key",
         "name",
+        "version",
+        "versionComment",
+        "metadata",
         "title",
         "description",
         "format",
@@ -55,7 +58,12 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
             }
 
             string schemaName = ResolveSchemaName(schemaKey, rootElement);
-            Dictionary<string, string> schemaMetadata = ReadMetadata(rootElement);
+            Dictionary<string, string> schemaMetadata = ReadMetadata(rootElement, true);
+            string schemaVersion = ResolveSchemaVersion(request.Version, rootElement);
+            if (string.IsNullOrWhiteSpace(schemaVersion))
+            {
+                return CreateFailure("Schema version is required.");
+            }
 
             if (rootElement.TryGetProperty("$defs", out JsonElement definitions))
             {
@@ -70,6 +78,8 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
                     Key = schemaKey,
                     Name = schemaName,
                     Description = ResolveSchemaDescription(rootElement),
+                    Version = schemaVersion,
+                    VersionComment = ResolveSchemaVersionComment(rootElement),
                     Root = ImportNode("$root", rootElement, ReadRequiredNames(rootElement)),
                     Metadata = schemaMetadata
                 },
@@ -88,7 +98,7 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
     {
         string type = ReadType(element);
         bool isRequired = requiredNames.Contains(name) || ReadAtlasRequired(element);
-        Dictionary<string, string> metadata = ReadMetadata(element);
+        Dictionary<string, string> metadata = ReadMetadata(element, false);
 
         if (IsMapType(type))
         {
@@ -146,7 +156,7 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
     }
 
     // Reads metadata and unknown keywords from a JSON Schema element.
-    private static Dictionary<string, string> ReadMetadata(JsonElement element)
+    private static Dictionary<string, string> ReadMetadata(JsonElement element, bool isRoot)
     {
         Dictionary<string, string> metadata = new(StringComparer.Ordinal);
 
@@ -157,11 +167,15 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
 
         foreach (JsonProperty property in element.EnumerateObject())
         {
-            if (string.Equals(property.Name, "properties", StringComparison.Ordinal) ||
-                string.Equals(property.Name, "items", StringComparison.Ordinal) ||
-                string.Equals(property.Name, "required", StringComparison.Ordinal) ||
-                string.Equals(property.Name, "type", StringComparison.Ordinal))
+            if (IsStructuralKeyword(property.Name) ||
+                (isRoot && IsRootIdentityKeyword(property.Name)))
             {
+                continue;
+            }
+
+            if (isRoot && string.Equals(property.Name, "metadata", StringComparison.Ordinal))
+            {
+                ReadOpenMetadata(property.Value, metadata);
                 continue;
             }
 
@@ -175,6 +189,25 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         }
 
         return metadata;
+    }
+
+    // Determines whether a keyword describes schema shape.
+    private static bool IsStructuralKeyword(string propertyName)
+    {
+        return string.Equals(propertyName, "properties", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "items", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "required", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "type", StringComparison.Ordinal);
+    }
+
+    // Determines whether a keyword is schema-level identity.
+    private static bool IsRootIdentityKeyword(string propertyName)
+    {
+        return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "name", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "description", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "version", StringComparison.Ordinal) ||
+            string.Equals(propertyName, "versionComment", StringComparison.Ordinal);
     }
 
     // Reads a metadata value as compact text.
@@ -315,6 +348,58 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         }
 
         return string.Empty;
+    }
+
+    // Resolves the ButterMorph schema version.
+    private static string ResolveSchemaVersion(string requestedVersion, JsonElement rootElement)
+    {
+        if (rootElement.TryGetProperty("version", out JsonElement versionElement) && versionElement.ValueKind == JsonValueKind.String)
+        {
+            string version = versionElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                return version;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestedVersion))
+        {
+            return requestedVersion;
+        }
+
+        return string.Empty;
+    }
+
+    // Resolves the ButterMorph schema version comment.
+    private static string ResolveSchemaVersionComment(JsonElement rootElement)
+    {
+        if (rootElement.TryGetProperty("versionComment", out JsonElement commentElement) && commentElement.ValueKind == JsonValueKind.String)
+        {
+            string comment = commentElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(comment))
+            {
+                return comment;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    // Reads the root open metadata bag.
+    private static void ReadOpenMetadata(JsonElement element, Dictionary<string, string> metadata)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            metadata["metadata"] = element.GetRawText();
+            return;
+        }
+
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            metadata[property.Name] = ReadMetadataValue(property.Value);
+        }
     }
 
     // Determines whether a schema type represents a map-shaped node.

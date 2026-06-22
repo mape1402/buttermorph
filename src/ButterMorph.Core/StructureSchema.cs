@@ -23,6 +23,16 @@ public sealed class StructureSchema : IStructureSchema
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the concrete schema version.
+    /// </summary>
+    public string Version { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Gets or sets the schema version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the schema root node.
     /// </summary>
     public ISchemaNode Root { get; set; } = new SchemaNode();

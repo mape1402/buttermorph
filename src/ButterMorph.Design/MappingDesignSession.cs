@@ -370,6 +370,11 @@ public sealed class MappingDesignSession : IMappingDesignSession
             diagnostics.Add(CreateDiagnostic("BMDG009", "Source schema name cannot be blank.", alias, "Error"));
         }
 
+        if (string.IsNullOrWhiteSpace(schema.Version))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG014", "Source schema version cannot be blank.", alias, "Error"));
+        }
+
         if (!string.Equals(alias, schema.Key, StringComparison.Ordinal))
         {
             diagnostics.Add(CreateDiagnostic("BMDG010", "Source alias differs from schema key. Paths use the alias, but schema identity uses the key.", alias, "Warning"));
@@ -388,26 +393,32 @@ public sealed class MappingDesignSession : IMappingDesignSession
         {
             diagnostics.Add(CreateDiagnostic("BMDG013", "Target schema name cannot be blank.", "target", "Error"));
         }
+
+        if (string.IsNullOrWhiteSpace(schema.Version))
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG015", "Target schema version cannot be blank.", "target", "Error"));
+        }
     }
 
-    // Adds duplicate canonical schema key diagnostics.
+    // Adds duplicate canonical schema key and version diagnostics.
     private static void AddDuplicateSchemaKeyDiagnostics(List<DiagnosticEntry> diagnostics, IReadOnlyDictionary<string, IStructureSchema> schemas)
     {
-        Dictionary<string, string> aliasesBySchemaKey = new(StringComparer.Ordinal);
+        Dictionary<string, string> aliasesBySchemaIdentity = new(StringComparer.Ordinal);
         foreach (KeyValuePair<string, IStructureSchema> pair in schemas)
         {
-            if (string.IsNullOrWhiteSpace(pair.Value.Key))
+            if (string.IsNullOrWhiteSpace(pair.Value.Key) || string.IsNullOrWhiteSpace(pair.Value.Version))
             {
                 continue;
             }
 
-            if (aliasesBySchemaKey.ContainsKey(pair.Value.Key))
+            string schemaIdentity = pair.Value.Key + "@" + pair.Value.Version;
+            if (aliasesBySchemaIdentity.ContainsKey(schemaIdentity))
             {
-                diagnostics.Add(CreateDiagnostic("BMDG011", "Multiple source schemas use the same canonical schema key.", pair.Value.Key, "Warning"));
+                diagnostics.Add(CreateDiagnostic("BMDG011", "Multiple source schemas use the same canonical schema key and version.", schemaIdentity, "Warning"));
                 continue;
             }
 
-            aliasesBySchemaKey[pair.Value.Key] = pair.Key;
+            aliasesBySchemaIdentity[schemaIdentity] = pair.Key;
         }
     }
 
