@@ -140,6 +140,18 @@
         const container = document.createElement("div");
         container.className = "schema-metadata-array";
         const itemDefinition = normalizeField(field.arrayItem || { key: "item", name: "Item", dataType: "String" });
+
+        const header = document.createElement("div");
+        header.className = "schema-metadata-array-header";
+        const title = document.createElement("span");
+        title.textContent = "Items";
+        const type = document.createElement("span");
+        type.className = "schema-metadata-type-pill";
+        type.textContent = normalizeType(itemDefinition.dataType);
+        header.appendChild(title);
+        header.appendChild(type);
+        container.appendChild(header);
+
         const list = document.createElement("div");
         list.className = "schema-metadata-array-list";
         container.appendChild(list);
@@ -155,8 +167,12 @@
         addButton.textContent = "Agregar item";
         addButton.addEventListener("click", function () {
             list.appendChild(renderArrayItem(itemDefinition, createEmptyValue(itemDefinition)));
+            updateArrayEmptyState(list);
+            renumberArrayItems(list);
         });
         container.appendChild(addButton);
+        updateArrayEmptyState(list);
+        renumberArrayItems(list);
         return container;
     }
 
@@ -165,17 +181,66 @@
         row.className = "schema-metadata-array-item";
         row.dataset.arrayItem = "true";
         row.dataset.type = normalizeType(itemDefinition.dataType);
-        row.appendChild(renderValueInput(itemDefinition, normalizeExistingValue(itemDefinition, value)));
+
+        const header = document.createElement("div");
+        header.className = "schema-metadata-array-item-header";
+        const title = document.createElement("strong");
+        title.className = "schema-metadata-array-item-title";
+        title.dataset.arrayItemTitle = "true";
+        title.textContent = itemDefinition.name || "Item";
+        header.appendChild(title);
 
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "btn btn-outline-danger btn-sm";
-        remove.textContent = "×";
+        remove.textContent = "Remove";
         remove.addEventListener("click", function () {
+            const list = row.parentElement;
             row.remove();
+            if (list) {
+                updateArrayEmptyState(list);
+                renumberArrayItems(list);
+            }
         });
-        row.appendChild(remove);
+        header.appendChild(remove);
+        row.appendChild(header);
+
+        const body = document.createElement("div");
+        body.className = "schema-metadata-array-item-body";
+        body.appendChild(renderValueInput(itemDefinition, normalizeExistingValue(itemDefinition, value)));
+        row.appendChild(body);
         return row;
+    }
+
+    function updateArrayEmptyState(list) {
+        const existingEmpty = list.querySelector("[data-array-empty='true']");
+        const itemCount = list.querySelectorAll("[data-array-item='true']").length;
+        if (itemCount > 0) {
+            if (existingEmpty) {
+                existingEmpty.remove();
+            }
+            return;
+        }
+
+        if (existingEmpty) {
+            return;
+        }
+
+        const empty = document.createElement("div");
+        empty.className = "schema-metadata-array-empty";
+        empty.dataset.arrayEmpty = "true";
+        empty.textContent = "No items added yet.";
+        list.appendChild(empty);
+    }
+
+    function renumberArrayItems(list) {
+        const items = list.querySelectorAll("[data-array-item='true']");
+        items.forEach(function (item, index) {
+            const title = item.querySelector("[data-array-item-title='true']");
+            if (title) {
+                title.textContent = "Item " + String(index + 1);
+            }
+        });
     }
 
     function renderScalarInput(field, existing) {

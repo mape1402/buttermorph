@@ -129,9 +129,15 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .schema-metadata-field-header { align-items: baseline; display: flex; gap: .5rem; justify-content: space-between; margin-bottom: .35rem; }
 .schema-metadata-required { color: var(--atlas-danger); font-size: .64rem; font-weight: 900; text-transform: uppercase; }
 .schema-metadata-object { background: #fbfbff; border: 1px dashed #d9dbeb; border-radius: 8px; display: flex; flex-direction: column; gap: .55rem; padding: .55rem; }
-.schema-metadata-array { background: #fbfbff; border: 1px dashed #d9dbeb; border-radius: 8px; padding: .55rem; }
+.schema-metadata-array { background: #fbfbff; border: 1px solid #d9dbeb; border-radius: 8px; padding: .55rem; }
+.schema-metadata-array-header { align-items: center; color: #424766; display: flex; font-size: .72rem; font-weight: 800; gap: .5rem; justify-content: space-between; margin-bottom: .45rem; text-transform: uppercase; }
+.schema-metadata-type-pill { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 999px; color: #312e81; font-size: .62rem; letter-spacing: .04em; padding: .08rem .42rem; text-transform: uppercase; }
 .schema-metadata-array-list { display: flex; flex-direction: column; gap: .45rem; margin-bottom: .5rem; }
-.schema-metadata-array-item { align-items: start; background: #fff; border: 1px solid #e2e3ef; border-radius: 8px; display: grid; gap: .45rem; grid-template-columns: minmax(0, 1fr) auto; padding: .45rem; }
-.schema-metadata-array-item > .schema-metadata-object,
-.schema-metadata-array-item > .schema-metadata-array { grid-column: 1; }
+.schema-metadata-array-empty { border: 1px dashed #d9dbeb; border-radius: 7px; color: var(--atlas-muted); font-size: .74rem; padding: .55rem; text-align: center; }
+.schema-metadata-array-item { background: #fff; border: 1px solid #d4d7eb; border-radius: 8px; overflow: hidden; }
+.schema-metadata-array-item-header { align-items: center; background: #f4f6ff; border-bottom: 1px solid #e2e3ef; display: flex; gap: .5rem; justify-content: space-between; padding: .35rem .5rem; }
+.schema-metadata-array-item-title { color: #34395c; font-size: .74rem; }
+.schema-metadata-array-item-body { padding: .5rem; }
+.schema-metadata-array-item-body > .schema-metadata-object,
+.schema-metadata-array-item-body > .schema-metadata-array { margin: 0; }
 @media (max-width: 900px) { .atlas-form-grid { grid-template-columns: 1fr; } .atlas-col-span { grid-column: span 1; } .row { grid-template-columns: 1fr; } .col-md-1,.col-md-2,.col-md-3,.col-md-4,.col-md-7 { grid-column: span 1; } }
