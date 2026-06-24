@@ -141,13 +141,13 @@ public sealed class SchemaDesignSessionTests
             Name = "Classification",
             Key = "classification",
             DataType = "string",
-            AppliesTo = "Payload\nProperty",
+            AppliesTo = "Schema\nField",
             AllowedValues = "Internal\nPublic"
         });
 
         Assert.True(result.Succeeded);
         Assert.Contains("\"allowedValues\":[\"Internal\",\"Public\"]", result.ValidationJson, StringComparison.Ordinal);
-        Assert.Contains("\"Payload\"", result.AppliesToJson, StringComparison.Ordinal);
+        Assert.Contains("\"Schema\"", result.AppliesToJson, StringComparison.Ordinal);
     }
 
     /// <summary>

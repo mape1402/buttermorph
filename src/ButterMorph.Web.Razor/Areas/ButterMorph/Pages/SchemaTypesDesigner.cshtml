@@ -72,14 +72,6 @@
                     </div>
                 </section>
 
-                <section class="row g-3 mb-3">
-                    <div class="col-12">
-                        <label class="form-label">Metadata</label>
-                        <textarea class="form-control" asp-for="MetadataText" rows="5" placeholder='{"topic":{"type":"string","value":"customer.profile.updated"}}'></textarea>
-                        <small class="text-muted d-block mt-1">JSON map para datos abiertos del host. Cada key puede guardar type y value.</small>
-                    </div>
-                </section>
-
                 <section class="type-constraints type-constraints-string row g-3 mb-3">
                     <div class="col-md-3">
                         <label class="form-label">minLength</label>
@@ -181,7 +173,7 @@
     </main>
 
     <script id="schema-type-catalog" type="application/json">@Html.Raw(Model.SchemaTypeCatalogJson)</script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=4"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=6"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-type-version-editor.js?v=4"></script>
     @await Html.PartialAsync("_AtlasSchemaTemplate")
     @await Html.PartialAsync("_SchemaHostFlowScript")

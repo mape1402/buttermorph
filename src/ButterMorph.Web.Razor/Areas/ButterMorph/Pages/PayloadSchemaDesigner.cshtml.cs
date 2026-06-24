@@ -310,9 +310,152 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             SchemaTypes = CreateDefaultCatalog();
         }
 
+        MetadataDefinition = MergeMetadataDefinitions(MetadataDefinition, CreateMetadataDefinitionFromCatalog(MetadataFields, "Schema"));
+
         SchemaTypeCatalogJson = JsonSerializer.Serialize(SchemaTypes);
         FieldMetadataCatalogJson = JsonSerializer.Serialize(MetadataFields);
         SchemaMetadataDefinitionJson = JsonSerializer.Serialize(MetadataDefinition, MetadataJsonOptions);
+    }
+
+    // Creates a graphical schema metadata definition from custom fields supplied by the host.
+    private static SchemaMetadataDefinition CreateMetadataDefinitionFromCatalog(IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, string scope)
+    {
+        List<SchemaMetadataFieldDefinition> fields = [];
+        foreach (FieldMetadataCatalogItem item in metadataFields.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!AppliesToScope(item.AppliesToJson, scope))
+            {
+                continue;
+            }
+
+            fields.Add(new SchemaMetadataFieldDefinition
+            {
+                Key = item.Key,
+                Name = item.Name,
+                Description = item.Description,
+                DataType = ConvertMetadataDataType(item.DataType),
+                IsRequired = item.IsRequired,
+                AllowedValues = ReadAllowedValues(item.Validation)
+            });
+        }
+
+        return new SchemaMetadataDefinition
+        {
+            Fields = fields
+        };
+    }
+
+    // Combines explicit host metadata with catalog-derived custom fields.
+    private static SchemaMetadataDefinition MergeMetadataDefinitions(SchemaMetadataDefinition explicitDefinition, SchemaMetadataDefinition catalogDefinition)
+    {
+        Dictionary<string, SchemaMetadataFieldDefinition> fields = new(StringComparer.OrdinalIgnoreCase);
+        foreach (SchemaMetadataFieldDefinition field in explicitDefinition.Fields)
+        {
+            fields[field.Key] = field;
+        }
+
+        foreach (SchemaMetadataFieldDefinition field in catalogDefinition.Fields)
+        {
+            if (!fields.ContainsKey(field.Key))
+            {
+                fields[field.Key] = field;
+            }
+        }
+
+        return new SchemaMetadataDefinition
+        {
+            Fields = fields.Values.ToArray()
+        };
+    }
+
+    // Detects whether a custom field applies to the requested designer area.
+    private static bool AppliesToScope(string appliesToJson, string scope)
+    {
+        if (string.IsNullOrWhiteSpace(appliesToJson))
+        {
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(appliesToJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.String &&
+                    string.Equals(element.GetString(), scope, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    // Converts custom field data types to metadata editor data types.
+    private static SchemaMetadataDataType ConvertMetadataDataType(string dataType)
+    {
+        if (string.Equals(dataType, "number", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Number;
+        }
+
+        if (string.Equals(dataType, "integer", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Integer;
+        }
+
+        if (string.Equals(dataType, "boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Boolean;
+        }
+
+        if (string.Equals(dataType, "date", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Date;
+        }
+
+        return SchemaMetadataDataType.String;
+    }
+
+    // Reads allowed scalar values from custom field validation JSON.
+    private static IReadOnlyCollection<string> ReadAllowedValues(string validation)
+    {
+        List<string> values = [];
+        if (string.IsNullOrWhiteSpace(validation))
+        {
+            return values;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(validation);
+            if (!document.RootElement.TryGetProperty("allowedValues", out JsonElement allowedValues) ||
+                allowedValues.ValueKind != JsonValueKind.Array)
+            {
+                return values;
+            }
+
+            foreach (JsonElement element in allowedValues.EnumerateArray())
+            {
+                values.Add(element.ToString());
+            }
+        }
+        catch (JsonException)
+        {
+            return values;
+        }
+
+        return values;
     }
 
     // Resolves the host context key.

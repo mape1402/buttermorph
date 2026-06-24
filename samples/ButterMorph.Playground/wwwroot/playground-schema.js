@@ -45,6 +45,7 @@
     initialize();
 
     async function initialize() {
+        removeLegacySeedItems();
         await seedStorage();
         await refreshReturnedSchema();
         renderWorkbench();
@@ -105,6 +106,18 @@
         return window.localStorage.getItem(keys.type) ||
             window.localStorage.getItem(keys.field) ||
             window.localStorage.getItem(keys.payload);
+    }
+
+    function removeLegacySeedItems() {
+        removeStoredItems("type", ["datatype-customer-code"]);
+        removeStoredItems("field", ["metadata-classification"]);
+    }
+
+    function removeStoredItems(kind, contextKeys) {
+        const items = readItems(kind).filter(function (item) {
+            return !contextKeys.includes(item.contextKey);
+        });
+        saveItems(kind, items);
     }
 
     function renderWorkbench() {
@@ -196,13 +209,24 @@
             popup.focus();
         }
 
-        await preloadItem(item);
+        await preloadDesignerCatalog(item);
         if (popup) {
             popup.location.href = url;
             return;
         }
 
         window.location.href = url;
+    }
+
+    async function preloadDesignerCatalog(item) {
+        if (item.kind === "payload") {
+            const catalogItems = readItems("type").concat(readItems("field"));
+            for (const catalogItem of catalogItems) {
+                await preloadItem(catalogItem);
+            }
+        }
+
+        await preloadItem(item);
     }
 
     async function preloadItem(item) {
@@ -263,8 +287,7 @@
                 versionNumber: "1.0.0",
                 baseType: "string",
                 comment: "",
-                versionComment: "",
-                metadataJson: "{}"
+                versionComment: ""
             });
         }
         if (kind === "field") {
@@ -373,7 +396,6 @@
                 baseType: item.baseType || "",
                 comment: item.comment || "",
                 versionComment: item.versionComment || item.comment || "",
-                metadata: parseJsonText(item.metadataJson, {}),
                 jsonSchema: parseJsonText(item.jsonSchema, {})
             }, null, 2);
         }

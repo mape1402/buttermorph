@@ -3,6 +3,8 @@
     const allowedValuesHidden = document.getElementById("allowed-values-hidden");
     const allowedValueInput = document.getElementById("allowed-value-input");
     const allowedValuesChips = document.getElementById("allowed-values-chips");
+    const appliesToHidden = document.querySelector("input[name='Input.AppliesTo']");
+    const appliesToOptions = document.querySelectorAll(".metadata-applies-to-option");
     let allowedValues = readInitialAllowedValues();
 
     if (!dataTypeSelect) {
@@ -10,6 +12,9 @@
     }
 
     dataTypeSelect.addEventListener("change", refreshValidationFields);
+    appliesToOptions.forEach(function (option) {
+        option.addEventListener("change", syncAppliesTo);
+    });
     allowedValueInput?.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
             event.preventDefault();
@@ -17,8 +22,23 @@
         }
     });
 
+    syncAppliesTo();
     syncAllowedValues();
     refreshValidationFields();
+
+    function syncAppliesTo() {
+        if (!appliesToHidden) {
+            return;
+        }
+
+        const selected = [];
+        appliesToOptions.forEach(function (option) {
+            if (option.checked) {
+                selected.push(option.value);
+            }
+        });
+        appliesToHidden.value = selected.join("\n");
+    }
 
     function refreshValidationFields() {
         const type = dataTypeSelect.value;

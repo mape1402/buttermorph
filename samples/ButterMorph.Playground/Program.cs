@@ -438,7 +438,7 @@ public partial class Program
       }
     });
   </script>
-  <script src="/playground-schema.js{{QueryMarker()}}v=2"></script>
+  <script src="/playground-schema.js{{QueryMarker()}}v=3"></script>
 </body>
 </html>
 """;

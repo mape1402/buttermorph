@@ -43,12 +43,6 @@ public sealed class SchemaTypesDesignerModel : PageModel
     public SchemaTypeDesignInput Input { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets schema-level metadata lines.
-    /// </summary>
-    [BindProperty]
-    public string MetadataText { get; set; } = string.Empty;
-
-    /// <summary>
     /// Gets or sets the generated JSON Schema.
     /// </summary>
     public string JsonSchema { get; set; } = string.Empty;
@@ -104,7 +98,6 @@ public sealed class SchemaTypesDesignerModel : PageModel
         await ApplyHostLoad();
         RefreshCatalog();
         JsonSchema = schemaTypeBuilder.Build(Input, SchemaTypes).JsonSchema;
-        MetadataText = FormatMetadataText(Input.Metadata);
 
         return Page();
     }
@@ -127,22 +120,8 @@ public sealed class SchemaTypesDesignerModel : PageModel
         SaveActionUrl = ResolveSaveActionUrl();
         FormTitle = ResolveFormTitle();
         await ApplyHostLoadCatalogOnly();
-        if (!TryParseMetadataText(MetadataText, out IReadOnlyDictionary<string, string> metadata, out string metadataError))
-        {
-            Message = metadataError;
-            if (IsPopupRequest())
-            {
-                return new JsonResult(CreateHostSaveResponse("ButterMorphSchemaTypeDesignerSaved"));
-            }
-
-            RefreshCatalog();
-            return Page();
-        }
-
-        Input.Metadata = metadata;
         SchemaTypeDesignResult result = schemaTypeBuilder.Build(Input, SchemaTypes);
         JsonSchema = result.JsonSchema;
-        MetadataText = FormatMetadataText(result.Metadata);
         RefreshCatalog();
 
         if (!result.Succeeded)
@@ -340,105 +319,4 @@ public sealed class SchemaTypesDesignerModel : PageModel
         };
     }
 
-    // Parses schema-level metadata JSON.
-    private static bool TryParseMetadataText(string text, out IReadOnlyDictionary<string, string> metadata, out string error)
-    {
-        Dictionary<string, string> values = new(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            metadata = values;
-            error = string.Empty;
-            return true;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(text);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                metadata = values;
-                error = "Metadata must be a JSON map.";
-                return false;
-            }
-
-            foreach (JsonProperty property in document.RootElement.EnumerateObject())
-            {
-                values[property.Name] = ReadMetadataValue(property.Value);
-            }
-
-            metadata = values;
-            error = string.Empty;
-            return true;
-        }
-        catch (JsonException exception)
-        {
-            metadata = values;
-            error = "Metadata JSON is invalid. " + exception.Message;
-            return false;
-        }
-    }
-
-    // Formats schema-level metadata JSON.
-    private static string FormatMetadataText(IReadOnlyDictionary<string, string> metadata)
-    {
-        if (metadata.Count == 0)
-        {
-            return string.Empty;
-        }
-
-        using MemoryStream stream = new();
-        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = true });
-        writer.WriteStartObject();
-        foreach (KeyValuePair<string, string> pair in metadata)
-        {
-            writer.WritePropertyName(pair.Key);
-            WriteMetadataValue(writer, pair.Value);
-        }
-
-        writer.WriteEndObject();
-        writer.Flush();
-        return System.Text.Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    // Reads a metadata value as structured JSON or text.
-    private static string ReadMetadataValue(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            return element.GetString();
-        }
-
-        return element.GetRawText();
-    }
-
-    // Writes metadata values preserving nested JSON.
-    private static void WriteMetadataValue(Utf8JsonWriter writer, string value)
-    {
-        if (TryWriteRawMetadataValue(writer, value))
-        {
-            return;
-        }
-
-        writer.WriteStringValue(value);
-    }
-
-    // Attempts to write a raw JSON metadata value.
-    private static bool TryWriteRawMetadataValue(Utf8JsonWriter writer, string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(value);
-            document.RootElement.WriteTo(writer);
-            return true;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-    }
 }

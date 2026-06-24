@@ -39,4 +39,9 @@ public sealed class FieldMetadataCatalogItem
     /// Gets or sets the metadata validation JSON.
     /// </summary>
     public string Validation { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the serialized target scopes.
+    /// </summary>
+    public string AppliesToJson { get; set; } = string.Empty;
 }

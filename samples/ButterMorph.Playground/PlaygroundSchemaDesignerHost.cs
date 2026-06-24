@@ -118,8 +118,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
             VersionNumber = request.Result.VersionNumber,
             BaseType = request.Result.BaseType,
             Comment = request.Result.Comment,
-            VersionComment = request.Result.Comment,
-            MetadataJson = SerializeMetadata(request.Result.Metadata)
+            VersionComment = request.Result.Comment
         });
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerSaveResult
@@ -264,20 +263,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
         [
             new PlaygroundSchemaScenarioSummary
             {
-                ContextKey = "datatype-customer-code",
-                DisplayName = "Edit custom datatype",
-                Description = "Create a versioned CustomerCode datatype with string constraints.",
-                DesignerPath = "/buttermorph/schema-types/designer"
-            },
-            new PlaygroundSchemaScenarioSummary
-            {
-                ContextKey = "metadata-classification",
-                DisplayName = "Edit custom field",
-                Description = "Create a reusable metadata field with validation and allowed values.",
-                DesignerPath = "/buttermorph/metadata-fields/designer"
-            },
-            new PlaygroundSchemaScenarioSummary
-            {
                 ContextKey = "payload-customer-profile",
                 DisplayName = "Edit payload schema",
                 Description = "Build an Atlas-compatible payload structure from datatypes and metadata.",
@@ -338,7 +323,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 BaseType = save.BaseType,
                 Comment = save.Comment,
                 VersionComment = save.VersionComment,
-                MetadataJson = ResolveValue(save.MetadataJson, "{}"),
                 Key = save.Key,
                 DataType = save.DataType,
                 AppliesToJson = save.AppliesToJson,
@@ -381,7 +365,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
             view.BaseType = input.BaseType;
             view.Comment = input.Comment;
             view.VersionComment = input.Comment;
-            view.MetadataJson = SerializeMetadata(input.Metadata);
             view.Key = input.Key;
         }
 
@@ -419,40 +402,13 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Creates initial JSON for the selected schema tool.
     private string CreateInitialJson(string contextKey)
     {
-        if (string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
-        {
-            return "{\"key\":\"customer-code\",\"name\":\"CustomerCode\",\"version\":\"1.0.0\",\"type\":\"string\",\"description\":\"Customer code used by integrations.\",\"versionComment\":\"Initial version\",\"minLength\":3,\"maxLength\":24,\"pattern\":\"^[A-Z0-9-]+$\"}";
-        }
-
-        if (string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
-        {
-            return "{\"dataType\":\"string\",\"allowedValues\":[\"Internal\",\"Partner\",\"Public\"]}";
-        }
-
         return CreatePayloadJson(contextKey);
     }
 
     // Creates schema type input for demo contexts.
     private static SchemaTypeDesignInput CreateTypeInput(string contextKey)
     {
-        if (!string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
-        {
-            return new SchemaTypeDesignInput();
-        }
-
-        return new SchemaTypeDesignInput
-        {
-            Key = "customer-code",
-            Name = "CustomerCode",
-            Description = "Customer code used by integrations.",
-            VersionNumber = "1.0.0",
-            BaseType = "string",
-            MinLength = "3",
-            MaxLength = "24",
-            Pattern = "^[A-Z0-9-]+$",
-            Comment = "Initial version",
-            Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
-        };
+        return new SchemaTypeDesignInput();
     }
 
     // Creates schema type input from a saved item.
@@ -465,8 +421,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
             Description = save.Description,
             VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
             BaseType = ResolveValue(save.BaseType, "string"),
-            Comment = ResolveValue(save.Comment, save.VersionComment),
-            Metadata = ParseMetadataJson(save.MetadataJson)
+            Comment = ResolveValue(save.Comment, save.VersionComment)
         };
 
         HydrateTypeSchema(input, save.JsonSchema);
@@ -513,7 +468,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
             }
 
             HydrateArrayItem(input, root);
-            HydrateSchemaMetadata(input, root);
 
             if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase))
             {
@@ -545,17 +499,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
         }
     }
 
-    // Hydrates open schema metadata from saved JSON Schema.
-    private static void HydrateSchemaMetadata(SchemaTypeDesignInput input, System.Text.Json.JsonElement root)
-    {
-        if (!root.TryGetProperty("metadata", out System.Text.Json.JsonElement metadataElement))
-        {
-            return;
-        }
-
-        input.Metadata = ReadMetadataElement(metadataElement);
-    }
-
     // Reads a JSON Schema property as compact text.
     private static void ReadSchemaString(System.Text.Json.JsonElement root, string propertyName, Action<string> assign)
     {
@@ -568,26 +511,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Creates field metadata input for demo contexts.
     private static FieldMetadataDesignInput CreateMetadataInput(string contextKey)
     {
-        if (!string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
-        {
-            return new FieldMetadataDesignInput
-            {
-                DataType = "string",
-                IsActive = true
-            };
-        }
-
         return new FieldMetadataDesignInput
         {
-            Name = "Classification",
-            Key = "classification",
-            Description = "Classifies the field for downstream consumers.",
             DataType = "string",
-            AppliesTo = "Payload\nProperty",
-            IsRequired = false,
-            IsActive = true,
-            SortOrder = 10,
-            AllowedValues = "Internal\nPartner\nPublic"
+            IsActive = true
         };
     }
 
@@ -626,125 +553,72 @@ internal sealed class PlaygroundSchemaDesignerHost :
     }
 
     // Creates available schema types.
-    private static IReadOnlyCollection<SchemaTypeCatalogItem> CreateTypeCatalog()
+    private IReadOnlyCollection<SchemaTypeCatalogItem> CreateTypeCatalog()
     {
-        return
+        List<SchemaTypeCatalogItem> items =
         [
             CreateSystemType("string"),
             CreateSystemType("number"),
             CreateSystemType("integer"),
             CreateSystemType("boolean"),
             CreateSystemType(MapType),
-            CreateSystemType("array"),
-            new SchemaTypeCatalogItem
-            {
-                TypeId = "customer-code",
-                TypeVersionId = "customer-code-v1",
-                Name = "CustomerCode",
-                VersionNumber = "1.0.0",
-                BaseType = "string",
-                JsonSchema = "{\"type\":\"string\",\"minLength\":3,\"maxLength\":24}",
-                IsSystem = false
-            }
+            CreateSystemType("array")
         ];
+
+        foreach (PlaygroundSchemaSave save in store.ListDesignStates())
+        {
+            if (!string.Equals(save.Kind, "type", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            items.Add(new SchemaTypeCatalogItem
+            {
+                TypeId = ResolveValue(save.Key, save.ContextKey),
+                TypeVersionId = save.ContextKey,
+                Name = ResolveValue(save.DisplayName, save.Key),
+                VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
+                BaseType = ResolveValue(save.BaseType, "string"),
+                JsonSchema = save.JsonSchema,
+                IsSystem = false
+            });
+        }
+
+        return items;
     }
 
     // Creates available metadata fields.
-    private static IReadOnlyCollection<FieldMetadataCatalogItem> CreateMetadataCatalog()
+    private IReadOnlyCollection<FieldMetadataCatalogItem> CreateMetadataCatalog()
     {
-        return
-        [
-            new FieldMetadataCatalogItem
+        List<FieldMetadataCatalogItem> items = [];
+
+        foreach (PlaygroundSchemaSave save in store.ListDesignStates())
+        {
+            if (!string.Equals(save.Kind, "field", StringComparison.OrdinalIgnoreCase))
             {
-                Id = "classification",
-                Name = "Classification",
-                Key = "classification",
-                Description = "Classifies the field.",
-                DataType = "string",
-                IsRequired = false,
-                Validation = "{\"allowedValues\":[\"Internal\",\"Partner\",\"Public\"]}"
-            },
-            new FieldMetadataCatalogItem
-            {
-                Id = "sourceSystem",
-                Name = "Source System",
-                Key = "sourceSystem",
-                Description = "Declares the source system.",
-                DataType = "string",
-                IsRequired = false,
-                Validation = "{}"
+                continue;
             }
-        ];
+
+            items.Add(new FieldMetadataCatalogItem
+            {
+                Id = ResolveValue(save.Key, save.ContextKey),
+                Name = ResolveValue(save.DisplayName, save.Key),
+                Key = save.Key,
+                Description = save.Description,
+                DataType = ResolveValue(save.DataType, "string"),
+                IsRequired = save.IsRequired,
+                AppliesToJson = save.AppliesToJson,
+                Validation = save.ValidationJson
+            });
+        }
+
+        return items;
     }
 
     // Creates host-defined payload metadata fields for the playground.
     private static SchemaMetadataDefinition CreatePayloadMetadataDefinition()
     {
-        return new SchemaMetadataDefinition
-        {
-            Fields =
-            [
-                CreateMetadataField("topic", "Topic", SchemaMetadataDataType.String, false, "Queue topic name."),
-                CreateMetadataField("retryCount", "Retry Count", SchemaMetadataDataType.Integer, false, "Maximum delivery attempts."),
-                CreateMetadataField("priority", "Priority", SchemaMetadataDataType.Number, false, "Routing priority."),
-                CreateMetadataField("active", "Active", SchemaMetadataDataType.Boolean, false, "Enables this schema route."),
-                CreateMetadataField("effectiveDate", "Effective Date", SchemaMetadataDataType.Date, false, "Date when the route starts."),
-                CreateMetadataField("publishedAt", "Published At", SchemaMetadataDataType.DateTime, false, "Date and time when the route is published."),
-                new SchemaMetadataFieldDefinition
-                {
-                    Key = "labels",
-                    Name = "Labels",
-                    Description = "Free-form labels.",
-                    DataType = SchemaMetadataDataType.Array,
-                    ArrayItem = CreateMetadataField("label", "Label", SchemaMetadataDataType.String, false, string.Empty)
-                },
-                new SchemaMetadataFieldDefinition
-                {
-                    Key = "routing",
-                    Name = "Routing",
-                    Description = "Nested routing settings.",
-                    DataType = SchemaMetadataDataType.Object,
-                    Children =
-                    [
-                        CreateMetadataField("exchange", "Exchange", SchemaMetadataDataType.String, false, "Exchange name."),
-                        CreateMetadataField("routingKey", "Routing Key", SchemaMetadataDataType.String, false, "Routing key."),
-                        CreateMetadataField("durable", "Durable", SchemaMetadataDataType.Boolean, false, "Durable route flag.")
-                    ]
-                },
-                new SchemaMetadataFieldDefinition
-                {
-                    Key = "targets",
-                    Name = "Targets",
-                    Description = "Target route collection.",
-                    DataType = SchemaMetadataDataType.Array,
-                    ArrayItem = new SchemaMetadataFieldDefinition
-                    {
-                        Key = "target",
-                        Name = "Target",
-                        DataType = SchemaMetadataDataType.Object,
-                        Children =
-                        [
-                            CreateMetadataField("name", "Name", SchemaMetadataDataType.String, true, "Target name."),
-                            CreateMetadataField("queue", "Queue", SchemaMetadataDataType.String, true, "Queue name."),
-                            CreateMetadataField("enabled", "Enabled", SchemaMetadataDataType.Boolean, false, "Target enabled flag.")
-                        ]
-                    }
-                }
-            ]
-        };
-    }
-
-    // Creates one payload metadata field definition.
-    private static SchemaMetadataFieldDefinition CreateMetadataField(string key, string name, SchemaMetadataDataType dataType, bool required, string description)
-    {
-        return new SchemaMetadataFieldDefinition
-        {
-            Key = key,
-            Name = name,
-            DataType = dataType,
-            IsRequired = required,
-            Description = description
-        };
+        return new SchemaMetadataDefinition();
     }
 
     // Creates a system catalog item.
@@ -787,14 +661,14 @@ internal sealed class PlaygroundSchemaDesignerHost :
     // Resolves schema item description.
     private static string ResolveDescription(string contextKey)
     {
-        if (string.Equals(contextKey, "datatype-customer-code", StringComparison.OrdinalIgnoreCase))
+        if (contextKey.StartsWith("datatype-", StringComparison.OrdinalIgnoreCase))
         {
-            return "Create a versioned CustomerCode datatype with string constraints.";
+            return "Create a versioned custom datatype.";
         }
 
-        if (string.Equals(contextKey, "metadata-classification", StringComparison.OrdinalIgnoreCase))
+        if (contextKey.StartsWith("metadata-", StringComparison.OrdinalIgnoreCase))
         {
-            return "Create a reusable metadata field with validation and allowed values.";
+            return "Create a reusable custom field.";
         }
 
         return "Build an Atlas-compatible payload structure from datatypes and metadata.";

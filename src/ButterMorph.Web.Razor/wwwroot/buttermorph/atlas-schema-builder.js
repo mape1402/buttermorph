@@ -523,9 +523,13 @@
         ["minLength", "maxLength", "pattern", "minimum", "maximum", "precision", "scale", "minItems", "maxItems"].forEach(function (key) {
             validationHost.appendChild(createMetadataInput(key, validation[key] || "", "validation"));
         });
+        const metadata = safeJson(field.dataset.metadata || "{}");
         metadataCatalog.forEach(function (item) {
-            const metadata = safeJson(field.dataset.metadata || "{}");
-            metadataHost.appendChild(createMetadataInput(item.key || item.Key, metadata[item.key || item.Key] || "", "metadata"));
+            if (!appliesToScope(readCatalogValue(item, "appliesToJson", "AppliesToJson"), "Field")) {
+                return;
+            }
+
+            metadataHost.appendChild(createFieldMetadataInput(item, metadata));
         });
     }
 
@@ -542,20 +546,102 @@
         return label;
     }
 
+    function createFieldMetadataInput(item, metadata) {
+        const key = readCatalogValue(item, "key", "Key");
+        const dataType = (readCatalogValue(item, "dataType", "DataType") || "string").toLowerCase();
+        const validation = safeJson(readCatalogValue(item, "validation", "Validation") || "{}");
+        const label = document.createElement("label");
+        label.className = "col-md-4";
+        label.innerHTML = "<span class='form-label'>" + (readCatalogValue(item, "name", "Name") || key) + "</span>";
+
+        const description = readCatalogValue(item, "description", "Description");
+        const value = metadata[key] || "";
+        const allowedValues = Array.isArray(validation.allowedValues) ? validation.allowedValues : [];
+        let input = null;
+
+        if (allowedValues.length > 0) {
+            input = document.createElement("select");
+            input.className = "form-control";
+            const empty = document.createElement("option");
+            empty.value = "";
+            empty.textContent = "";
+            input.appendChild(empty);
+            allowedValues.forEach(function (allowedValue) {
+                const option = document.createElement("option");
+                option.value = String(allowedValue);
+                option.textContent = String(allowedValue);
+                option.selected = String(allowedValue) === String(value);
+                input.appendChild(option);
+            });
+        } else {
+            input = document.createElement("input");
+            input.className = "form-control";
+            input.value = value;
+            if (dataType === "number") {
+                input.type = "number";
+                input.step = "any";
+            } else if (dataType === "integer") {
+                input.type = "number";
+                input.step = "1";
+            } else if (dataType === "boolean") {
+                input.type = "checkbox";
+                input.className = "form-check-input";
+                input.checked = value === true || value === "true";
+            } else if (dataType === "date") {
+                input.type = "date";
+            } else {
+                input.type = "text";
+            }
+        }
+
+        input.dataset.group = "metadata";
+        input.dataset.key = key;
+        input.dataset.type = dataType;
+        label.appendChild(input);
+        if (description) {
+            const help = document.createElement("small");
+            help.className = "text-muted d-block mt-1";
+            help.textContent = description;
+            label.appendChild(help);
+        }
+
+        return label;
+    }
+
+    function readCatalogValue(item, camelName, pascalName) {
+        return item[camelName] || item[pascalName] || "";
+    }
+
+    function appliesToScope(appliesToJson, scope) {
+        if (!appliesToJson) {
+            return false;
+        }
+
+        try {
+            const values = JSON.parse(appliesToJson);
+            return Array.isArray(values) && values.some(function (value) {
+                return String(value).toLowerCase() === scope.toLowerCase();
+            });
+        } catch (error) {
+            return false;
+        }
+    }
+
     function saveMetadata() {
         if (!activeMetadataField) {
             return;
         }
         const validation = {};
-        const metadata = safeJson(activeMetadataField.dataset.metadata || "{}");
-        document.querySelectorAll("#field-validation-fields input, #field-metadata-fields input").forEach(function (input) {
-            if (!input.value) {
+        const metadata = {};
+        document.querySelectorAll("#field-validation-fields input, #field-metadata-fields input, #field-metadata-fields select").forEach(function (input) {
+            let value = input.type === "checkbox" ? (input.checked ? "true" : "false") : input.value;
+            if (!value && input.type !== "checkbox") {
                 return;
             }
             if (input.dataset.group === "validation") {
-                validation[input.dataset.key] = input.value;
+                validation[input.dataset.key] = value;
             } else {
-                metadata[input.dataset.key] = input.value;
+                metadata[input.dataset.key] = value;
             }
         });
         activeMetadataField.dataset.validation = JSON.stringify(validation);

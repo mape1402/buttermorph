@@ -302,12 +302,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string json = await client.GetStringAsync("/playground/schema-scenarios");
 
-        Assert.Contains("datatype-customer-code", json, StringComparison.Ordinal);
-        Assert.Contains("metadata-classification", json, StringComparison.Ordinal);
         Assert.Contains("payload-customer-profile", json, StringComparison.Ordinal);
-        Assert.Contains("/buttermorph/schema-types/designer", json, StringComparison.Ordinal);
-        Assert.Contains("/buttermorph/metadata-fields/designer", json, StringComparison.Ordinal);
         Assert.Contains("/buttermorph/payload-schema/designer", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("datatype-customer-code", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("metadata-classification", json, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -571,7 +569,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new KeyValuePair<string, string>("Input.Key", "region"),
             new KeyValuePair<string, string>("Input.Description", "Region metadata"),
             new KeyValuePair<string, string>("Input.DataType", "string"),
-            new KeyValuePair<string, string>("Input.AppliesTo", "Payload"),
+            new KeyValuePair<string, string>("Input.AppliesTo", "Schema"),
             new KeyValuePair<string, string>("Input.IsRequired", "true"),
             new KeyValuePair<string, string>("Input.IsActive", "true"),
             new KeyValuePair<string, string>("Input.SortOrder", "20"),
@@ -608,7 +606,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new KeyValuePair<string, string>("Input.Key", "regionUpdated"),
             new KeyValuePair<string, string>("Input.Description", "Updated metadata"),
             new KeyValuePair<string, string>("Input.DataType", "number"),
-            new KeyValuePair<string, string>("Input.AppliesTo", "Command"),
+            new KeyValuePair<string, string>("Input.AppliesTo", "Field"),
             new KeyValuePair<string, string>("Input.IsActive", "true"),
             new KeyValuePair<string, string>("Input.SortOrder", "33"),
             new KeyValuePair<string, string>("Input.Minimum", "1"),
@@ -703,10 +701,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         HttpClient client = _factory.CreateClient();
 
-        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-customer-code&popup=true");
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-new-test&popup=true");
 
         Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
-        Assert.Contains("context=datatype-customer-code", html, StringComparison.Ordinal);
+        Assert.Contains("context=datatype-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
         Assert.Contains("handler=Save", html, StringComparison.Ordinal);
@@ -732,10 +730,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         HttpClient client = _factory.CreateClient();
 
-        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-classification&popup=true");
+        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-new-test&popup=true");
 
         Assert.Contains("Nuevo custom field", html, StringComparison.Ordinal);
-        Assert.Contains("context=metadata-classification", html, StringComparison.Ordinal);
+        Assert.Contains("context=metadata-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
         Assert.Contains("handler=Save", html, StringComparison.Ordinal);

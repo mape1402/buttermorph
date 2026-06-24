@@ -72,4 +72,33 @@ internal sealed class PlaygroundSchemaStore
     {
         return drafts.TryGetValue(contextKey, out save);
     }
+
+    /// <summary>
+    /// Lists saved schema tool results.
+    /// </summary>
+    /// <returns>The saved schema results.</returns>
+    public IReadOnlyCollection<PlaygroundSchemaSave> ListSaves()
+    {
+        return saves.Values.ToArray();
+    }
+
+    /// <summary>
+    /// Lists saved and draft schema tool results for host catalog injection.
+    /// </summary>
+    /// <returns>The saved and draft schema results.</returns>
+    public IReadOnlyCollection<PlaygroundSchemaSave> ListDesignStates()
+    {
+        Dictionary<string, PlaygroundSchemaSave> states = new(StringComparer.OrdinalIgnoreCase);
+        foreach (PlaygroundSchemaSave save in saves.Values)
+        {
+            states[save.ContextKey] = save;
+        }
+
+        foreach (PlaygroundSchemaSave draft in drafts.Values)
+        {
+            states[draft.ContextKey] = draft;
+        }
+
+        return states.Values.ToArray();
+    }
 }

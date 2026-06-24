@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Field Metadata Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=5" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=7" />
 </head>
 <body class="atlas-page"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
@@ -81,14 +81,14 @@
                     <div class="row g-3">
                         <div class="col-md-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" checked />
-                                <label class="form-check-label">Events</label>
+                                <input id="metadata-applies-schema" class="form-check-input metadata-applies-to-option" type="checkbox" value="Schema" checked="@Model.Input.AppliesTo.Contains("Schema", StringComparison.OrdinalIgnoreCase)" />
+                                <label class="form-check-label" for="metadata-applies-schema">Schema</label>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" checked />
-                                <label class="form-check-label">Commands</label>
+                                <input id="metadata-applies-field" class="form-check-input metadata-applies-to-option" type="checkbox" value="Field" checked="@Model.Input.AppliesTo.Contains("Field", StringComparison.OrdinalIgnoreCase)" />
+                                <label class="form-check-label" for="metadata-applies-field">Field</label>
                             </div>
                         </div>
                         <input type="hidden" asp-for="Input.AppliesTo" />
@@ -155,7 +155,7 @@
         </div>
         </section>
     </main>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-metadata-field-editor.js?v=4"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-metadata-field-editor.js?v=5"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

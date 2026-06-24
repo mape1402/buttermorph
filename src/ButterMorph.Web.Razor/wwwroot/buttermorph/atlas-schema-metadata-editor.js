@@ -245,6 +245,23 @@
 
     function renderScalarInput(field, existing) {
         const type = normalizeType(field.dataType);
+        if (Array.isArray(field.allowedValues) && field.allowedValues.length > 0) {
+            const select = document.createElement("select");
+            select.className = "form-control schema-metadata-value";
+            const empty = document.createElement("option");
+            empty.value = "";
+            empty.textContent = "";
+            select.appendChild(empty);
+            field.allowedValues.forEach(function (allowedValue) {
+                const option = document.createElement("option");
+                option.value = String(allowedValue);
+                option.textContent = String(allowedValue);
+                option.selected = existing && String(existing.value) === String(allowedValue);
+                select.appendChild(option);
+            });
+            return select;
+        }
+
         if (type === "boolean") {
             const label = document.createElement("label");
             label.className = "form-check";

@@ -36,6 +36,11 @@ public sealed class SchemaMetadataFieldDefinition
     public string DefaultValue { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets allowed scalar values.
+    /// </summary>
+    public IReadOnlyCollection<string> AllowedValues { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets child fields for structured metadata.
     /// </summary>
     public IReadOnlyCollection<SchemaMetadataFieldDefinition> Children { get; set; } = [];
