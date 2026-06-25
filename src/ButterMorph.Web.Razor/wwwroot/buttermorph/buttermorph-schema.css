@@ -186,6 +186,11 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .metadata-scope-option { align-items: flex-start; border: 1px solid #d9dbeb; border-radius: 8px; display: flex; gap: .55rem; margin: 0; padding: .65rem .75rem; }
 .metadata-scope-option strong { color: #22264a; display: block; font-size: .85rem; }
 .metadata-scope-option small { color: var(--bm-schema-muted); display: block; font-size: .72rem; line-height: 1.25; margin-top: .12rem; }
+.metadata-complex > .row { padding: .85rem 1rem .45rem; }
+.metadata-complex > .text-muted { display: block; font-size: .72rem; line-height: 1.35; padding: 0 1rem .9rem; }
+.metadata-complex .metadata-definition-fields { padding: .65rem 1rem .5rem; }
+.metadata-complex .metadata-array-object-fields-wrap { border-top: 1px solid #eef0f6; margin-top: .65rem; padding: .75rem 1rem .9rem; }
+.metadata-complex .metadata-array-object-fields-wrap .metadata-definition-fields { padding: .5rem 0 0; }
 .metadata-definition-header { align-items: center; display: flex; justify-content: space-between; margin: .75rem 0 .45rem; }
 .metadata-definition-fields { display: flex; flex-direction: column; gap: .35rem; padding: .75rem 1rem; }
 .metadata-definition-row:not(.schema-field) { align-items: end; display: grid; grid-template-columns: minmax(10rem, 1.2fr) minmax(8rem, .8fr) minmax(14rem, 1.6fr) minmax(6rem, auto) minmax(7rem, auto); gap: .4rem; }
