@@ -173,7 +173,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
             ValidationJson = request.Result.ValidationJson,
             IsRequired = request.Result.IsRequired,
             IsActive = request.Result.IsActive,
-            SortOrder = request.Result.SortOrder,
             ChildrenDefinitionJson = request.Result.ChildrenDefinitionJson,
             ArrayItemDataType = request.Result.ArrayItemDataType,
             ArrayItemDefinitionJson = request.Result.ArrayItemDefinitionJson
@@ -332,7 +331,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 ValidationJson = save.ValidationJson,
                 IsRequired = save.IsRequired,
                 IsActive = save.IsActive,
-                SortOrder = save.SortOrder,
                 ChildrenDefinitionJson = save.ChildrenDefinitionJson,
                 ArrayItemDataType = save.ArrayItemDataType,
                 ArrayItemDefinitionJson = save.ArrayItemDefinitionJson
@@ -361,7 +359,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
             view.ValidationJson = result.ValidationJson;
             view.IsRequired = input.IsRequired;
             view.IsActive = input.IsActive;
-            view.SortOrder = input.SortOrder;
             view.ChildrenDefinitionJson = input.ChildrenDefinitionJson;
             view.ArrayItemDataType = input.ArrayItemDataType;
             view.ArrayItemDefinitionJson = input.ArrayItemDefinitionJson;
@@ -556,7 +553,6 @@ internal sealed class PlaygroundSchemaDesignerHost :
             AppliesTo = ConvertJsonArrayToLines(save.AppliesToJson),
             IsRequired = save.IsRequired,
             IsActive = save.IsActive,
-            SortOrder = save.SortOrder,
             AllowedValues = ConvertAllowedValuesToLines(save.ValidationJson),
             ChildrenDefinitionJson = save.ChildrenDefinitionJson,
             ArrayItemDataType = save.ArrayItemDataType,

@@ -101,11 +101,6 @@ internal sealed class PlaygroundSchemaSave
     public bool IsActive { get; set; }
 
     /// <summary>
-    /// Gets or sets the metadata sort order.
-    /// </summary>
-    public int SortOrder { get; set; }
-
-    /// <summary>
     /// Gets or sets object children as JSON Schema text.
     /// </summary>
     public string ChildrenDefinitionJson { get; set; } = string.Empty;

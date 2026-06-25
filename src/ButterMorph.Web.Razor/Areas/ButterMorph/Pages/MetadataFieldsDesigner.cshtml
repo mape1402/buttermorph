@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Field Metadata Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=14" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=15" />
 </head>
 <body class="bm-schema-page bm-metadata-field-designer"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
@@ -30,7 +30,7 @@
         <form method="post" action="@Model.SaveActionUrl" class="bm-schema-editor-form" data-schema-host-form="true">
             @Html.AntiForgeryToken()
             <div class="bm-schema-editor-scroll">
-                <section class="platform-card mb-3 bm-schema-form-section">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card">
                     <div class="platform-card-header">
                         <span>Identity</span>
                     </div>
@@ -63,31 +63,29 @@
                     </div>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card">
                     <div class="platform-card-header">
                         <span>Availability</span>
                     </div>
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <label class="form-label">Sort Order</label>
-                            <input class="form-control" asp-for="Input.SortOrder" type="number" />
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" asp-for="Input.IsRequired" />
-                                <label class="form-check-label">Required</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" asp-for="Input.IsActive" />
-                                <label class="form-check-label">Active</label>
-                            </div>
-                        </div>
+                    <div class="metadata-scope-grid metadata-availability-grid">
+                        <label class="metadata-scope-option metadata-availability-option">
+                            <input class="form-check-input" asp-for="Input.IsRequired" />
+                            <span>
+                                <strong>Required</strong>
+                                <small>Metadata must be captured before the schema can be saved.</small>
+                            </span>
+                        </label>
+                        <label class="metadata-scope-option metadata-availability-option">
+                            <input class="form-check-input" asp-for="Input.IsActive" />
+                            <span>
+                                <strong>Active</strong>
+                                <small>Metadata field is available for schema designers.</small>
+                            </span>
+                        </label>
                     </div>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section metadata-scope-card">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card metadata-scope-card">
                     <div class="platform-card-header">
                         <span>Availability Scope</span>
                     </div>
@@ -110,7 +108,7 @@
                     </div>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section metadata-complex metadata-complex-object d-none">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card metadata-complex metadata-complex-object d-none">
                     <div class="platform-card-header">
                         <span>Object Structure</span>
                         <button type="button" class="btn btn-secondary btn-sm" data-metadata-add-object-field>Add Field</button>
@@ -120,7 +118,7 @@
                     <small class="text-muted">Define the metadata object's nested fields.</small>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section metadata-complex metadata-complex-array d-none">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card metadata-complex metadata-complex-array d-none">
                     <div class="platform-card-header">
                         <span>Array Item</span>
                     </div>
@@ -149,7 +147,7 @@
                     </div>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card metadata-validation-section">
                     <div class="platform-card-header">
                         <span>Validation</span>
                     </div>
@@ -177,7 +175,7 @@
                             <input class="form-control" asp-for="Input.Maximum" type="number" />
                         </div>
                     </div>
-                    <div class="metadata-validation metadata-validation-date row g-3">
+                    <div class="metadata-validation metadata-validation-date metadata-validation-datetime row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Date Minimum</label>
                             <input class="form-control" asp-for="Input.DateMinimum" type="date" />
@@ -189,7 +187,7 @@
                     </div>
                 </section>
 
-                <section class="platform-card mb-3 bm-schema-form-section">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-section-card metadata-allowed-values-section">
                     <div class="platform-card-header">
                         <span>Allowed Values</span>
                     </div>
@@ -211,7 +209,7 @@
         </section>
     </main>
     @await Html.PartialAsync("_ButterMorphSchemaTemplate")
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js?v=9"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js?v=10"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

@@ -31,7 +31,6 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
                 DataType = input.DataType,
                 IsRequired = input.IsRequired,
                 IsActive = input.IsActive,
-                SortOrder = input.SortOrder,
                 ChildrenDefinitionJson = input.ChildrenDefinitionJson,
                 ArrayItemDataType = input.ArrayItemDataType,
                 ArrayItemDefinitionJson = input.ArrayItemDefinitionJson
@@ -49,7 +48,6 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             AppliesToJson = WriteStringArray(SchemaDesignJsonTools.ReadLines(input.AppliesTo)),
             IsRequired = input.IsRequired,
             IsActive = input.IsActive,
-            SortOrder = input.SortOrder,
             ValidationJson = CreateValidationJson(input),
             ChildrenDefinitionJson = input.ChildrenDefinitionJson.Trim(),
             ArrayItemDataType = input.ArrayItemDataType.Trim(),
@@ -74,7 +72,6 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             AppliesTo = SafeString(input.AppliesTo),
             IsRequired = input.IsRequired,
             IsActive = input.IsActive,
-            SortOrder = input.SortOrder,
             MinLength = SafeString(input.MinLength),
             MaxLength = SafeString(input.MaxLength),
             Pattern = SafeString(input.Pattern),

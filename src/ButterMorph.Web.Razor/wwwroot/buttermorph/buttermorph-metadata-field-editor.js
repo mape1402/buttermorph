@@ -12,6 +12,8 @@
     const arrayObjectFields = document.getElementById("metadata-array-object-fields");
     const arrayItemType = document.getElementById("metadata-array-item-type");
     const arrayObjectWrap = document.getElementById("metadata-array-object-fields-wrap");
+    const validationSection = document.querySelector(".metadata-validation-section");
+    const allowedValuesSection = document.querySelector(".metadata-allowed-values-section");
     const fieldTemplate = document.getElementById("schema-field-template");
     let activeObjectSchemaContext = null;
     let objectSchemaStack = [];
@@ -83,6 +85,10 @@
 
     function refreshDesigner() {
         const type = dataTypeSelect.value;
+        const hasValidation = type === "string" || type === "number" || type === "integer" || type === "date" || type === "datetime";
+        const hasAllowedValues = type === "string" || type === "number" || type === "integer";
+        validationSection?.classList.toggle("d-none", !hasValidation);
+        allowedValuesSection?.classList.toggle("d-none", !hasAllowedValues);
         document.querySelectorAll(".metadata-validation").forEach(function (node) {
             node.classList.add("d-none");
         });
@@ -90,7 +96,7 @@
             node.classList.remove("d-none");
         });
         document.querySelectorAll(".metadata-validation-allowed-values").forEach(function (node) {
-            node.classList.toggle("d-none", type === "boolean" || type === "date" || type === "datetime" || type === "object" || type === "array");
+            node.classList.toggle("d-none", !hasAllowedValues);
         });
         document.querySelectorAll(".metadata-complex").forEach(function (node) {
             node.classList.add("d-none");
@@ -98,7 +104,7 @@
         document.querySelectorAll(".metadata-complex-" + type).forEach(function (node) {
             node.classList.remove("d-none");
         });
-        if (type === "boolean" || type === "date" || type === "datetime" || type === "object" || type === "array") {
+        if (!hasAllowedValues) {
             allowedValues = [];
             syncAllowedValues();
         }

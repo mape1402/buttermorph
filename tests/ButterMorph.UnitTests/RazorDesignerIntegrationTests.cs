@@ -572,7 +572,6 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new KeyValuePair<string, string>("Input.AppliesTo", "Schema"),
             new KeyValuePair<string, string>("Input.IsRequired", "true"),
             new KeyValuePair<string, string>("Input.IsActive", "true"),
-            new KeyValuePair<string, string>("Input.SortOrder", "20"),
             new KeyValuePair<string, string>("Input.AllowedValues", "North\nSouth")
         ]);
 
@@ -594,7 +593,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("string", ReadString(viewJson, "dataType"));
         Assert.Equal("true", ReadBooleanText(viewJson, "isRequired"));
         Assert.Equal("true", ReadBooleanText(viewJson, "isActive"));
-        Assert.Equal(20, ReadNumber(viewJson, "sortOrder"));
+        string removedOrderField = "sort" + "Order";
+        Assert.DoesNotContain(removedOrderField, viewJson, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("North", ReadString(viewJson, "validationJson"), StringComparison.Ordinal);
 
         using HttpRequestMessage editRequest = new(HttpMethod.Post, action);
@@ -608,7 +608,6 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new KeyValuePair<string, string>("Input.DataType", "number"),
             new KeyValuePair<string, string>("Input.AppliesTo", "Field"),
             new KeyValuePair<string, string>("Input.IsActive", "true"),
-            new KeyValuePair<string, string>("Input.SortOrder", "33"),
             new KeyValuePair<string, string>("Input.Minimum", "1"),
             new KeyValuePair<string, string>("Input.Maximum", "9")
         ]);
@@ -621,7 +620,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal("regionUpdated", ReadString(editedViewJson, "key"));
         Assert.Equal("number", ReadString(editedViewJson, "dataType"));
         Assert.Equal("false", ReadBooleanText(editedViewJson, "isRequired"));
-        Assert.Equal(33, ReadNumber(editedViewJson, "sortOrder"));
+        Assert.DoesNotContain(removedOrderField, editedViewJson, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("minimum", ReadString(editedViewJson, "validationJson"), StringComparison.Ordinal);
     }
 
@@ -745,8 +744,15 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("metadata-data-type", html, StringComparison.Ordinal);
         Assert.Contains("Validation", html, StringComparison.Ordinal);
         Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
+        Assert.Contains("metadata-validation-section", html, StringComparison.Ordinal);
+        Assert.Contains("metadata-allowed-values-section", html, StringComparison.Ordinal);
+        Assert.Contains("metadata-availability-option", html, StringComparison.Ordinal);
+        Assert.Contains("Metadata must be captured", html, StringComparison.Ordinal);
+        Assert.Contains("Metadata field is available", html, StringComparison.Ordinal);
         Assert.Contains("Save Custom Field", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Definition JSON", html, StringComparison.Ordinal);
+        string removedSortLabel = "Sort " + "Order";
+        Assert.DoesNotContain(removedSortLabel, html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
     }
 

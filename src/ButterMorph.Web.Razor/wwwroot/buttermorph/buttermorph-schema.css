@@ -118,9 +118,12 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .field-validation-chips, .type-enum-chips, .bm-schema-chips { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .25rem; }
 .field-validation-chip, .type-enum-chip, .bm-schema-chips .badge { display: inline-flex; align-items: center; gap: .3rem; border-radius: 999px; background: #e8f0ff; color: #274174; font-size: .68rem; font-weight: 800; padding: .12rem .38rem; }
 .field-validation-chip button, .type-enum-chip button, .bm-schema-chips button { border: 0; background: transparent; color: inherit; cursor: pointer; font-weight: 900; padding: 0; }
-.metadata-validation-allowed-values .col-md-6 { border: 1px solid #d9dbeb; border-radius: 8px; background: #fbfbff; padding: .65rem; }
-.metadata-validation-allowed-values #allowed-values-chips { min-height: 1.55rem; }
-.metadata-validation-allowed-values #allowed-values-chips .badge { background: #eef2ff; border: 1px solid #c7d2fe; color: #312e81; }
+.metadata-validation-allowed-values .col-md-6 { border: 1px solid #d9dbeb; border-radius: 9px; background: linear-gradient(180deg, #fff, #fbfbff); padding: .75rem; }
+.metadata-validation-allowed-values #allowed-values-chips { align-items: center; display: flex; flex-wrap: wrap; gap: .35rem; min-height: 1.8rem; padding-top: .35rem; }
+.metadata-validation-allowed-values #allowed-values-chips .badge { align-items: center; background: #eef2ff; border: 1px solid #bfc9ff; border-radius: 999px; color: #27306b; display: inline-flex; font-size: .72rem; font-weight: 800; gap: .35rem; line-height: 1; padding: .28rem .35rem .28rem .55rem; }
+.metadata-validation-allowed-values #allowed-values-chips .badge:hover { background: #e0e7ff; border-color: #9aa8f8; }
+.metadata-validation-allowed-values #allowed-values-chips .badge button { align-items: center; background: #fff; border: 1px solid #c7d2fe; border-radius: 999px; color: #4f46e5; cursor: pointer; display: inline-flex; font-size: .68rem; font-weight: 900; height: 1rem; justify-content: center; line-height: 1; padding: 0; width: 1rem; }
+.metadata-validation-allowed-values #allowed-values-chips .badge button:hover { background: #fee2e2; border-color: #fecaca; color: #b91c1c; }
 .metadata-validation-allowed-values #allowed-value-input { max-width: 34rem; }
 .metadata-validation-date, .metadata-validation-number, .metadata-validation-integer { margin-top: .7rem; }
 .modal { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; background: rgba(20,20,40,.42); padding: 1rem; }
@@ -181,11 +184,15 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 #field-metadata-fields.schema-metadata-fields { gap: .65rem; }
 #field-metadata-fields .schema-metadata-field .form-check-input { margin-top: .2rem; }
 #field-validation-fields label { display: flex; flex-direction: column; gap: .15rem; }
-.metadata-scope-card .platform-card-header { background: #f8f9ff; }
+.metadata-section-card .platform-card-header,
+.metadata-scope-card .platform-card-header { background: #f8f9ff; border-bottom-color: #dfe3fb; }
 .metadata-scope-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding: .85rem 1rem 1rem; }
 .metadata-scope-option { align-items: flex-start; border: 1px solid #d9dbeb; border-radius: 8px; display: flex; gap: .55rem; margin: 0; padding: .65rem .75rem; }
+.metadata-scope-option:hover { background: #fbfbff; border-color: #c7d2fe; }
 .metadata-scope-option strong { color: #22264a; display: block; font-size: .85rem; }
 .metadata-scope-option small { color: var(--bm-schema-muted); display: block; font-size: .72rem; line-height: 1.25; margin-top: .12rem; }
+.metadata-availability-grid { grid-template-columns: repeat(2, minmax(14rem, 1fr)); }
+.metadata-availability-option .form-check-input { margin-top: .16rem; }
 .metadata-complex > .row { padding: .85rem 1rem .45rem; }
 .metadata-complex > .text-muted { display: block; font-size: .72rem; line-height: 1.35; padding: 0 1rem .9rem; }
 .metadata-complex .metadata-definition-fields { padding: .65rem 1rem .5rem; }

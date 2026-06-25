@@ -47,7 +47,6 @@ internal sealed class PlaygroundSchemaStore
             ValidationJson = item.ValidationJson,
             IsRequired = item.IsRequired,
             IsActive = item.IsActive,
-            SortOrder = item.SortOrder,
             ChildrenDefinitionJson = item.ChildrenDefinitionJson,
             ArrayItemDataType = item.ArrayItemDataType,
             ArrayItemDefinitionJson = item.ArrayItemDefinitionJson

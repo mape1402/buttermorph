@@ -41,11 +41,6 @@ public sealed class FieldMetadataDesignInput
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the sort order.
-    /// </summary>
-    public int SortOrder { get; set; }
-
-    /// <summary>
     /// Gets or sets the minimum text length.
     /// </summary>
     public string MinLength { get; set; } = string.Empty;

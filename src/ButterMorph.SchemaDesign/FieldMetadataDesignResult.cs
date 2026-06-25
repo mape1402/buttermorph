@@ -53,11 +53,6 @@ public sealed class FieldMetadataDesignResult
     public bool IsActive { get; set; }
 
     /// <summary>
-    /// Gets or sets the sort order.
-    /// </summary>
-    public int SortOrder { get; set; }
-
-    /// <summary>
     /// Gets or sets validation JSON.
     /// </summary>
     public string ValidationJson { get; set; } = string.Empty;
