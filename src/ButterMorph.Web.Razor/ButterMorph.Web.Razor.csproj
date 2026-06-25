@@ -23,6 +23,7 @@
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\buttermorph\designer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\designer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-host.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-host.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-builder.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-builder.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-metadata-editor.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-metadata-editor.js" />

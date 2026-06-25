@@ -38,6 +38,13 @@ document.addEventListener("DOMContentLoaded", function () {
       window.close();
       return;
     }
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: "ButterMorphDesignerSaved",
+        contextKey: contextKey
+      }, window.location.origin);
+      return;
+    }
     if (returnUrl.length > 0) {
       const destination = new URL(returnUrl, window.location.origin);
       if (contextKey.length > 0) {

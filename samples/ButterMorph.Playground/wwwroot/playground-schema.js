@@ -195,29 +195,10 @@
     }
 
     async function openDesigner(item, mode) {
-        const width = Math.min(1280, screen.availWidth - 80);
-        const height = Math.min(820, screen.availHeight - 80);
-        const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
-        const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
         const path = item.designerPath || designerPaths[item.kind] || designerPaths.payload;
-        const features = "toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes,width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
         const url = path + queryMarker + "context=" + encodeURIComponent(item.contextKey) + "&mode=" + encodeURIComponent(mode) + "&popup=true&returnUrl=/";
-        const popup = window.open("about:blank", "buttermorph-schema-" + item.contextKey, features);
-        if (popup) {
-            try {
-                popup.opener = window;
-            } catch (error) {
-            }
-            popup.focus();
-        }
-
         await preloadDesignerCatalog(item);
-        if (popup) {
-            popup.location.href = url;
-            return;
-        }
-
-        window.location.href = url;
+        window.ButterMorphHost.openFrame(url, { title: "ButterMorph Schema Designer", width: 1280, height: 820 });
     }
 
     async function preloadDesignerCatalog(item) {

@@ -264,30 +264,22 @@ public partial class Program
       </div>
     </section>
   </main>
+  <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js{{QueryMarker()}}v=2"></script>
   <script>
-    const popupOptions = "popup=yes,toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes";
     let selectedContext = "";
     const queryMarker = "{{QueryMarker()}}";
     function openDesigner(contextKey) {
-      const width = Math.min(1480, screen.availWidth - 80);
-      const height = Math.min(900, screen.availHeight - 80);
-      const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
-      const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
       const url = "/buttermorph/designer" + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
-      window.open(url, "buttermorph-" + contextKey, popupOptions + ",width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
+      window.ButterMorphHost.openFrame(url, { title: "ButterMorph Mapping Designer", width: 1480, height: 900 });
     }
     function openSchemaDesigner(contextKey) {
-      const width = Math.min(1280, screen.availWidth - 80);
-      const height = Math.min(820, screen.availHeight - 80);
-      const left = Math.max(0, Math.round((screen.availWidth - width) / 2));
-      const top = Math.max(0, Math.round((screen.availHeight - height) / 2));
       const schemaButton = document.querySelector("[data-schema-context-button='" + contextKey + "']");
       let path = "/buttermorph/payload-schema/designer";
       if (schemaButton) {
         path = schemaButton.getAttribute("data-designer-path") || path;
       }
       const url = path + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true";
-      window.open(url, "buttermorph-schema-" + contextKey, popupOptions + ",width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
+      window.ButterMorphHost.openFrame(url, { title: "ButterMorph Schema Designer", width: 1280, height: 820 });
     }
     async function loadScenarios() {
       const response = await fetch("/playground/scenarios", { credentials: "same-origin" });
@@ -438,7 +430,7 @@ public partial class Program
       }
     });
   </script>
-  <script src="/playground-schema.js{{QueryMarker()}}v=5"></script>
+  <script src="/playground-schema.js{{QueryMarker()}}v=8"></script>
 </body>
 </html>
 """;

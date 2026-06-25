@@ -27,6 +27,7 @@ public static class EndpointRouteBuilderExtensions
 
         MapDesignerAsset(endpoints, "designer.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "designer.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-host.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/codemirror.min.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/codemirror.min.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.css", "text/css; charset=utf-8");

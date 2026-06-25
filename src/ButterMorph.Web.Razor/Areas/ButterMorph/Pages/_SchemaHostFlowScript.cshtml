@@ -132,6 +132,11 @@
                 return;
             }
 
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage(message, window.location.origin);
+                return;
+            }
+
             if (returnUrl.length > 0) {
                 var destination = new URL(returnUrl, window.location.origin);
                 if (message.contextKey.length > 0) {
