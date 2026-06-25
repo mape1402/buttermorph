@@ -265,9 +265,16 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("BroadcastChannel", schemaScript, StringComparison.Ordinal);
         Assert.DoesNotContain("SchemaDesigner.LastSave", schemaScript, StringComparison.Ordinal);
         Assert.DoesNotContain("addEventListener(\"storage\"", schemaScript, StringComparison.Ordinal);
-        string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js" + QueryMarker() + "v=5");
+        string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js" + QueryMarker() + "v=13");
         Assert.Contains("ButterMorphPayloadSchemaSync", payloadBuilderScript, StringComparison.Ordinal);
         Assert.Contains("syncPayloadSchemaInput", payloadBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("modalStack", payloadBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("modalBaseZIndex", payloadBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("resetModalStackForObjectEditor", payloadBuilderScript, StringComparison.Ordinal);
+        string metadataFieldScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js" + QueryMarker() + "v=11");
+        Assert.Contains("modalStack", metadataFieldScript, StringComparison.Ordinal);
+        Assert.Contains("modalBaseZIndex", metadataFieldScript, StringComparison.Ordinal);
+        Assert.Contains("resetModalStackForObjectEditor", metadataFieldScript, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
         Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json", html, StringComparison.Ordinal);

@@ -6,6 +6,9 @@
     const hiddenSchemaInput = document.getElementById("payload-schema-json");
     const catalog = readCatalog("schema-type-catalog", defaultCatalog());
     const metadataCatalog = readCatalog("field-metadata-catalog", []);
+    const modalStack = [];
+    const modalBaseZIndex = 2000;
+    const modalZIndexStep = 20;
     let activeMetadataField = null;
     let activeValidationField = null;
     let activeObjectSchemaContext = null;
@@ -907,6 +910,12 @@
 
     function openModal(modal) {
         if (modal) {
+            const existingIndex = modalStack.indexOf(modal);
+            if (existingIndex >= 0) {
+                modalStack.splice(existingIndex, 1);
+            }
+            modalStack.push(modal);
+            modal.style.zIndex = String(modalBaseZIndex + ((modalStack.length - 1) * modalZIndexStep));
             modal.classList.add("show");
         }
     }
@@ -915,9 +924,31 @@
         const modal = document.getElementById(id);
         if (modal) {
             modal.classList.remove("show");
+            modal.style.zIndex = "";
+            removeModalFromStack(modal);
         }
         if (id === "object-schema-modal") {
+            resetModalStackForObjectEditor();
             closeObjectEditor();
+        }
+    }
+
+    function removeModalFromStack(modal) {
+        const index = modalStack.indexOf(modal);
+        if (index >= 0) {
+            modalStack.splice(index, 1);
+        }
+        modalStack.forEach(function (stackedModal, stackedIndex) {
+            stackedModal.style.zIndex = String(modalBaseZIndex + (stackedIndex * modalZIndexStep));
+        });
+    }
+
+    function resetModalStackForObjectEditor() {
+        for (let index = modalStack.length - 1; index >= 0; index -= 1) {
+            if (modalStack[index].id === "object-schema-modal") {
+                modalStack[index].style.zIndex = "";
+                modalStack.splice(index, 1);
+            }
         }
     }
 
