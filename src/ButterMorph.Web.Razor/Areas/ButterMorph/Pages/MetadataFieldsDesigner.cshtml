@@ -9,9 +9,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Field Metadata Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=11" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=13" />
 </head>
-<body class="bm-schema-page"
+<body class="bm-schema-page bm-metadata-field-designer"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
       data-schema-host-context-key="@Model.SavedContextKey"
       data-schema-host-message-type="ButterMorphFieldMetadataDesignerSaved">
@@ -210,7 +210,8 @@
         </div>
         </section>
     </main>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js?v=7"></script>
+    @await Html.PartialAsync("_ButterMorphSchemaTemplate")
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js?v=9"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

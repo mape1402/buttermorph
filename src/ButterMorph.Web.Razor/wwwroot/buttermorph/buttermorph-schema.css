@@ -170,6 +170,7 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .schema-field-actions .schema-icon-btn { align-items: center; display: inline-flex; justify-content: center; min-width: 1.55rem; width: 1.55rem; }
 .schema-field-actions .remove-field-btn { min-width: 1.55rem; }
 .bm-schema-type-designer .field-metadata-btn { display: none !important; }
+.bm-metadata-field-designer .field-metadata-btn { display: none !important; }
 .bm-schema-type-designer .schema-field-actions { justify-content: flex-end; }
 @media (max-width: 920px) {
     .schema-field-main,
@@ -187,13 +188,16 @@ textarea.form-control, textarea { min-height: 5rem; resize: vertical; }
 .metadata-scope-option small { color: var(--bm-schema-muted); display: block; font-size: .72rem; line-height: 1.25; margin-top: .12rem; }
 .metadata-definition-header { align-items: center; display: flex; justify-content: space-between; margin: .75rem 0 .45rem; }
 .metadata-definition-fields { display: flex; flex-direction: column; gap: .35rem; padding: .75rem 1rem; }
-.metadata-definition-row { align-items: end; display: grid; grid-template-columns: minmax(10rem, 1.2fr) minmax(8rem, .8fr) minmax(14rem, 1.6fr) minmax(6rem, auto) minmax(7rem, auto); gap: .4rem; }
+.metadata-definition-row:not(.schema-field) { align-items: end; display: grid; grid-template-columns: minmax(10rem, 1.2fr) minmax(8rem, .8fr) minmax(14rem, 1.6fr) minmax(6rem, auto) minmax(7rem, auto); gap: .4rem; }
+.metadata-definition-row.schema-field { display: block; padding: .3rem .4rem; }
 .metadata-definition-row .form-check { margin-bottom: .08rem; }
 .metadata-definition-actions { align-items: center; display: flex; gap: .3rem; justify-content: flex-end; }
-.metadata-definition-nested,
+.metadata-definition-nested:not(.schema-fields-list),
 .metadata-definition-array { grid-column: 1 / -1; border-left: 2px solid #dfe3fb; margin-left: .45rem; padding: .45rem 0 .2rem .65rem; }
+.metadata-definition-row.schema-field > .metadata-definition-array { border-left: 2px solid #edf0ff; border-top: 1px dashed #d9dbeb; margin: .3rem 0 0 .35rem !important; padding: .35rem 0 0 .55rem; }
 .metadata-definition-array-controls { align-items: end; display: grid; grid-template-columns: minmax(10rem, 16rem); margin-bottom: .45rem; }
 .metadata-definition-array-children { display: flex; flex-direction: column; gap: .35rem; }
+.metadata-definition-row.schema-field .schema-array-builder .metadata-definition-array-children { margin-left: .35rem; padding-left: .45rem; border-left: 2px solid #edf0ff; }
 .metadata-array-object-fields-wrap { margin-top: .75rem; }
 
 
