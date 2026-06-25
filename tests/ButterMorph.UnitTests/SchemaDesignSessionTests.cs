@@ -151,7 +151,7 @@ public sealed class SchemaDesignSessionTests
     }
 
     /// <summary>
-    /// Confirms that payload schema builder preserves valid payload schema JSON.
+    /// Confirms that schema builder preserves valid schema JSON.
     /// </summary>
     [Fact]
     public void PayloadSchemaBuilderPreservesPayloadJson()
@@ -178,4 +178,3 @@ public sealed class SchemaDesignSessionTests
         return new SchemaDesignSession(new JsonSchemaImporter(), new JsonSchemaExporter());
     }
 }
-

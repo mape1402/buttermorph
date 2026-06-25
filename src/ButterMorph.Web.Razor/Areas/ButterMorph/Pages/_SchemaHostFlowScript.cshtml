@@ -142,10 +142,10 @@
         }
 
         function showHostFlowMessage(message) {
-            var alert = document.querySelector(".atlas-alert");
+            var alert = document.querySelector(".bm-schema-alert");
             if (!alert) {
                 alert = document.createElement("div");
-                alert.className = "atlas-alert";
+                alert.className = "bm-schema-alert";
                 var form = document.querySelector("[data-schema-host-form='true']");
                 if (form && form.parentElement) {
                     form.parentElement.insertBefore(alert, form);

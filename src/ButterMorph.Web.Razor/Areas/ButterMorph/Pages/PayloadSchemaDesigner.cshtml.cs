@@ -8,14 +8,14 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
 /// <summary>
-/// Displays the reusable payload schema designer.
+/// Displays the reusable schema designer.
 /// </summary>
 public sealed class PayloadSchemaDesignerModel : PageModel
 {
     // Serializes metadata definition for browser rendering.
     private static readonly JsonSerializerOptions MetadataJsonOptions = CreateMetadataJsonOptions();
 
-    // Builds payload schema output.
+    // Builds schema output.
     private readonly IPayloadSchemaBuilder payloadBuilder;
 
     // Reads designer integration options.
@@ -27,7 +27,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// <summary>
     /// Initializes a new instance of the <see cref="PayloadSchemaDesignerModel"/> class.
     /// </summary>
-    /// <param name="payloadBuilder">The payload schema builder.</param>
+    /// <param name="payloadBuilder">The schema builder.</param>
     /// <param name="options">The designer options.</param>
     /// <param name="hosts">The optional host integrations.</param>
     public PayloadSchemaDesignerModel(
@@ -135,7 +135,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// <summary>
     /// Gets or sets the form title.
     /// </summary>
-    public string FormTitle { get; set; } = "Schema del Payload";
+    public string FormTitle { get; set; } = "Schema";
 
     /// <summary>
     /// Gets or sets the form save URL.
@@ -166,7 +166,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     }
 
     /// <summary>
-    /// Saves payload schema state through the optional host.
+    /// Saves schema state through the optional host.
     /// </summary>
     /// <returns>The page result.</returns>
     public async Task<IActionResult> OnPostSave()
@@ -216,7 +216,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         ButterMorphPayloadSchemaDesignerSaveResult saveResult = new()
         {
             Succeeded = true,
-            Message = "Payload schema saved."
+            Message = "Schema saved."
         };
 
         foreach (IButterMorphPayloadSchemaDesignerHost host in hosts)
@@ -335,7 +335,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
                 Description = item.Description,
                 DataType = ConvertMetadataDataType(item.DataType),
                 IsRequired = item.IsRequired,
-                AllowedValues = ReadAllowedValues(item.Validation)
+                AllowedValues = ReadAllowedValues(item.Validation),
+                Children = ReadMetadataChildren(item.ChildrenDefinitionJson),
+                ArrayItem = ReadMetadataArrayItem(item.ArrayItemDataType, item.ArrayItemDefinitionJson)
             });
         }
 
@@ -424,7 +426,156 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             return SchemaMetadataDataType.Date;
         }
 
+        if (string.Equals(dataType, "datetime", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.DateTime;
+        }
+
+        if (string.Equals(dataType, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Object;
+        }
+
+        if (string.Equals(dataType, "array", StringComparison.OrdinalIgnoreCase))
+        {
+            return SchemaMetadataDataType.Array;
+        }
+
         return SchemaMetadataDataType.String;
+    }
+
+    // Reads child field definitions for complex metadata fields.
+    private static IReadOnlyCollection<SchemaMetadataFieldDefinition> ReadMetadataChildren(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            return ReadMetadataChildren(document.RootElement);
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    // Reads child field definitions from a JSON Schema element.
+    private static IReadOnlyCollection<SchemaMetadataFieldDefinition> ReadMetadataChildren(JsonElement schema)
+    {
+        List<SchemaMetadataFieldDefinition> children = [];
+        if (!schema.TryGetProperty("properties", out JsonElement properties) ||
+            properties.ValueKind != JsonValueKind.Object)
+        {
+            return children;
+        }
+
+        HashSet<string> required = ReadRequiredNames(schema);
+        foreach (JsonProperty property in properties.EnumerateObject())
+        {
+            children.Add(ReadMetadataField(property.Name, property.Value, required.Contains(property.Name)));
+        }
+
+        return children;
+    }
+
+    // Reads one metadata field definition from JSON Schema.
+    private static SchemaMetadataFieldDefinition ReadMetadataField(string key, JsonElement definition, bool isRequired)
+    {
+        string dataType = ReadString(definition, "type", "string");
+        SchemaMetadataFieldDefinition field = new()
+        {
+            Key = key,
+            Name = key,
+            Description = ReadString(definition, "description", string.Empty),
+            DataType = ConvertMetadataDataType(dataType),
+            IsRequired = isRequired || ReadBoolean(definition, "required")
+        };
+
+        if (field.DataType == SchemaMetadataDataType.Object)
+        {
+            field.Children = ReadMetadataChildren(definition);
+        }
+
+        if (field.DataType == SchemaMetadataDataType.Array &&
+            definition.TryGetProperty("items", out JsonElement items) &&
+            items.ValueKind == JsonValueKind.Object)
+        {
+            field.ArrayItem = ReadMetadataField("item", items, false);
+        }
+
+        return field;
+    }
+
+    // Reads an array item definition for metadata field catalog entries.
+    private static SchemaMetadataFieldDefinition ReadMetadataArrayItem(string itemType, string itemDefinitionJson)
+    {
+        if (string.IsNullOrWhiteSpace(itemType))
+        {
+            return new SchemaMetadataFieldDefinition
+            {
+                Key = "item",
+                Name = "Item",
+                DataType = SchemaMetadataDataType.String
+            };
+        }
+
+        SchemaMetadataFieldDefinition item = new()
+        {
+            Key = "item",
+            Name = "Item",
+            DataType = ConvertMetadataDataType(itemType)
+        };
+
+        if (item.DataType == SchemaMetadataDataType.Object)
+        {
+            item.Children = ReadMetadataChildren(itemDefinitionJson);
+        }
+
+        return item;
+    }
+
+    // Reads required property names from a JSON Schema element.
+    private static HashSet<string> ReadRequiredNames(JsonElement schema)
+    {
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        if (!schema.TryGetProperty("required", out JsonElement required) ||
+            required.ValueKind != JsonValueKind.Array)
+        {
+            return names;
+        }
+
+        foreach (JsonElement element in required.EnumerateArray())
+        {
+            if (element.ValueKind == JsonValueKind.String)
+            {
+                names.Add(element.GetString() ?? string.Empty);
+            }
+        }
+
+        return names;
+    }
+
+    // Reads a string property from JSON.
+    private static string ReadString(JsonElement element, string propertyName, string fallback)
+    {
+        if (element.TryGetProperty(propertyName, out JsonElement property) &&
+            property.ValueKind == JsonValueKind.String)
+        {
+            return property.GetString() ?? fallback;
+        }
+
+        return fallback;
+    }
+
+    // Reads a boolean property from JSON.
+    private static bool ReadBoolean(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out JsonElement property) &&
+            property.ValueKind == JsonValueKind.True;
     }
 
     // Reads allowed scalar values from custom field validation JSON.
@@ -525,10 +676,10 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         string mode = Request.Query["mode"].ToString();
         if (string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase))
         {
-            return "Editar Schema del Payload";
+            return "Edit Schema";
         }
 
-        return "Schema del Payload";
+        return "Schema";
     }
 
     // Creates default system types.

@@ -265,7 +265,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("BroadcastChannel", schemaScript, StringComparison.Ordinal);
         Assert.DoesNotContain("SchemaDesigner.LastSave", schemaScript, StringComparison.Ordinal);
         Assert.DoesNotContain("addEventListener(\"storage\"", schemaScript, StringComparison.Ordinal);
-        string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js" + QueryMarker() + "v=5");
+        string payloadBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js" + QueryMarker() + "v=5");
         Assert.Contains("ButterMorphPayloadSchemaSync", payloadBuilderScript, StringComparison.Ordinal);
         Assert.Contains("syncPayloadSchemaInput", payloadBuilderScript, StringComparison.Ordinal);
         Assert.Contains("data-result-dsl", html, StringComparison.Ordinal);
@@ -320,7 +320,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string json = await client.GetStringAsync("/playground/schemas/payload-customer-profile");
 
         Assert.Equal("payload-customer-profile", ReadString(json, "contextKey"));
-        Assert.Contains("Edit payload schema", json, StringComparison.Ordinal);
+        Assert.Contains("Edit schema", json, StringComparison.Ordinal);
         Assert.Contains("Name", json, StringComparison.Ordinal);
     }
 
@@ -387,7 +387,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-empty-local&mode=create");
 
-        Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
+        Assert.Contains("New Custom Type", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Input.Name\" value=\"\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Input.Description\" value=\"\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"Input.Comment\" value=\"\"", html, StringComparison.Ordinal);
@@ -434,7 +434,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("window.opener.location.href", savedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("window.location.href", savedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("Schema type saved.", savedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("Guardar tipo", savedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("Save Type", savedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("type-base-select", savedJson, StringComparison.Ordinal);
         Assert.Equal("SavedType", ReadString(viewJson, "displayName"));
         Assert.Equal("saved-type", ReadString(viewJson, "key"));
@@ -626,7 +626,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
-    /// Confirms that popup payload schema saves return host-flow JSON and persist in the playground.
+    /// Confirms that popup schema saves return host-flow JSON and persist in the playground.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
@@ -667,7 +667,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
-    /// Confirms that payload schema designer renders the Atlas builder without invented previews.
+    /// Confirms that schema designer renders the Atlas builder without invented previews.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
@@ -677,17 +677,18 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile");
 
-        Assert.Contains("Schema del Payload", html, StringComparison.Ordinal);
+        Assert.Contains("Schema", html, StringComparison.Ordinal);
         Assert.Contains("event-schema-block", html, StringComparison.Ordinal);
         Assert.Contains("schema-fields-list", html, StringComparison.Ordinal);
         Assert.Contains("schema-root-fields", html, StringComparison.Ordinal);
         Assert.Contains("schema-field-template", html, StringComparison.Ordinal);
+        Assert.Contains("field-validation-modal", html, StringComparison.Ordinal);
         Assert.Contains("field-metadata-modal", html, StringComparison.Ordinal);
         Assert.Contains("obj" + "ect-schema-modal", html, StringComparison.Ordinal);
         Assert.Contains("schema-type-catalog", html, StringComparison.Ordinal);
         Assert.Contains("field-metadata-catalog", html, StringComparison.Ordinal);
-        Assert.Contains("Agregar campo", html, StringComparison.Ordinal);
-        Assert.Contains("Guardar schema", html, StringComparison.Ordinal);
+        Assert.Contains("Add Field", html, StringComparison.Ordinal);
+        Assert.Contains("Save Schema", html, StringComparison.Ordinal);
         Assert.DoesNotContain("JSON Schema result", html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
     }
@@ -703,7 +704,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/schema-types/designer" + QueryMarker() + "context=datatype-new-test&popup=true");
 
-        Assert.Contains("Nuevo tipo personalizado", html, StringComparison.Ordinal);
+        Assert.Contains("New Custom Type", html, StringComparison.Ordinal);
         Assert.Contains("context=datatype-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
@@ -716,7 +717,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("type-constraints-string", html, StringComparison.Ordinal);
         Assert.Contains("type-constraints-" + "obj" + "ect", html, StringComparison.Ordinal);
         Assert.Contains("schema-root-fields", html, StringComparison.Ordinal);
-        Assert.Contains("Guardar tipo", html, StringComparison.Ordinal);
+        Assert.Contains("Save Type", html, StringComparison.Ordinal);
         Assert.DoesNotContain("JSON Schema result", html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
     }
@@ -732,7 +733,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-new-test&popup=true");
 
-        Assert.Contains("Nuevo custom field", html, StringComparison.Ordinal);
+        Assert.Contains("New Custom Field", html, StringComparison.Ordinal);
         Assert.Contains("context=metadata-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
@@ -742,15 +743,15 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
         Assert.Contains("window.close", html, StringComparison.Ordinal);
         Assert.Contains("metadata-data-type", html, StringComparison.Ordinal);
-        Assert.Contains("Validacion minima", html, StringComparison.Ordinal);
+        Assert.Contains("Validation", html, StringComparison.Ordinal);
         Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
-        Assert.Contains("Guardar custom field", html, StringComparison.Ordinal);
+        Assert.Contains("Save Custom Field", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Definition JSON", html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Confirms that payload schema designer keeps host popup query values in the save form.
+    /// Confirms that schema designer keeps host popup query values in the save form.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
@@ -1775,5 +1776,3 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         return document.RootElement.GetProperty("mappings").GetProperty(targetPath).GetString();
     }
 }
-
-

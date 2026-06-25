@@ -3,7 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Abstractions;
 
 /// <summary>
-/// Represents a payload schema designer save result.
+/// Represents a schema designer save result.
 /// </summary>
 public sealed class ButterMorphPayloadSchemaDesignerSaveResult
 {

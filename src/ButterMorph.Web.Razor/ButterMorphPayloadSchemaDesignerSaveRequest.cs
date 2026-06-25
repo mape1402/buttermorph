@@ -3,7 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.SchemaDesign;
 
 /// <summary>
-/// Represents a payload schema designer save request.
+/// Represents a schema designer save request.
 /// </summary>
 public sealed class ButterMorphPayloadSchemaDesignerSaveRequest
 {
@@ -13,7 +13,7 @@ public sealed class ButterMorphPayloadSchemaDesignerSaveRequest
     public string ContextKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the payload schema design result.
+    /// Gets or sets the schema design result.
     /// </summary>
     public PayloadSchemaDesignResult Result { get; set; } = new();
 }

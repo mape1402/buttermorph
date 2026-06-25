@@ -164,7 +164,7 @@
         const addButton = document.createElement("button");
         addButton.type = "button";
         addButton.className = "btn btn-secondary btn-sm";
-        addButton.textContent = "Agregar item";
+        addButton.textContent = "Add Item";
         addButton.addEventListener("click", function () {
             list.appendChild(renderArrayItem(itemDefinition, createEmptyValue(itemDefinition)));
             updateArrayEmptyState(list);
@@ -270,7 +270,7 @@
             input.className = "form-check-input schema-metadata-value";
             input.checked = existing && existing.value === true;
             label.appendChild(input);
-            label.appendChild(document.createTextNode(" Activo"));
+            label.appendChild(document.createTextNode(" Active"));
             return label;
         }
 
@@ -587,3 +587,7 @@
             .replace(/"/g, "&quot;");
     }
 }());
+
+
+
+

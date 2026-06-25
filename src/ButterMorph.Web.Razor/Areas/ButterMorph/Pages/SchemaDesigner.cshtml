@@ -12,17 +12,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Schema Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=schema-designer-atlas-1" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=schema-designer-bm-1" />
 </head>
 <body class="bm-page">
-    <div class="bm-schema-shell atlas-schema-shell">
-        <header class="bm-schema-topbar atlas-schema-topbar">
+    <div class="bm-schema-shell bm-schema-legacy-shell">
+        <header class="bm-schema-topbar bm-schema-legacy-topbar">
             <div>
                 <div class="bm-brand-kicker">BUTTERMORPH</div>
                 <h1>Schema Designer</h1>
             </div>
             <form method="post" asp-page-handler="Save">
-                <button class="bm-button bm-button-primary" type="submit">Save schema</button>
+                <button class="bm-button bm-button-primary" type="submit">Save Schema</button>
             </form>
         </header>
 
@@ -31,28 +31,28 @@
             <div class="bm-message-box bm-message-box-visible">@Model.Message</div>
         }
 
-        <main class="atlas-schema-workbench">
-            <section class="atlas-schema-main">
-                <div class="event-schema-block atlas-event-schema-block">
+        <main class="bm-schema-legacy-workbench">
+            <section class="bm-schema-legacy-main">
+                <div class="event-schema-block bm-schema-legacy-event-block">
                     <div class="event-schema-header">
                         <div>
-                            <h2 class="event-schema-title">Payload schema</h2>
-                            <p class="atlas-schema-help">Define fields directly, like Atlas: name, type, description, required, and nested structure.</p>
+                            <h2 class="event-schema-title">Schema</h2>
+                            <p class="bm-schema-legacy-help">Define fields directly: name, type, description, required, and nested structure.</p>
                         </div>
-                        <form class="schema-add-row atlas-add-root" method="post" asp-page-handler="AddNode">
+                        <form class="schema-add-row bm-schema-legacy-add-root" method="post" asp-page-handler="AddNode">
                             <input type="hidden" name="ParentPath" value="$root" />
-                            <input class="form-control" name="NodeName" placeholder="fieldName" />
+                            <input class="form-control" name="NodeName" placeholder="Field key" />
                             <select class="form-control" name="NodeKind">
                                 <option>Scalar</option>
                                 <option>Object</option>
                                 <option>Array</option>
                             </select>
                             <input class="form-control" name="DataType" placeholder="string" />
-                            <button class="btn btn-secondary btn-sm" type="submit">Add field</button>
+                            <button class="btn btn-secondary btn-sm" type="submit">Add Field</button>
                         </form>
                     </div>
 
-                    <div class="schema-fields-list atlas-root-fields">
+                    <div class="schema-fields-list bm-schema-legacy-root-fields">
                         @foreach (ISchemaTreeNode child in Model.TreeRoot.Children)
                         {
                             @RenderField(child, 0)
@@ -61,11 +61,11 @@
                 </div>
             </section>
 
-            <aside class="atlas-schema-side">
+            <aside class="bm-schema-legacy-side">
                 @if (Model.ShowManualActions)
                 {
-                    <form class="atlas-side-card" method="post" asp-page-handler="ImportJson">
-                        <div class="atlas-side-card-title">Import JSON Schema</div>
+                    <form class="bm-schema-legacy-side-card" method="post" asp-page-handler="ImportJson">
+                        <div class="bm-schema-legacy-side-card-title">Import JSON Schema</div>
                         <textarea name="JsonSchemaText">@Model.JsonSchemaText</textarea>
                         <button class="bm-button" type="submit">Import</button>
                     </form>
@@ -105,14 +105,14 @@
         string checkedText = node.IsRequired ? " checked" : string.Empty;
         string nestedHtml = RenderNested(node, depth);
         string html =
-            "<div class=\"schema-field atlas-schema-field\" style=\"margin-left:" + indent + "px\">" +
-            "<form method=\"post\" class=\"schema-field-main atlas-schema-field-main\" action=\"?handler=UpdateNode\">" +
+            "<div class=\"schema-field bm-schema-legacy-field\" style=\"margin-left:" + indent + "px\">" +
+            "<form method=\"post\" class=\"schema-field-main bm-schema-legacy-field-main\" action=\"?handler=UpdateNode\">" +
             "<input type=\"hidden\" name=\"SelectedPath\" value=\"" + node.Path + "\" />" +
-            "<div class=\"atlas-field-col atlas-field-name\"><label class=\"form-label\">Campo</label><input class=\"form-control\" name=\"NodeName\" value=\"" + DisplayName(node) + "\" /></div>" +
-            "<div class=\"atlas-field-col atlas-field-type\"><label class=\"form-label\">Tipo</label><select class=\"form-control\" name=\"NodeKind\">" + RenderOptions(node.Kind) + "</select></div>" +
-            "<div class=\"atlas-field-col atlas-field-description\"><label class=\"form-label\">Descripcion</label><input class=\"form-control\" name=\"MetadataValue\" value=\"" + description + "\" placeholder=\"Breve descripcion del campo\" /></div>" +
-            "<div class=\"atlas-field-col atlas-field-required\"><label class=\"form-label\">Requerido</label><label class=\"atlas-check\"><input name=\"IsRequired\" type=\"checkbox\" value=\"true\"" + checkedText + " /> Si</label></div>" +
-            "<div class=\"atlas-field-col atlas-field-actions\"><label class=\"form-label\">Acciones</label><div class=\"atlas-action-row\"><button class=\"btn btn-secondary btn-sm\" type=\"submit\">Apply</button><button class=\"btn btn-outline-danger btn-sm\" formaction=\"?handler=RemoveNode\" type=\"submit\">Remove</button></div></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-name\"><label class=\"form-label\">Field</label><input class=\"form-control\" name=\"NodeName\" value=\"" + DisplayName(node) + "\" /></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-type\"><label class=\"form-label\">Type</label><select class=\"form-control\" name=\"NodeKind\">" + RenderOptions(node.Kind) + "</select></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-description\"><label class=\"form-label\">Description</label><input class=\"form-control\" name=\"MetadataValue\" value=\"" + description + "\" placeholder=\"Short field description\" /></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-required\"><label class=\"form-label\">Required</label><label class=\"bm-schema-legacy-check\"><input name=\"IsRequired\" type=\"checkbox\" value=\"true\"" + checkedText + " /> Yes</label></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-actions\"><label class=\"form-label\">Actions</label><div class=\"bm-schema-legacy-action-row\"><button class=\"btn btn-secondary btn-sm\" type=\"submit\">Apply</button><button class=\"btn btn-outline-danger btn-sm\" formaction=\"?handler=RemoveNode\" type=\"submit\">Remove</button></div></div>" +
             "<input name=\"DataType\" type=\"hidden\" value=\"" + fieldType + "\" />" +
             "</form>" +
             nestedHtml +
@@ -129,12 +129,12 @@
         }
 
         string addForm =
-            "<form class=\"schema-add-row atlas-nested-add\" method=\"post\" action=\"?handler=AddNode\">" +
+            "<form class=\"schema-add-row bm-schema-legacy-nested-add\" method=\"post\" action=\"?handler=AddNode\">" +
             "<input type=\"hidden\" name=\"ParentPath\" value=\"" + node.Path + "\" />" +
             "<input class=\"form-control\" name=\"NodeName\" placeholder=\"propertyName\" />" +
             "<select class=\"form-control\" name=\"NodeKind\"><option>Scalar</option><option>Object</option><option>Array</option></select>" +
             "<input class=\"form-control\" name=\"DataType\" placeholder=\"string\" />" +
-            "<button class=\"btn btn-secondary btn-sm\" type=\"submit\">Add property</button>" +
+            "<button class=\"btn btn-secondary btn-sm\" type=\"submit\">Add Property</button>" +
             "</form>";
 
         string childRows = string.Empty;
@@ -144,10 +144,10 @@
             childRows += RenderField(child, depth + 1).ToString();
         }
 
-        string summary = node.Children.Count == 0 ? "Sin propiedades configuradas" : node.Children.Count + " propiedades configuradas";
+        string summary = node.Children.Count == 0 ? "No fields configured" : node.Children.Count + " fields configured";
         string cssClass = node.Kind == SchemaNodeKind.Array ? "schema-array-builder" : "schema-object-builder";
 
-        return "<div class=\"" + cssClass + " atlas-nested-builder\"><span class=\"schema-nested-summary\">" + summary + "</span><div class=\"schema-fields-list child-fields-list\">" + childRows + "</div>" + addForm + "</div>";
+        return "<div class=\"" + cssClass + " bm-schema-legacy-nested-builder\"><span class=\"schema-nested-summary\">" + summary + "</span><div class=\"schema-fields-list child-fields-list\">" + childRows + "</div>" + addForm + "</div>";
     }
 
     private static string RenderOptions(SchemaNodeKind selected)

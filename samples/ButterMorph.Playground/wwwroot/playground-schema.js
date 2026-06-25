@@ -93,7 +93,10 @@
                 validationJson: view.validationJson || "",
                 isRequired: view.isRequired,
                 isActive: view.isActive,
-                sortOrder: view.sortOrder
+                sortOrder: view.sortOrder,
+                childrenDefinitionJson: view.childrenDefinitionJson || "",
+                arrayItemDataType: view.arrayItemDataType || "",
+                arrayItemDefinitionJson: view.arrayItemDefinitionJson || ""
             }));
         }
 
@@ -304,7 +307,10 @@
                 appliesToJson: "",
                 isRequired: false,
                 isActive: true,
-                sortOrder: 10
+                sortOrder: 10,
+                childrenDefinitionJson: "",
+                arrayItemDataType: "",
+                arrayItemDefinitionJson: ""
             });
         }
         return normalizeItem({
@@ -364,7 +370,10 @@
             validationJson: item.validationJson || item.ValidationJson || "",
             isRequired: readBoolean(item, "isRequired", "IsRequired"),
             isActive: readBoolean(item, "isActive", "IsActive"),
-            sortOrder: readNumber(item, "sortOrder", "SortOrder")
+            sortOrder: readNumber(item, "sortOrder", "SortOrder"),
+            childrenDefinitionJson: item.childrenDefinitionJson || item.ChildrenDefinitionJson || "",
+            arrayItemDataType: item.arrayItemDataType || item.ArrayItemDataType || "",
+            arrayItemDefinitionJson: item.arrayItemDefinitionJson || item.ArrayItemDefinitionJson || ""
         };
     }
 
@@ -383,7 +392,10 @@
                 isRequired: item.isRequired,
                 isActive: item.isActive,
                 sortOrder: item.sortOrder,
-                validation: parseJsonText(item.validationJson, {})
+                validation: parseJsonText(item.validationJson, {}),
+                childrenDefinition: parseJsonText(item.childrenDefinitionJson, {}),
+                arrayItemDataType: item.arrayItemDataType || "",
+                arrayItemDefinition: parseJsonText(item.arrayItemDefinitionJson, {})
             }, null, 2);
         }
 

@@ -3,7 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.SchemaDesign;
 
 /// <summary>
-/// Represents payload schema designer load state.
+/// Represents schema designer load state.
 /// </summary>
 public sealed class ButterMorphPayloadSchemaDesignerLoadResult
 {

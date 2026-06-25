@@ -9,13 +9,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Field Metadata Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=7" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=11" />
 </head>
-<body class="atlas-page"
+<body class="bm-schema-page"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
       data-schema-host-context-key="@Model.SavedContextKey"
       data-schema-host-message-type="ButterMorphFieldMetadataDesignerSaved">
-    <main class="atlas-shell">
+    <main class="bm-schema-shell">
         <section class="dashboard-section">
         <div class="platform-card event-editor">
         <div class="platform-card-header">
@@ -24,138 +24,193 @@
 
         @if (!string.IsNullOrWhiteSpace(Model.Message))
         {
-            <div class="atlas-alert">@Model.Message</div>
+            <div class="bm-schema-alert">@Model.Message</div>
         }
 
-        <form method="post" action="@Model.SaveActionUrl" class="atlas-editor-form" data-schema-host-form="true">
+        <form method="post" action="@Model.SaveActionUrl" class="bm-schema-editor-form" data-schema-host-form="true">
             @Html.AntiForgeryToken()
-            <div class="atlas-editor-scroll">
-                <section class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Nombre</label>
-                        <input class="form-control" asp-for="Input.Name" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Key</label>
-                        <input class="form-control" asp-for="Input.Key" />
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Data type</label>
-                        <select id="metadata-data-type" class="form-control" asp-for="Input.DataType">
-                            <option value="string">string</option>
-                            <option value="number">number</option>
-                            <option value="integer">integer</option>
-                            <option value="boolean">boolean</option>
-                            <option value="date">date</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Descripcion</label>
-                        <textarea class="form-control" asp-for="Input.Description" rows="2"></textarea>
-                    </div>
-                </section>
-
-                <section class="row g-3 mb-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Sort order</label>
-                        <input class="form-control" asp-for="Input.SortOrder" type="number" />
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" asp-for="Input.IsRequired" />
-                            <label class="form-check-label">Requerido</label>
-                        </div>
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" asp-for="Input.IsActive" />
-                            <label class="form-check-label">Activo</label>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="platform-card mb-3">
+            <div class="bm-schema-editor-scroll">
+                <section class="platform-card mb-3 bm-schema-form-section">
                     <div class="platform-card-header">
-                        <span>Secciones</span>
+                        <span>Identity</span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Name</label>
+                            <input class="form-control" asp-for="Input.Name" placeholder="Display name" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Key</label>
+                            <input class="form-control" asp-for="Input.Key" placeholder="Unique metadata key" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Data Type</label>
+                            <select id="metadata-data-type" class="form-control" asp-for="Input.DataType">
+                                <option value="string">string</option>
+                                <option value="number">number</option>
+                                <option value="integer">integer</option>
+                                <option value="boolean">boolean</option>
+                                <option value="date">date</option>
+                                <option value="datetime">datetime</option>
+                                <option value="object">object</option>
+                                <option value="array">array</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" asp-for="Input.Description" rows="2" placeholder="Short metadata field description"></textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="platform-card mb-3 bm-schema-form-section">
+                    <div class="platform-card-header">
+                        <span>Availability</span>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <div class="form-check">
-                                <input id="metadata-applies-schema" class="form-check-input metadata-applies-to-option" type="checkbox" value="Schema" checked="@Model.Input.AppliesTo.Contains("Schema", StringComparison.OrdinalIgnoreCase)" />
-                                <label class="form-check-label" for="metadata-applies-schema">Schema</label>
+                            <label class="form-label">Sort Order</label>
+                            <input class="form-control" asp-for="Input.SortOrder" type="number" />
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" asp-for="Input.IsRequired" />
+                                <label class="form-check-label">Required</label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input id="metadata-applies-field" class="form-check-input metadata-applies-to-option" type="checkbox" value="Field" checked="@Model.Input.AppliesTo.Contains("Field", StringComparison.OrdinalIgnoreCase)" />
-                                <label class="form-check-label" for="metadata-applies-field">Field</label>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" asp-for="Input.IsActive" />
+                                <label class="form-check-label">Active</label>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <section class="platform-card mb-3 bm-schema-form-section metadata-scope-card">
+                    <div class="platform-card-header">
+                        <span>Availability Scope</span>
+                    </div>
+                    <div class="metadata-scope-grid">
+                        <label class="metadata-scope-option">
+                            <input id="metadata-applies-schema" class="form-check-input metadata-applies-to-option" type="checkbox" value="Schema" checked="@Model.Input.AppliesTo.Contains("Schema", StringComparison.OrdinalIgnoreCase)" />
+                            <span>
+                                <strong>Schema</strong>
+                                <small>Shows this custom field in the schema-level Metadata popup.</small>
+                            </span>
+                        </label>
+                        <label class="metadata-scope-option">
+                            <input id="metadata-applies-field" class="form-check-input metadata-applies-to-option" type="checkbox" value="Field" checked="@Model.Input.AppliesTo.Contains("Field", StringComparison.OrdinalIgnoreCase)" />
+                            <span>
+                                <strong>Field</strong>
+                                <small>Shows this custom field in each schema field's Metadata popup.</small>
+                            </span>
+                        </label>
                         <input type="hidden" asp-for="Input.AppliesTo" />
                     </div>
                 </section>
 
-                <section class="platform-card mb-3">
+                <section class="platform-card mb-3 bm-schema-form-section metadata-complex metadata-complex-object d-none">
                     <div class="platform-card-header">
-                        <span>Validacion minima</span>
+                        <span>Object Structure</span>
+                        <button type="button" class="btn btn-secondary btn-sm" data-metadata-add-object-field>Add Field</button>
                     </div>
+                    <input type="hidden" id="metadata-children-definition-json" asp-for="Input.ChildrenDefinitionJson" />
+                    <div id="metadata-object-fields" class="metadata-definition-fields"></div>
+                    <small class="text-muted">Define the metadata object's nested fields.</small>
+                </section>
 
+                <section class="platform-card mb-3 bm-schema-form-section metadata-complex metadata-complex-array d-none">
+                    <div class="platform-card-header">
+                        <span>Array Item</span>
+                    </div>
+                    <input type="hidden" id="metadata-array-item-type-hidden" asp-for="Input.ArrayItemDataType" />
+                    <input type="hidden" id="metadata-array-item-definition-json" asp-for="Input.ArrayItemDefinitionJson" />
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Item Type</label>
+                            <select id="metadata-array-item-type" class="form-control">
+                                <option value="string">string</option>
+                                <option value="number">number</option>
+                                <option value="integer">integer</option>
+                                <option value="boolean">boolean</option>
+                                <option value="date">date</option>
+                                <option value="datetime">datetime</option>
+                                <option value="object">object</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="metadata-array-object-fields-wrap" class="metadata-array-object-fields-wrap d-none">
+                        <div class="metadata-definition-header">
+                            <strong>Object Item Structure</strong>
+                            <button type="button" class="btn btn-secondary btn-sm" data-metadata-add-array-object-field>Add Field</button>
+                        </div>
+                        <div id="metadata-array-object-fields" class="metadata-definition-fields"></div>
+                    </div>
+                </section>
+
+                <section class="platform-card mb-3 bm-schema-form-section">
+                    <div class="platform-card-header">
+                        <span>Validation</span>
+                    </div>
                     <div class="metadata-validation metadata-validation-string row g-3">
                         <div class="col-md-3">
-                            <label class="form-label">minLength</label>
+                            <label class="form-label">Min Length</label>
                             <input class="form-control" asp-for="Input.MinLength" type="number" min="0" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">maxLength</label>
+                            <label class="form-label">Max Length</label>
                             <input class="form-control" asp-for="Input.MaxLength" type="number" min="0" />
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">pattern</label>
+                            <label class="form-label">Pattern</label>
                             <input class="form-control" asp-for="Input.Pattern" />
                         </div>
                     </div>
-
                     <div class="metadata-validation metadata-validation-number metadata-validation-integer row g-3">
                         <div class="col-md-3">
-                            <label class="form-label">minimum</label>
+                            <label class="form-label">Minimum</label>
                             <input class="form-control" asp-for="Input.Minimum" type="number" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">maximum</label>
+                            <label class="form-label">Maximum</label>
                             <input class="form-control" asp-for="Input.Maximum" type="number" />
                         </div>
                     </div>
-
                     <div class="metadata-validation metadata-validation-date row g-3">
                         <div class="col-md-3">
-                            <label class="form-label">Date minimum</label>
+                            <label class="form-label">Date Minimum</label>
                             <input class="form-control" asp-for="Input.DateMinimum" type="date" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Date maximum</label>
+                            <label class="form-label">Date Maximum</label>
                             <input class="form-control" asp-for="Input.DateMaximum" type="date" />
                         </div>
                     </div>
+                </section>
 
-                    <div class="metadata-validation metadata-validation-allowed-values row g-3 mt-1">
+                <section class="platform-card mb-3 bm-schema-form-section">
+                    <div class="platform-card-header">
+                        <span>Allowed Values</span>
+                    </div>
+                    <div class="metadata-validation metadata-validation-allowed-values row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Allowed values</label>
                             <input id="allowed-values-hidden" type="hidden" asp-for="Input.AllowedValues" />
-                            <input id="allowed-value-input" class="form-control" placeholder="Valor permitido, Enter para agregar" />
+                            <input id="allowed-value-input" class="form-control" placeholder="Add a value and press Enter" />
                             <div id="allowed-values-chips" class="d-flex flex-wrap gap-2 mt-2"></div>
-                            <small class="text-muted">Si agregas valores permitidos, el formulario dinamico usara un select.</small>
+                            <small class="text-muted">If allowed values are configured, generated metadata forms use a select input.</small>
                         </div>
                     </div>
                 </section>
             </div>
             <div class="contract-editor-actions">
-                <button class="btn btn-primary" type="submit">Guardar custom field</button>
+                <button class="btn btn-primary" type="submit">Save Custom Field</button>
             </div>
         </form>
         </div>
         </section>
     </main>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-metadata-field-editor.js?v=5"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-metadata-field-editor.js?v=7"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

@@ -31,7 +31,10 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
                 DataType = input.DataType,
                 IsRequired = input.IsRequired,
                 IsActive = input.IsActive,
-                SortOrder = input.SortOrder
+                SortOrder = input.SortOrder,
+                ChildrenDefinitionJson = input.ChildrenDefinitionJson,
+                ArrayItemDataType = input.ArrayItemDataType,
+                ArrayItemDefinitionJson = input.ArrayItemDefinitionJson
             };
         }
 
@@ -47,7 +50,10 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             IsRequired = input.IsRequired,
             IsActive = input.IsActive,
             SortOrder = input.SortOrder,
-            ValidationJson = CreateValidationJson(input)
+            ValidationJson = CreateValidationJson(input),
+            ChildrenDefinitionJson = input.ChildrenDefinitionJson.Trim(),
+            ArrayItemDataType = input.ArrayItemDataType.Trim(),
+            ArrayItemDefinitionJson = input.ArrayItemDefinitionJson.Trim()
         };
     }
 
@@ -76,7 +82,10 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             Maximum = SafeString(input.Maximum),
             DateMinimum = SafeString(input.DateMinimum),
             DateMaximum = SafeString(input.DateMaximum),
-            AllowedValues = SafeString(input.AllowedValues)
+            AllowedValues = SafeString(input.AllowedValues),
+            ChildrenDefinitionJson = SafeString(input.ChildrenDefinitionJson),
+            ArrayItemDataType = SafeString(input.ArrayItemDataType),
+            ArrayItemDefinitionJson = SafeString(input.ArrayItemDefinitionJson)
         };
     }
 
@@ -111,7 +120,48 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             diagnostics.Add(CreateDiagnostic("BMSD203", "Metadata data type is required.", "DataType"));
         }
 
+        if (string.Equals(input.DataType, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            ValidateJsonDefinition(input.ChildrenDefinitionJson, diagnostics, "ChildrenDefinitionJson", "Object metadata fields are required.");
+        }
+
+        if (string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(input.ArrayItemDataType))
+            {
+                diagnostics.Add(CreateDiagnostic("BMSD204", "Array item type is required.", "ArrayItemDataType"));
+            }
+
+            if (string.Equals(input.ArrayItemDataType, "object", StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateJsonDefinition(input.ArrayItemDefinitionJson, diagnostics, "ArrayItemDefinitionJson", "Array object item fields are required.");
+            }
+        }
+
         return diagnostics;
+    }
+
+    // Validates JSON schema fragments used by complex metadata fields.
+    private static void ValidateJsonDefinition(string json, List<DiagnosticEntry> diagnostics, string path, string emptyMessage)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSD205", emptyMessage, path));
+            return;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                diagnostics.Add(CreateDiagnostic("BMSD206", "Metadata structure must be a JSON object.", path));
+            }
+        }
+        catch (JsonException exception)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSD207", exception.Message, path));
+        }
     }
 
     // Creates a diagnostic entry.

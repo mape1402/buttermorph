@@ -75,7 +75,7 @@ public sealed class MetadataFieldsDesignerModel : PageModel
     /// <summary>
     /// Gets or sets the form title.
     /// </summary>
-    public string FormTitle { get; set; } = "Nuevo custom field";
+    public string FormTitle { get; set; } = "New Custom Field";
 
     /// <summary>
     /// Gets or sets the form save URL.
@@ -257,9 +257,9 @@ public sealed class MetadataFieldsDesignerModel : PageModel
         string mode = Request.Query["mode"].ToString();
         if (string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase))
         {
-            return "Editar custom field";
+            return "Edit Custom Field";
         }
 
-        return "Nuevo custom field";
+        return "New Custom Field";
     }
 }

@@ -7,6 +7,7 @@
     const catalog = readCatalog("schema-type-catalog", defaultCatalog());
     const metadataCatalog = readCatalog("field-metadata-catalog", []);
     let activeMetadataField = null;
+    let activeValidationField = null;
     let activeObjectSchemaContext = null;
     let objectSchemaStack = [];
 
@@ -38,6 +39,11 @@
             closeModal(button.getAttribute("data-modal-close"));
         });
     });
+
+    const saveValidationButton = document.getElementById("save-field-validation-btn");
+    if (saveValidationButton) {
+        saveValidationButton.addEventListener("click", saveValidation);
+    }
 
     const saveMetadataButton = document.getElementById("save-field-metadata-btn");
     if (saveMetadataButton) {
@@ -126,6 +132,7 @@
         const typeSelect = field.querySelector(".field-type-select");
         const itemTypeSelect = field.querySelector(".array-item-type-select");
         const removeButton = field.querySelector(".remove-field-btn");
+        const validationButton = field.querySelector(".field-validation-btn");
         const metadataButton = field.querySelector(".field-metadata-btn");
         const addChildButton = field.querySelector(".add-child-field-btn");
         const addArrayButton = field.querySelector(".add-array-object-field-btn");
@@ -140,6 +147,7 @@
             field.remove();
             updateSummaries();
         });
+        validationButton?.addEventListener("click", function () { openValidation(field); });
         metadataButton?.addEventListener("click", function () { openMetadata(field); });
         addChildButton?.addEventListener("click", function () {
             field.querySelector(".child-fields-list").appendChild(createFieldNode());
@@ -154,7 +162,7 @@
             updateSummaries();
         });
         editObjectButton?.addEventListener("click", function () {
-            openObjectEditor(field.querySelector(".child-fields-list"), createFieldPath(field, "Objeto"), field);
+            openObjectEditor(field.querySelector(".child-fields-list"), createFieldPath(field, "Object"), field);
         });
         editArrayButton?.addEventListener("click", function () {
             openObjectEditor(field.querySelector(".array-object-fields-list"), createFieldPath(field, "Array") + "[]", field);
@@ -171,11 +179,14 @@
         }
         select.innerHTML = "";
         const basic = document.createElement("optgroup");
-        basic.label = "Basicos";
+        basic.label = "Basic";
         const custom = document.createElement("optgroup");
-        custom.label = "Personalizados";
+        custom.label = "Custom";
         catalog.forEach(function (item) {
             const normalized = normalizeCatalogItem(item);
+            if (!isValidCatalogItem(normalized)) {
+                return;
+            }
             const option = document.createElement("option");
             option.value = normalized.isSystem && !normalized.typeVersionId ? normalized.baseType : normalized.typeVersionId;
             option.textContent = normalized.isSystem ? normalized.name : normalized.name + " (" + normalized.versionNumber + ")";
@@ -204,9 +215,11 @@
         const itemType = getSelectedBaseType(field.querySelector(".array-item-type-select"));
         const arrayObjectBuilder = field.querySelector(".schema-array-object-builder");
         const nestedArrayBuilder = field.querySelector(".schema-array-nested-builder");
+        const validationButton = field.querySelector(".field-validation-btn");
         arrayObjectBuilder?.classList.toggle("d-none", itemType !== "object");
         nestedArrayBuilder?.classList.toggle("d-none", itemType !== "array");
         editArrayButton?.classList.toggle("d-none", type !== "array" || itemType !== "object");
+        validationButton?.classList.toggle("d-none", getValidationKeys(field).length === 0);
         updateSummaries();
     }
 
@@ -384,6 +397,17 @@
         };
     }
 
+    function isValidCatalogItem(item) {
+        if (item.isSystem) {
+            return !!item.name && !!item.baseType;
+        }
+
+        return !!item.name &&
+            !!item.baseType &&
+            !!item.typeVersionId &&
+            !!item.jsonSchema;
+    }
+
     function openObjectEditor(list, title, ownerField) {
         if (!list) {
             return;
@@ -399,7 +423,7 @@
     function createObjectContext(list, title, ownerField) {
         return {
             listNode: list,
-            title: title || "Propiedades del objeto",
+            title: title || "Object Properties",
             ownerField: ownerField,
             homeParent: list.parentElement,
             homeNextSibling: list.nextSibling
@@ -420,7 +444,7 @@
         host.appendChild(context.listNode);
         context.listNode.classList.add("schema-fields-list");
         if (titleNode) {
-            titleNode.textContent = context.title || "Propiedades del objeto";
+            titleNode.textContent = context.title || "Object Properties";
         }
         renderObjectBreadcrumb();
         updateBackButton();
@@ -470,7 +494,7 @@
         objectSchemaStack.forEach(function (context, index) {
             const button = document.createElement("button");
             button.type = "button";
-            button.textContent = context.title || "Objeto";
+            button.textContent = context.title || "Object";
             button.className = index === objectSchemaStack.length - 1 ? "active" : "";
             button.disabled = index === objectSchemaStack.length - 1;
             button.addEventListener("click", function () {
@@ -505,6 +529,48 @@
         return names.join(" / ");
     }
 
+    function openValidation(field) {
+        activeValidationField = field;
+        renderValidationModal(field);
+        openModal(document.getElementById("field-validation-modal"));
+    }
+
+    function renderValidationModal(field) {
+        const validationHost = document.getElementById("field-validation-fields");
+        if (!validationHost) {
+            return;
+        }
+
+        validationHost.innerHTML = "";
+        const validation = safeJson(field.dataset.validation || "{}");
+        getValidationKeys(field).forEach(function (key) {
+            validationHost.appendChild(createValidationInput(key, validation[key] || ""));
+        });
+        if (validationHost.children.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "text-muted";
+            empty.textContent = "No field validations are available for this data type.";
+            validationHost.appendChild(empty);
+        }
+    }
+
+    function getValidationKeys(field) {
+        const type = getSelectedBaseType(field.querySelector(".field-type-select"));
+        if (type === "string") {
+            return ["minLength", "maxLength", "pattern"];
+        }
+        if (type === "number") {
+            return ["minimum", "maximum", "precision", "scale"];
+        }
+        if (type === "integer") {
+            return ["minimum", "maximum"];
+        }
+        if (type === "array") {
+            return ["minItems", "maxItems"];
+        }
+        return [];
+    }
+
     function openMetadata(field) {
         activeMetadataField = field;
         renderMetadataModal(field);
@@ -512,17 +578,12 @@
     }
 
     function renderMetadataModal(field) {
-        const validationHost = document.getElementById("field-validation-fields");
         const metadataHost = document.getElementById("field-metadata-fields");
-        if (!validationHost || !metadataHost) {
+        if (!metadataHost) {
             return;
         }
-        validationHost.innerHTML = "";
+
         metadataHost.innerHTML = "";
-        const validation = safeJson(field.dataset.validation || "{}");
-        ["minLength", "maxLength", "pattern", "minimum", "maximum", "precision", "scale", "minItems", "maxItems"].forEach(function (key) {
-            validationHost.appendChild(createMetadataInput(key, validation[key] || "", "validation"));
-        });
         const metadata = safeJson(field.dataset.metadata || "{}");
         metadataCatalog.forEach(function (item) {
             if (!appliesToScope(readCatalogValue(item, "appliesToJson", "AppliesToJson"), "Field")) {
@@ -533,13 +594,12 @@
         });
     }
 
-    function createMetadataInput(key, value, group) {
+    function createValidationInput(key, value) {
         const label = document.createElement("label");
         label.className = "col-md-4";
-        label.innerHTML = "<span class='form-label'>" + key + "</span>";
+        label.innerHTML = "<span class='form-label'>" + formatValidationLabel(key) + "</span>";
         const input = document.createElement("input");
         input.className = "form-control";
-        input.dataset.group = group;
         input.dataset.key = key;
         input.value = value;
         label.appendChild(input);
@@ -550,16 +610,29 @@
         const key = readCatalogValue(item, "key", "Key");
         const dataType = (readCatalogValue(item, "dataType", "DataType") || "string").toLowerCase();
         const validation = safeJson(readCatalogValue(item, "validation", "Validation") || "{}");
-        const label = document.createElement("label");
-        label.className = "col-md-4";
-        label.innerHTML = "<span class='form-label'>" + (readCatalogValue(item, "name", "Name") || key) + "</span>";
+        const definition = createMetadataDefinition(item);
+        const wrapper = document.createElement("div");
+        wrapper.className = "schema-metadata-field";
+        wrapper.dataset.key = key;
+        wrapper.dataset.type = dataType;
+
+        const header = document.createElement("div");
+        header.className = "schema-metadata-field-header";
+        const title = document.createElement("strong");
+        title.textContent = readCatalogValue(item, "name", "Name") || key;
+        header.appendChild(title);
+        wrapper.appendChild(header);
 
         const description = readCatalogValue(item, "description", "Description");
         const value = metadata[key] || "";
         const allowedValues = Array.isArray(validation.allowedValues) ? validation.allowedValues : [];
         let input = null;
 
-        if (allowedValues.length > 0) {
+        if (dataType === "object") {
+            input = createMetadataObjectInput(definition, value);
+        } else if (dataType === "array") {
+            input = createMetadataArrayInput(definition, value);
+        } else if (allowedValues.length > 0) {
             input = document.createElement("select");
             input.className = "form-control";
             const empty = document.createElement("option");
@@ -597,15 +670,148 @@
         input.dataset.group = "metadata";
         input.dataset.key = key;
         input.dataset.type = dataType;
-        label.appendChild(input);
+        wrapper.appendChild(input);
         if (description) {
             const help = document.createElement("small");
             help.className = "text-muted d-block mt-1";
             help.textContent = description;
-            label.appendChild(help);
+            wrapper.appendChild(help);
         }
 
-        return label;
+        return wrapper;
+    }
+
+    function createMetadataDefinition(item) {
+        const key = readCatalogValue(item, "key", "Key");
+        const dataType = (readCatalogValue(item, "dataType", "DataType") || "string").toLowerCase();
+        return {
+            key: key,
+            name: readCatalogValue(item, "name", "Name") || key,
+            dataType: dataType,
+            children: readMetadataChildren(readCatalogValue(item, "childrenDefinitionJson", "ChildrenDefinitionJson")),
+            arrayItem: readMetadataArrayItem(
+                readCatalogValue(item, "arrayItemDataType", "ArrayItemDataType"),
+                readCatalogValue(item, "arrayItemDefinitionJson", "ArrayItemDefinitionJson"))
+        };
+    }
+
+    function readMetadataChildren(json) {
+        const schema = safeJson(json || "{}");
+        const properties = schema.properties || {};
+        const required = Array.isArray(schema.required) ? schema.required : [];
+        return Object.keys(properties).map(function (name) {
+            const property = properties[name] || {};
+            return {
+                key: name,
+                name: name,
+                description: property.description || "",
+                dataType: (property.type || "string").toLowerCase(),
+                isRequired: required.includes(name) || property.required === true,
+                children: readMetadataChildren(JSON.stringify(property)),
+                arrayItem: property.items ? {
+                    key: "item",
+                    name: "Item",
+                    dataType: (property.items.type || "string").toLowerCase(),
+                    children: readMetadataChildren(JSON.stringify(property.items))
+                } : null
+            };
+        });
+    }
+
+    function readMetadataArrayItem(itemType, itemJson) {
+        const type = (itemType || "string").toLowerCase();
+        const item = { key: "item", name: "Item", dataType: type, children: [] };
+        if (type === "object") {
+            item.children = readMetadataChildren(itemJson || "{}");
+        }
+        return item;
+    }
+
+    function createMetadataObjectInput(definition, value) {
+        const container = document.createElement("div");
+        container.className = "schema-metadata-object";
+        const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+        definition.children.forEach(function (child) {
+            container.appendChild(createNestedMetadataInput(child, current[child.key]));
+        });
+        return container;
+    }
+
+    function createMetadataArrayInput(definition, value) {
+        const container = document.createElement("div");
+        container.className = "schema-metadata-array";
+        container.dataset.array = "true";
+        const list = document.createElement("div");
+        list.className = "schema-metadata-array-list";
+        container.appendChild(list);
+        const itemDefinition = definition.arrayItem || { key: "item", name: "Item", dataType: "string", children: [] };
+        const values = Array.isArray(value) ? value : [];
+        values.forEach(function (itemValue) {
+            list.appendChild(createMetadataArrayItem(itemDefinition, itemValue));
+        });
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "btn btn-secondary btn-sm";
+        add.textContent = "Add Item";
+        add.addEventListener("click", function () {
+            list.appendChild(createMetadataArrayItem(itemDefinition, ""));
+        });
+        container.appendChild(add);
+        return container;
+    }
+
+    function createMetadataArrayItem(definition, value) {
+        const row = document.createElement("div");
+        row.className = "schema-metadata-array-item";
+        row.dataset.arrayItem = "true";
+        row.appendChild(createNestedMetadataInput(definition, value));
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "btn btn-outline-danger btn-sm";
+        remove.textContent = "🗑";
+        remove.addEventListener("click", function () { row.remove(); });
+        row.appendChild(remove);
+        return row;
+    }
+
+    function createNestedMetadataInput(definition, value) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "schema-metadata-field";
+        wrapper.dataset.key = definition.key;
+        wrapper.dataset.type = definition.dataType || "string";
+        const label = document.createElement("label");
+        label.className = "form-label";
+        label.textContent = definition.name || definition.key;
+        wrapper.appendChild(label);
+        let input;
+        if (wrapper.dataset.type === "object") {
+            input = createMetadataObjectInput(definition, value);
+        } else if (wrapper.dataset.type === "array") {
+            input = createMetadataArrayInput(definition, value);
+        } else {
+            input = document.createElement("input");
+            input.className = "form-control";
+            input.value = value === undefined || value === null ? "" : String(value);
+            input.type = wrapper.dataset.type === "number" || wrapper.dataset.type === "integer" ? "number" :
+                wrapper.dataset.type === "boolean" ? "checkbox" :
+                wrapper.dataset.type === "date" ? "date" :
+                wrapper.dataset.type === "datetime" ? "datetime-local" : "text";
+            if (wrapper.dataset.type === "integer") {
+                input.step = "1";
+            }
+            if (wrapper.dataset.type === "number") {
+                input.step = "any";
+            }
+            if (wrapper.dataset.type === "boolean") {
+                input.className = "form-check-input";
+                input.checked = value === true || value === "true";
+            }
+        }
+        input.dataset.group = "metadata";
+        input.dataset.key = definition.key;
+        input.dataset.type = wrapper.dataset.type;
+        wrapper.appendChild(input);
+        return wrapper;
     }
 
     function readCatalogValue(item, camelName, pascalName) {
@@ -627,26 +833,75 @@
         }
     }
 
+    function saveValidation() {
+        if (!activeValidationField) {
+            return;
+        }
+        const validation = {};
+        document.querySelectorAll("#field-validation-fields input").forEach(function (input) {
+            if (!input.value) {
+                return;
+            }
+            validation[input.dataset.key] = input.value;
+        });
+        activeValidationField.dataset.validation = JSON.stringify(validation);
+        closeModal("field-validation-modal");
+    }
+
     function saveMetadata() {
         if (!activeMetadataField) {
             return;
         }
-        const validation = {};
         const metadata = {};
-        document.querySelectorAll("#field-validation-fields input, #field-metadata-fields input, #field-metadata-fields select").forEach(function (input) {
-            let value = input.type === "checkbox" ? (input.checked ? "true" : "false") : input.value;
-            if (!value && input.type !== "checkbox") {
+        document.querySelectorAll("#field-metadata-fields > .schema-metadata-field").forEach(function (field) {
+            const key = field.dataset.key;
+            const value = collectMetadataValue(field);
+            if ((value === "" || value === null || value === undefined) && value !== false) {
                 return;
             }
-            if (input.dataset.group === "validation") {
-                validation[input.dataset.key] = value;
-            } else {
-                metadata[input.dataset.key] = value;
-            }
+            metadata[key] = value;
         });
-        activeMetadataField.dataset.validation = JSON.stringify(validation);
         activeMetadataField.dataset.metadata = JSON.stringify(metadata);
         closeModal("field-metadata-modal");
+    }
+
+    function collectMetadataValue(field) {
+        const type = field.dataset.type || field.querySelector("[data-type]")?.dataset.type || "string";
+        if (type === "object") {
+            const value = {};
+            field.querySelectorAll(":scope > .schema-metadata-object > .schema-metadata-field").forEach(function (child) {
+                const childValue = collectMetadataValue(child);
+                if ((childValue === "" || childValue === null || childValue === undefined) && childValue !== false) {
+                    return;
+                }
+                value[child.dataset.key] = childValue;
+            });
+            return value;
+        }
+        if (type === "array") {
+            const values = [];
+            field.querySelectorAll(":scope > .schema-metadata-array > .schema-metadata-array-list > .schema-metadata-array-item").forEach(function (item) {
+                const child = item.querySelector(":scope > .schema-metadata-field");
+                if (child) {
+                    values.push(collectMetadataValue(child));
+                }
+            });
+            return values;
+        }
+        const input = field.querySelector(":scope > input, :scope > select");
+        if (!input) {
+            return "";
+        }
+        if (type === "boolean") {
+            return input.checked;
+        }
+        if (type === "number") {
+            return input.value === "" ? "" : Number(input.value);
+        }
+        if (type === "integer") {
+            return input.value === "" ? "" : parseInt(input.value, 10);
+        }
+        return input.value || "";
     }
 
     function openModal(modal) {
@@ -671,8 +926,25 @@
             const arraySummary = field.querySelector(".array-object-summary");
             const childCount = field.querySelector(".child-fields-list")?.children.length || 0;
             const arrayCount = field.querySelector(".array-object-fields-list")?.children.length || 0;
-            if (objectSummary) { objectSummary.textContent = childCount === 0 ? "Sin propiedades configuradas" : childCount + " propiedades configuradas"; }
-            if (arraySummary) { arraySummary.textContent = arrayCount === 0 ? "Sin propiedades configuradas" : arrayCount + " propiedades configuradas"; }
+            if (objectSummary) { objectSummary.textContent = childCount === 0 ? "No fields configured" : childCount + " fields configured"; }
+            if (arraySummary) { arraySummary.textContent = arrayCount === 0 ? "No fields configured" : arrayCount + " fields configured"; }
         });
     }
+
+    function formatValidationLabel(key) {
+        const labels = {
+            minLength: "Min Length",
+            maxLength: "Max Length",
+            pattern: "Pattern",
+            minimum: "Minimum",
+            maximum: "Maximum",
+            precision: "Precision",
+            scale: "Scale",
+            minItems: "Min Items",
+            maxItems: "Max Items"
+        };
+        return labels[key] || key;
+    }
 }());
+
+

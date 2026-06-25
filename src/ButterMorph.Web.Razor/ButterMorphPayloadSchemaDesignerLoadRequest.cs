@@ -1,7 +1,7 @@
 namespace ButterMorph.Web.Razor;
 
 /// <summary>
-/// Represents a payload schema designer load request.
+/// Represents a schema designer load request.
 /// </summary>
 public sealed class ButterMorphPayloadSchemaDesignerLoadRequest
 {

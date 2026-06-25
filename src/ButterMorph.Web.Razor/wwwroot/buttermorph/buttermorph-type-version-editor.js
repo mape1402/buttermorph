@@ -16,7 +16,10 @@
     refresh();
 
     baseSelect.addEventListener("change", refresh);
-    arrayItemSelect?.addEventListener("change", syncArrayItemInputs);
+    arrayItemSelect?.addEventListener("change", function () {
+        syncArrayItemInputs();
+        refresh();
+    });
     form.addEventListener("submit", function () {
         syncArrayItemInputs();
         syncAllowedValuesInput();
@@ -30,6 +33,12 @@
         document.querySelectorAll(".type-constraints-" + baseType).forEach(function (node) {
             node.classList.remove("d-none");
         });
+        const selectedItemType = arrayItemSelect?.selectedOptions?.[0]?.dataset?.baseType || arrayItemSelect?.value || "";
+        if (baseType === "array" && selectedItemType === "object") {
+            document.querySelectorAll(".type-constraints-object").forEach(function (node) {
+                node.classList.remove("d-none");
+            });
+        }
         syncAllowedValuesInput();
     }
 
@@ -143,11 +152,14 @@
         }
         arrayItemSelect.innerHTML = "";
         const basicGroup = document.createElement("optgroup");
-        basicGroup.label = "Basicos";
+        basicGroup.label = "Basic";
         const customGroup = document.createElement("optgroup");
-        customGroup.label = "Personalizados";
+        customGroup.label = "Custom";
         catalog.forEach(function (item) {
             const normalized = normalizeCatalogItem(item);
+            if (!isValidCatalogItem(normalized)) {
+                return;
+            }
             const option = document.createElement("option");
             option.value = normalized.isSystem && !normalized.typeVersionId ? normalized.baseType : normalized.typeVersionId;
             option.textContent = normalized.isSystem ? normalized.name : normalized.name + " (" + normalized.versionNumber + ")";
@@ -193,4 +205,17 @@
             isSystem: item.isSystem === true || item.IsSystem === true
         };
     }
+
+    function isValidCatalogItem(item) {
+        if (item.isSystem) {
+            return !!item.name && !!item.baseType;
+        }
+
+        return !!item.name &&
+            !!item.baseType &&
+            !!item.typeVersionId;
+    }
 }());
+
+
+

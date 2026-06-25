@@ -173,7 +173,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
             ValidationJson = request.Result.ValidationJson,
             IsRequired = request.Result.IsRequired,
             IsActive = request.Result.IsActive,
-            SortOrder = request.Result.SortOrder
+            SortOrder = request.Result.SortOrder,
+            ChildrenDefinitionJson = request.Result.ChildrenDefinitionJson,
+            ArrayItemDataType = request.Result.ArrayItemDataType,
+            ArrayItemDefinitionJson = request.Result.ArrayItemDefinitionJson
         });
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerSaveResult
@@ -264,8 +267,8 @@ internal sealed class PlaygroundSchemaDesignerHost :
             new PlaygroundSchemaScenarioSummary
             {
                 ContextKey = "payload-customer-profile",
-                DisplayName = "Edit payload schema",
-                Description = "Build an Atlas-compatible payload structure from datatypes and metadata.",
+                DisplayName = "Edit schema",
+                Description = "Build a reusable structure from datatypes and metadata.",
                 DesignerPath = "/buttermorph/payload-schema/designer"
             }
         ];
@@ -329,7 +332,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 ValidationJson = save.ValidationJson,
                 IsRequired = save.IsRequired,
                 IsActive = save.IsActive,
-                SortOrder = save.SortOrder
+                SortOrder = save.SortOrder,
+                ChildrenDefinitionJson = save.ChildrenDefinitionJson,
+                ArrayItemDataType = save.ArrayItemDataType,
+                ArrayItemDefinitionJson = save.ArrayItemDefinitionJson
             };
         }
 
@@ -356,6 +362,9 @@ internal sealed class PlaygroundSchemaDesignerHost :
             view.IsRequired = input.IsRequired;
             view.IsActive = input.IsActive;
             view.SortOrder = input.SortOrder;
+            view.ChildrenDefinitionJson = input.ChildrenDefinitionJson;
+            view.ArrayItemDataType = input.ArrayItemDataType;
+            view.ArrayItemDefinitionJson = input.ArrayItemDefinitionJson;
         }
 
         if (view.Kind == "type")
@@ -497,6 +506,23 @@ internal sealed class PlaygroundSchemaDesignerHost :
         {
             input.ArrayItemType = typeElement.ToString();
         }
+
+        if (string.Equals(input.ArrayItemType, MapType, StringComparison.OrdinalIgnoreCase) &&
+            itemsElement.TryGetProperty("properties", out System.Text.Json.JsonElement propertiesElement))
+        {
+            input.PayloadSchemaJson = "{\"type\":\"" + MapType + "\",\"properties\":" + propertiesElement.GetRawText() + ReadRequiredSuffix(itemsElement) + "}";
+        }
+    }
+
+    // Reads required suffix for hydrated array object schemas.
+    private static string ReadRequiredSuffix(System.Text.Json.JsonElement element)
+    {
+        if (element.TryGetProperty("required", out System.Text.Json.JsonElement requiredElement))
+        {
+            return ",\"required\":" + requiredElement.GetRawText();
+        }
+
+        return string.Empty;
     }
 
     // Reads a JSON Schema property as compact text.
@@ -531,7 +557,10 @@ internal sealed class PlaygroundSchemaDesignerHost :
             IsRequired = save.IsRequired,
             IsActive = save.IsActive,
             SortOrder = save.SortOrder,
-            AllowedValues = ConvertAllowedValuesToLines(save.ValidationJson)
+            AllowedValues = ConvertAllowedValuesToLines(save.ValidationJson),
+            ChildrenDefinitionJson = save.ChildrenDefinitionJson,
+            ArrayItemDataType = save.ArrayItemDataType,
+            ArrayItemDefinitionJson = save.ArrayItemDefinitionJson
         };
     }
 
@@ -567,7 +596,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
 
         foreach (PlaygroundSchemaSave save in store.ListDesignStates())
         {
-            if (!string.Equals(save.Kind, "type", StringComparison.OrdinalIgnoreCase))
+            if (!IsSavedType(save))
             {
                 continue;
             }
@@ -594,7 +623,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
 
         foreach (PlaygroundSchemaSave save in store.ListDesignStates())
         {
-            if (!string.Equals(save.Kind, "field", StringComparison.OrdinalIgnoreCase))
+            if (!IsSavedField(save))
             {
                 continue;
             }
@@ -608,11 +637,34 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 DataType = ResolveValue(save.DataType, "string"),
                 IsRequired = save.IsRequired,
                 AppliesToJson = save.AppliesToJson,
-                Validation = save.ValidationJson
+                Validation = save.ValidationJson,
+                ChildrenDefinitionJson = save.ChildrenDefinitionJson,
+                ArrayItemDataType = save.ArrayItemDataType,
+                ArrayItemDefinitionJson = save.ArrayItemDefinitionJson
             });
         }
 
         return items;
+    }
+
+    // Detects saved custom types that are valid for injection into schema designers.
+    private static bool IsSavedType(PlaygroundSchemaSave save)
+    {
+        return string.Equals(save.Kind, "type", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(save.Key) &&
+            !string.IsNullOrWhiteSpace(save.DisplayName) &&
+            !string.IsNullOrWhiteSpace(save.BaseType) &&
+            !string.IsNullOrWhiteSpace(save.JsonSchema);
+    }
+
+    // Detects saved custom fields that are valid for injection into schema designers.
+    private static bool IsSavedField(PlaygroundSchemaSave save)
+    {
+        return string.Equals(save.Kind, "field", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(save.Key) &&
+            !string.IsNullOrWhiteSpace(save.DisplayName) &&
+            !string.IsNullOrWhiteSpace(save.DataType) &&
+            !string.IsNullOrWhiteSpace(save.AppliesToJson);
     }
 
     // Creates host-defined payload metadata fields for the playground.
@@ -671,7 +723,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
             return "Create a reusable custom field.";
         }
 
-        return "Build an Atlas-compatible payload structure from datatypes and metadata.";
+        return "Build a reusable structure from datatypes and metadata.";
     }
 
     // Resolves schema item kind.
@@ -859,4 +911,3 @@ internal sealed class PlaygroundSchemaDesignerHost :
         return metadata;
     }
 }
-

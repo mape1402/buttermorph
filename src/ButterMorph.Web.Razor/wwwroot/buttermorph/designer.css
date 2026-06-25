@@ -1763,23 +1763,23 @@ li.CodeMirror-hint-active {
   }
 }
 
-.atlas-schema-shell {
+.bm-schema-legacy-shell {
   background: #f5f6fb;
   grid-template-rows: 58px minmax(0, 1fr);
 }
 
-.atlas-schema-topbar {
+.bm-schema-legacy-topbar {
   background: #ffffff;
   border-bottom: 1px solid #e2e3ef;
   box-shadow: 0 6px 18px rgba(26, 26, 46, 0.08);
   color: #1a1a2e;
 }
 
-.atlas-schema-topbar .bm-brand-kicker {
+.bm-schema-legacy-topbar .bm-brand-kicker {
   color: #4f46e5;
 }
 
-.atlas-schema-topbar .bm-button-primary {
+.bm-schema-legacy-topbar .bm-button-primary {
   background: #4f46e5;
   border-color: #4f46e5;
   border-radius: 999px;
@@ -1787,7 +1787,7 @@ li.CodeMirror-hint-active {
   color: #ffffff;
 }
 
-.atlas-schema-workbench {
+.bm-schema-legacy-workbench {
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(0, 1fr) 420px;
@@ -1796,18 +1796,18 @@ li.CodeMirror-hint-active {
   padding: 1rem;
 }
 
-.atlas-schema-main,
-.atlas-schema-side {
+.bm-schema-legacy-main,
+.bm-schema-legacy-side {
   min-height: 0;
   overflow: hidden;
 }
 
-.atlas-schema-main {
+.bm-schema-legacy-main {
   display: flex;
   flex-direction: column;
 }
 
-.atlas-event-schema-block {
+.bm-schema-legacy-event-block {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -1815,25 +1815,25 @@ li.CodeMirror-hint-active {
   overflow: hidden;
 }
 
-.atlas-event-schema-block .event-schema-header {
+.bm-schema-legacy-event-block .event-schema-header {
   flex: 0 0 auto;
 }
 
-.atlas-schema-help {
+.bm-schema-legacy-help {
   color: #686d91;
   font-size: 0.8rem;
   margin: 0.15rem 0 0;
 }
 
-.atlas-root-fields {
+.bm-schema-legacy-root-fields {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
 
-.atlas-add-root,
-.atlas-nested-add {
+.bm-schema-legacy-add-root,
+.bm-schema-legacy-nested-add {
   align-items: end;
   display: grid;
   gap: 0.4rem;
@@ -1841,22 +1841,22 @@ li.CodeMirror-hint-active {
   margin: 0;
 }
 
-.atlas-schema-field {
+.bm-schema-legacy-field {
   padding: 0.35rem 0.45rem;
 }
 
-.atlas-schema-field-main {
+.bm-schema-legacy-field-main {
   align-items: end;
   display: grid;
   gap: 0.45rem;
   grid-template-columns: minmax(120px, 1fr) 115px minmax(180px, 1.6fr) 92px 130px;
 }
 
-.atlas-field-col {
+.bm-schema-legacy-field-col {
   min-width: 0;
 }
 
-.atlas-schema-field .form-label {
+.bm-schema-legacy-field .form-label {
   color: #4b4f74;
   display: block;
   font-size: 0.64rem;
@@ -1865,10 +1865,10 @@ li.CodeMirror-hint-active {
   margin-bottom: 0.06rem;
 }
 
-.atlas-schema-field .form-control,
-.atlas-add-root .form-control,
-.atlas-nested-add .form-control,
-.atlas-side-card textarea {
+.bm-schema-legacy-field .form-control,
+.bm-schema-legacy-add-root .form-control,
+.bm-schema-legacy-nested-add .form-control,
+.bm-schema-legacy-side-card textarea {
   background: #ffffff;
   border: 1px solid #d9dbeb;
   border-radius: 5px;
@@ -1878,16 +1878,16 @@ li.CodeMirror-hint-active {
   padding: 0.12rem 0.35rem;
 }
 
-.atlas-schema-field .form-control:focus,
-.atlas-add-root .form-control:focus,
-.atlas-nested-add .form-control:focus,
-.atlas-side-card textarea:focus {
+.bm-schema-legacy-field .form-control:focus,
+.bm-schema-legacy-add-root .form-control:focus,
+.bm-schema-legacy-nested-add .form-control:focus,
+.bm-schema-legacy-side-card textarea:focus {
   border-color: #4f46e5;
   box-shadow: 0 0 0 0.15rem rgba(79, 70, 229, 0.12);
   outline: none;
 }
 
-.atlas-check {
+.bm-schema-legacy-check {
   align-items: center;
   color: #4b4f74;
   display: inline-flex;
@@ -1896,16 +1896,16 @@ li.CodeMirror-hint-active {
   min-height: 1.5rem;
 }
 
-.atlas-check input {
+.bm-schema-legacy-check input {
   margin: 0;
 }
 
-.atlas-action-row {
+.bm-schema-legacy-action-row {
   display: flex;
   gap: 0.25rem;
 }
 
-.atlas-schema-shell .btn {
+.bm-schema-legacy-shell .btn {
   align-items: center;
   border: 1px solid transparent;
   cursor: pointer;
@@ -1915,66 +1915,66 @@ li.CodeMirror-hint-active {
   justify-content: center;
 }
 
-.atlas-schema-shell .btn-secondary {
+.bm-schema-legacy-shell .btn-secondary {
   background: #eef0fb;
   border-color: #d9dbeb;
   color: #4b4f74;
 }
 
-.atlas-schema-shell .btn-secondary:hover {
+.bm-schema-legacy-shell .btn-secondary:hover {
   background: #e4e7f7;
 }
 
-.atlas-schema-shell .btn-outline-danger {
+.bm-schema-legacy-shell .btn-outline-danger {
   background: #ffffff;
   border-color: #fecaca;
   color: #991b1b;
 }
 
-.atlas-schema-shell .btn-outline-danger:hover {
+.bm-schema-legacy-shell .btn-outline-danger:hover {
   background: #fee2e2;
 }
 
-.atlas-action-row .btn,
-.atlas-add-root .btn,
-.atlas-nested-add .btn {
+.bm-schema-legacy-action-row .btn,
+.bm-schema-legacy-add-root .btn,
+.bm-schema-legacy-nested-add .btn {
   border-radius: 5px;
   font-size: 0.72rem;
   min-height: 1.5rem;
   padding: 0.12rem 0.45rem;
 }
 
-.atlas-nested-builder {
+.bm-schema-legacy-nested-builder {
   border-top: 1px dashed #d9dbeb;
   margin-top: 0.35rem;
   padding-top: 0.35rem;
 }
 
-.atlas-nested-builder .schema-nested-summary {
+.bm-schema-legacy-nested-builder .schema-nested-summary {
   color: #686d91;
   font-size: 0.68rem;
 }
 
-.atlas-nested-builder .child-fields-list {
+.bm-schema-legacy-nested-builder .child-fields-list {
   border-left: 2px solid #edf0ff;
   margin-left: 0.4rem;
   margin-top: 0.35rem;
   padding-left: 0.4rem;
 }
 
-.atlas-nested-add {
+.bm-schema-legacy-nested-add {
   grid-template-columns: minmax(130px, 1fr) 105px 105px auto;
   margin-top: 0.4rem;
   padding-left: 0.45rem;
 }
 
-.atlas-schema-side {
+.bm-schema-legacy-side {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.atlas-side-card {
+.bm-schema-legacy-side-card {
   background: #ffffff;
   border: 1px solid #e2e3ef;
   border-radius: 8px;
@@ -1986,7 +1986,7 @@ li.CodeMirror-hint-active {
   padding: 0.75rem;
 }
 
-.atlas-side-card-title {
+.bm-schema-legacy-side-card-title {
   color: #4b4f74;
   font-size: 0.72rem;
   font-weight: 800;
@@ -1995,17 +1995,17 @@ li.CodeMirror-hint-active {
   text-transform: uppercase;
 }
 
-.atlas-side-card textarea {
+.bm-schema-legacy-side-card textarea {
   font-family: Consolas, "Cascadia Mono", monospace;
   min-height: 180px;
   resize: vertical;
 }
 
-.atlas-json-card {
+.bm-schema-legacy-json-card {
   flex: 1 1 auto;
 }
 
-.atlas-json-card textarea {
+.bm-schema-legacy-json-card textarea {
   background: #fbfbff;
   flex: 1 1 auto;
   min-height: 0;
@@ -2013,14 +2013,14 @@ li.CodeMirror-hint-active {
 }
 
 @media (max-width: 1100px) {
-  .atlas-schema-workbench {
+  .bm-schema-legacy-workbench {
     grid-template-columns: 1fr;
     overflow-y: auto;
   }
 
-  .atlas-schema-field-main,
-  .atlas-add-root,
-  .atlas-nested-add {
+  .bm-schema-legacy-field-main,
+  .bm-schema-legacy-add-root,
+  .bm-schema-legacy-nested-add {
     grid-template-columns: 1fr;
   }
 }

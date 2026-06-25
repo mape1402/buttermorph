@@ -97,4 +97,19 @@ internal sealed class PlaygroundSchemaClientItem
     /// Gets or sets the metadata sort order.
     /// </summary>
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// Gets or sets object children as JSON Schema text.
+    /// </summary>
+    public string ChildrenDefinitionJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the array item data type.
+    /// </summary>
+    public string ArrayItemDataType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets array item definition as JSON Schema text.
+    /// </summary>
+    public string ArrayItemDefinitionJson { get; set; } = string.Empty;
 }

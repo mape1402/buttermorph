@@ -1,7 +1,7 @@
 namespace ButterMorph.Web.Razor;
 
 /// <summary>
-/// Defines one schema metadata field rendered by the payload schema designer.
+/// Defines one schema metadata field rendered by the schema designer.
 /// </summary>
 public sealed class SchemaMetadataFieldDefinition
 {

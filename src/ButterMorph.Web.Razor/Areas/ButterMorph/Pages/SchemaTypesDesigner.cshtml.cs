@@ -80,7 +80,7 @@ public sealed class SchemaTypesDesignerModel : PageModel
     /// <summary>
     /// Gets or sets the form title.
     /// </summary>
-    public string FormTitle { get; set; } = "Nuevo tipo personalizado";
+    public string FormTitle { get; set; } = "New Custom Type";
 
     /// <summary>
     /// Gets or sets the form save URL.
@@ -287,10 +287,10 @@ public sealed class SchemaTypesDesignerModel : PageModel
         string mode = Request.Query["mode"].ToString();
         if (string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase))
         {
-            return "Editar tipo personalizado";
+            return "Edit Custom Type";
         }
 
-        return "Nuevo tipo personalizado";
+        return "New Custom Type";
     }
 
     // Creates default system types.

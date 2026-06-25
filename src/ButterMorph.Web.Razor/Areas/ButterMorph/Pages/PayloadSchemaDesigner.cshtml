@@ -8,14 +8,14 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ButterMorph Payload Schema Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema.css?v=6" />
+    <title>ButterMorph Schema Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=11" />
 </head>
-<body class="atlas-page"
+<body class="bm-schema-page"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
       data-schema-host-context-key="@Model.SavedContextKey"
       data-schema-host-message-type="ButterMorphPayloadSchemaDesignerSaved">
-    <main class="atlas-shell">
+    <main class="bm-schema-shell">
         <section class="dashboard-section">
         <div class="platform-card event-editor">
         <div class="platform-card-header">
@@ -24,38 +24,37 @@
 
         @if (!string.IsNullOrWhiteSpace(Model.Message))
         {
-            <div class="atlas-alert">@Model.Message</div>
+            <div class="bm-schema-alert">@Model.Message</div>
         }
 
-        <form id="event-editor-form" method="post" action="@Model.SaveActionUrl" class="atlas-editor-form atlas-payload-card" data-schema-host-form="true">
+        <form id="event-editor-form" method="post" action="@Model.SaveActionUrl" class="bm-schema-editor-form bm-schema-card" data-schema-host-form="true">
             @Html.AntiForgeryToken()
             <input type="hidden" id="payload-schema-json" asp-for="PayloadSchemaJson" />
-            <div class="atlas-editor-scroll">
+            <div class="bm-schema-editor-scroll">
                 <section class="row g-3 mb-3">
                     <div class="col-md-3">
                         <label class="form-label">Key</label>
-                        <input class="form-control" asp-for="SchemaKey" placeholder="customer-profile" required />
+                        <input class="form-control" asp-for="SchemaKey" placeholder="Unique schema key" required />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Nombre</label>
-                        <input class="form-control" asp-for="SchemaName" placeholder="Customer Profile" required />
+                        <label class="form-label">Name</label>
+                        <input class="form-control" asp-for="SchemaName" placeholder="Display name" required />
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Version</label>
                         <input class="form-control" asp-for="SchemaVersion" placeholder="1.0.0" maxlength="13" required />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Descripcion</label>
-                        <input class="form-control" asp-for="SchemaDescription" placeholder="Describe el payload" />
+                        <label class="form-label">Description</label>
+                        <input class="form-control" asp-for="SchemaDescription" placeholder="Short schema description" />
                     </div>
                 </section>
                 <section class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label">Comentario de version</label>
-                        <input class="form-control" asp-for="SchemaVersionComment" placeholder="Comentario opcional de version" maxlength="1000" />
+                        <label class="form-label">Version Comment</label>
+                        <input class="form-control" asp-for="SchemaVersionComment" placeholder="Version change notes" maxlength="1000" />
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Metadata</label>
                         <input type="hidden" id="schema-metadata-json" asp-for="SchemaMetadataText" />
                         <div class="schema-metadata-launcher">
                             <button type="button" class="btn btn-secondary" id="open-schema-metadata-btn">Metadata</button>
@@ -65,17 +64,17 @@
                 </section>
                 <section class="event-schema-block">
                     <div class="event-schema-header">
-                        <h2 class="section-heading event-schema-title">Schema del Payload</h2>
-                        <button type="button" class="btn btn-secondary btn-sm" id="add-root-field">Agregar campo</button>
+                        <h2 class="section-heading event-schema-title">Fields</h2>
+                        <button type="button" class="btn btn-secondary btn-sm" id="add-root-field">Add Field</button>
                     </div>
                     <div id="schema-root-fields" class="schema-fields-list"></div>
                     <small class="text-muted d-block mt-2">
-                        Tipos soportados: string, number, integer, boolean, object, array.
+                        Supported types: string, number, integer, boolean, object, array.
                     </small>
                 </section>
             </div>
             <div class="contract-editor-actions">
-                <button class="btn btn-primary" type="submit">Guardar schema</button>
+                <button class="btn btn-primary" type="submit">Save Schema</button>
             </div>
         </form>
         </div>
@@ -85,27 +84,27 @@
     <script id="schema-type-catalog" type="application/json">@Html.Raw(Model.SchemaTypeCatalogJson)</script>
     <script id="field-metadata-catalog" type="application/json">@Html.Raw(Model.FieldMetadataCatalogJson)</script>
     <script id="schema-metadata-definition" type="application/json">@Html.Raw(Model.SchemaMetadataDefinitionJson)</script>
-    @await Html.PartialAsync("_AtlasSchemaTemplate")
+    @await Html.PartialAsync("_ButterMorphSchemaTemplate")
     <div class="modal fade" id="schema-metadata-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content schema-metadata-modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Metadata del schema</h5>
-                    <button type="button" class="btn-close" data-modal-close="schema-metadata-modal" aria-label="Cerrar">×</button>
+                    <h5 class="modal-title">Schema Metadata</h5>
+                    <button type="button" class="btn-close" data-modal-close="schema-metadata-modal" aria-label="Close">�</button>
                 </div>
                 <div class="modal-body">
                     <div id="schema-metadata-validation" class="alert alert-danger d-none"></div>
                     <div id="schema-metadata-fields" class="schema-metadata-fields"></div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-modal-close="schema-metadata-modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="save-schema-metadata-btn">Aplicar</button>
+                    <button type="button" class="btn btn-secondary" data-modal-close="schema-metadata-modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-schema-metadata-btn">Apply</button>
                 </div>
             </div>
         </div>
     </div>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-builder.js?v=6"></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/atlas-schema-metadata-editor.js?v=3"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=11"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js?v=4"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

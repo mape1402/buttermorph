@@ -128,7 +128,9 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             diagnostics.Add(CreateDiagnostic("BMSD103", "Base type is required.", "BaseType"));
         }
 
-        if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
+        if ((string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase) ||
+            IsArrayObjectType(input)) &&
+            !string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
         {
             TryParseJson(input.PayloadSchemaJson, diagnostics, "PayloadSchemaJson");
         }
@@ -298,6 +300,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         else
         {
             writer.WriteString("type", ResolveArrayItemType(input.ArrayItemType));
+            WriteArrayObjectProperties(writer, input);
         }
 
         writer.WriteEndObject();
@@ -310,6 +313,35 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             using JsonDocument document = JsonDocument.Parse(catalogItem.JsonSchema);
             document.RootElement.WriteTo(writer);
             writer.WriteEndObject();
+        }
+    }
+
+    // Detects array custom types whose item is an object structure.
+    private static bool IsArrayObjectType(SchemaTypeDesignInput input)
+    {
+        return string.Equals(input.BaseType, "array", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(input.ArrayItemType, MapType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Writes captured array object item properties.
+    private static void WriteArrayObjectProperties(Utf8JsonWriter writer, SchemaTypeDesignInput input)
+    {
+        if (!IsArrayObjectType(input) || string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
+        {
+            return;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(input.PayloadSchemaJson);
+        if (document.RootElement.TryGetProperty("properties", out JsonElement properties))
+        {
+            writer.WritePropertyName("properties");
+            properties.WriteTo(writer);
+        }
+
+        if (document.RootElement.TryGetProperty("required", out JsonElement required))
+        {
+            writer.WritePropertyName("required");
+            required.WriteTo(writer);
         }
     }
 
@@ -383,4 +415,3 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         document.RootElement.WriteTo(writer);
     }
 }
-

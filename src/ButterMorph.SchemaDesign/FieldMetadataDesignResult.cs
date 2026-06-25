@@ -61,4 +61,19 @@ public sealed class FieldMetadataDesignResult
     /// Gets or sets validation JSON.
     /// </summary>
     public string ValidationJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets object children as JSON Schema text.
+    /// </summary>
+    public string ChildrenDefinitionJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the array item data type.
+    /// </summary>
+    public string ArrayItemDataType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets array item definition as JSON Schema text.
+    /// </summary>
+    public string ArrayItemDefinitionJson { get; set; } = string.Empty;
 }
