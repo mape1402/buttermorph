@@ -391,7 +391,43 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <param name="item">The schema item.</param>
     public void SaveClientItem(PlaygroundSchemaClientItem item)
     {
+        item.Kind = ResolveClientItemKind(item);
         store.SaveClientItem(item);
+    }
+
+    // Resolves the schema item kind from stable routing data before storing browser drafts.
+    private static string ResolveClientItemKind(PlaygroundSchemaClientItem item)
+    {
+        if (ContainsRouteValue(item.DesignerPath, "schema-types") || ContainsRouteValue(item.ContextKey, "datatype"))
+        {
+            return "type";
+        }
+
+        if (ContainsRouteValue(item.DesignerPath, "metadata-fields") || ContainsRouteValue(item.ContextKey, "metadata"))
+        {
+            return "field";
+        }
+
+        if (ContainsRouteValue(item.DesignerPath, "payload-schema") || ContainsRouteValue(item.ContextKey, "payload"))
+        {
+            return "payload";
+        }
+
+        if (string.Equals(item.Kind, "type", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Kind, "field", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.Kind, "payload", StringComparison.OrdinalIgnoreCase))
+        {
+            return item.Kind.ToLowerInvariant();
+        }
+
+        return "payload";
+    }
+
+    // Checks whether a route-like value contains a stable segment.
+    private static bool ContainsRouteValue(string value, string segment)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+            value.Contains(segment, StringComparison.OrdinalIgnoreCase);
     }
 
     // Resolves draft state first so popup edits can preload without committing to the playground list.
@@ -604,7 +640,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
                 Name = ResolveValue(save.DisplayName, save.Key),
                 VersionNumber = ResolveValue(save.VersionNumber, "1.0.0"),
                 BaseType = ResolveValue(save.BaseType, "string"),
-                JsonSchema = save.JsonSchema,
+                JsonSchema = ResolveTypeJsonSchema(save),
                 IsSystem = false
             });
         }
@@ -649,8 +685,19 @@ internal sealed class PlaygroundSchemaDesignerHost :
         return string.Equals(save.Kind, "type", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(save.Key) &&
             !string.IsNullOrWhiteSpace(save.DisplayName) &&
-            !string.IsNullOrWhiteSpace(save.BaseType) &&
-            !string.IsNullOrWhiteSpace(save.JsonSchema);
+            !string.IsNullOrWhiteSpace(save.BaseType);
+    }
+
+    // Resolves custom type schema JSON used by schema designer catalogs.
+    private static string ResolveTypeJsonSchema(PlaygroundSchemaSave save)
+    {
+        if (!string.IsNullOrWhiteSpace(save.JsonSchema))
+        {
+            return save.JsonSchema;
+        }
+
+        string baseType = ResolveValue(save.BaseType, "string");
+        return "{\"type\":\"" + baseType + "\"}";
     }
 
     // Detects saved custom fields that are valid for injection into schema designers.

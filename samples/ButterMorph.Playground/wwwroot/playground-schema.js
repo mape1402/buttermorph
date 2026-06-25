@@ -221,7 +221,7 @@
     }
 
     async function preloadDesignerCatalog(item) {
-        if (item.kind === "payload") {
+        if (isPayloadDesignerItem(item)) {
             const catalogItems = readItems("type").concat(readItems("field"));
             for (const catalogItem of catalogItems) {
                 await preloadItem(catalogItem);
@@ -334,7 +334,15 @@
     function readItems(kind) {
         try {
             const parsed = JSON.parse(window.localStorage.getItem(keys[kind]) || "[]");
-            return Array.isArray(parsed) ? parsed.map(normalizeItem) : [];
+            return Array.isArray(parsed) ? parsed.map(function (item) {
+                const normalizedSource = {};
+                for (const key in item) {
+                    normalizedSource[key] = item[key];
+                }
+                normalizedSource.kind = kind;
+                normalizedSource.designerPath = designerPaths[kind];
+                return normalizeItem(normalizedSource);
+            }) : [];
         } catch (error) {
             return [];
         }
@@ -456,6 +464,11 @@
             return kind;
         }
         return "payload";
+    }
+
+    function isPayloadDesignerItem(item) {
+        return item.kind === "payload" ||
+            String(item.designerPath || "").indexOf("payload-schema") >= 0;
     }
 
     function inferKind(path) {

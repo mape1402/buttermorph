@@ -693,6 +693,84 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that schema titles reflect create and edit mode.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PayloadSchemaDesignerShowsModeSpecificTitle()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string createHtml = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-title-create&mode=create&popup=true");
+        string editHtml = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-title-edit&mode=edit&popup=true");
+
+        Assert.Contains("New Schema", createHtml, StringComparison.Ordinal);
+        Assert.Contains("Edit Schema", editHtml, StringComparison.Ordinal);
+        Assert.Contains("Schema Metadata", createHtml, StringComparison.Ordinal);
+        Assert.Contains("Field Metadata", createHtml, StringComparison.Ordinal);
+        Assert.Contains("&times;", createHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that host-provided custom types are injected into the schema designer catalog.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PayloadSchemaDesignerInjectsHostCustomTypes()
+    {
+        HttpClient client = _factory.CreateClient();
+        string payload = "{"
+            + "\"contextKey\":\"datatype-catalog-test\","
+            + "\"kind\":\"type\","
+            + "\"displayName\":\"Warehouse Code\","
+            + "\"key\":\"warehouse-code\","
+            + "\"baseType\":\"string\","
+            + "\"versionNumber\":\"1.0.0\","
+            + "\"jsonSchema\":\"\","
+            + "\"designerPath\":\"/buttermorph/schema-types/designer\""
+            + "}";
+
+        using StringContent content = new(payload, Encoding.UTF8, "application/json");
+        HttpResponseMessage preloadResponse = await client.PostAsync("/playground/schema-items/datatype-catalog-test", content);
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-catalog-test&mode=create&popup=true");
+
+        Assert.Equal(HttpStatusCode.OK, preloadResponse.StatusCode);
+        Assert.Contains("schema-type-catalog", html, StringComparison.Ordinal);
+        Assert.Contains("Warehouse Code", html, StringComparison.Ordinal);
+        Assert.Contains("datatype-catalog-test", html, StringComparison.Ordinal);
+        Assert.Contains("warehouse-code", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that old browser storage cannot misclassify custom types as payloads.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PayloadSchemaDesignerInjectsCustomTypesWithLegacyWrongKind()
+    {
+        HttpClient client = _factory.CreateClient();
+        string payload = "{"
+            + "\"contextKey\":\"datatype-legacy-kind-test\","
+            + "\"kind\":\"payload\","
+            + "\"displayName\":\"Legacy Code\","
+            + "\"key\":\"legacy-code\","
+            + "\"baseType\":\"string\","
+            + "\"versionNumber\":\"1.0.0\","
+            + "\"jsonSchema\":\"\","
+            + "\"designerPath\":\"/buttermorph/schema-types/designer\""
+            + "}";
+
+        using StringContent content = new(payload, Encoding.UTF8, "application/json");
+        HttpResponseMessage preloadResponse = await client.PostAsync("/playground/schema-items/datatype-legacy-kind-test", content);
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-legacy-kind-test&mode=create&popup=true");
+
+        Assert.Equal(HttpStatusCode.OK, preloadResponse.StatusCode);
+        Assert.Contains("Legacy Code", html, StringComparison.Ordinal);
+        Assert.Contains("datatype-legacy-kind-test", html, StringComparison.Ordinal);
+        Assert.Contains("legacy-code", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that schema type designer follows the Atlas capture form.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

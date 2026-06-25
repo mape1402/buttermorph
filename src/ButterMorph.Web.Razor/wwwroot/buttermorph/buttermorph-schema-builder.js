@@ -386,13 +386,15 @@
     }
 
     function normalizeCatalogItem(item) {
+        const baseType = item.baseType || item.BaseType || item.name || item.Name || "string";
+        const schema = item.jsonSchema || item.JsonSchema || "{\"type\":\"" + baseType + "\"}";
         return {
             typeId: item.typeId || item.TypeId || "",
             typeVersionId: item.typeVersionId || item.TypeVersionId || "",
             name: item.name || item.Name || "",
             versionNumber: item.versionNumber || item.VersionNumber || "",
-            baseType: item.baseType || item.BaseType || item.name || item.Name || "string",
-            jsonSchema: item.jsonSchema || item.JsonSchema || "",
+            baseType: baseType,
+            jsonSchema: schema,
             isSystem: item.isSystem === true || item.IsSystem === true
         };
     }
@@ -404,8 +406,7 @@
 
         return !!item.name &&
             !!item.baseType &&
-            !!item.typeVersionId &&
-            !!item.jsonSchema;
+            !!item.typeVersionId;
     }
 
     function openObjectEditor(list, title, ownerField) {

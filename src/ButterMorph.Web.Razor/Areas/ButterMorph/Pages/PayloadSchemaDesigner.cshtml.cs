@@ -135,7 +135,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// <summary>
     /// Gets or sets the form title.
     /// </summary>
-    public string FormTitle { get; set; } = "Schema";
+    public string FormTitle { get; set; } = "New Schema";
 
     /// <summary>
     /// Gets or sets the form save URL.
@@ -679,7 +679,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             return "Edit Schema";
         }
 
-        return "Schema";
+        return "New Schema";
     }
 
     // Creates default system types.
