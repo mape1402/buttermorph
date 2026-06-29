@@ -173,18 +173,13 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     {
         if (string.Equals(input.BaseType, MapType, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(input.PayloadSchemaJson))
         {
-            return AddSchemaIdentity(input.PayloadSchemaJson, input);
+            return NormalizeSchema(input.PayloadSchemaJson);
         }
 
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
         writer.WriteStartObject();
-        writer.WriteString("key", input.Key.Trim());
-        writer.WriteString("name", input.Name.Trim());
-        writer.WriteString("version", input.VersionNumber.Trim());
         writer.WriteString("type", NormalizeBaseType(input.BaseType));
-        WriteDescription(writer, input.Description);
-        WriteVersionComment(writer, input.Comment);
         WriteConstraints(writer, input);
         WriteAllowedValues(writer, input.AllowedValuesJson);
         WriteArrayItems(writer, input, catalog);
@@ -194,20 +189,14 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    // Adds canonical ButterMorph schema identity to a JSON Schema root.
-    private static string AddSchemaIdentity(string jsonSchema, SchemaTypeDesignInput input)
+    // Normalizes schema JSON without adding host-owned identity fields.
+    private static string NormalizeSchema(string jsonSchema)
     {
         using JsonDocument document = JsonDocument.Parse(jsonSchema);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
 
         writer.WriteStartObject();
-        writer.WriteString("key", input.Key.Trim());
-        writer.WriteString("name", input.Name.Trim());
-        writer.WriteString("version", input.VersionNumber.Trim());
-        WriteDescription(writer, input.Description);
-        WriteVersionComment(writer, input.Comment);
-
         foreach (JsonProperty property in document.RootElement.EnumerateObject())
         {
             if (IsIdentityProperty(property.Name))
@@ -224,15 +213,14 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    // Detects root identity keywords already controlled by ButterMorph.
+    // Detects host-owned identity keywords that must not be embedded into JSON Schema.
     private static bool IsIdentityProperty(string propertyName)
     {
         return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
             string.Equals(propertyName, "name", StringComparison.Ordinal) ||
             string.Equals(propertyName, "description", StringComparison.Ordinal) ||
             string.Equals(propertyName, "version", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "versionComment", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "metadata", StringComparison.Ordinal);
+            string.Equals(propertyName, "versionComment", StringComparison.Ordinal);
     }
 
     // Normalizes the selected type.
@@ -292,8 +280,8 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         SchemaTypeCatalogItem catalogItem = FindCatalogItem(input.ArrayItemTypeVersionId, catalog);
         if (!string.IsNullOrWhiteSpace(input.ArrayItemTypeVersionId) && !string.IsNullOrWhiteSpace(catalogItem.TypeVersionId))
         {
-            writer.WriteString("$ref", "#/$defs/" + catalogItem.TypeVersionId);
-            writer.WriteString("type", catalogItem.BaseType);
+            string definitionKey = ResolveDefinitionKey(catalogItem);
+            writer.WriteString("$ref", "#/$defs/" + definitionKey);
             writer.WriteString("typeId", catalogItem.TypeId);
             writer.WriteString("typeVersionId", catalogItem.TypeVersionId);
         }
@@ -307,9 +295,10 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
 
         if (!string.IsNullOrWhiteSpace(catalogItem.TypeVersionId) && !string.IsNullOrWhiteSpace(catalogItem.JsonSchema))
         {
+            string definitionKey = ResolveDefinitionKey(catalogItem);
             writer.WritePropertyName("$defs");
             writer.WriteStartObject();
-            writer.WritePropertyName(catalogItem.TypeVersionId);
+            writer.WritePropertyName(definitionKey);
             using JsonDocument document = JsonDocument.Parse(catalogItem.JsonSchema);
             document.RootElement.WriteTo(writer);
             writer.WriteEndObject();
@@ -357,6 +346,17 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         }
 
         return new SchemaTypeCatalogItem();
+    }
+
+    // Resolves the Atlas-style $defs key for a custom type reference.
+    private static string ResolveDefinitionKey(SchemaTypeCatalogItem catalogItem)
+    {
+        if (!string.IsNullOrWhiteSpace(catalogItem.Name) && !string.IsNullOrWhiteSpace(catalogItem.VersionNumber))
+        {
+            return catalogItem.Name.Trim() + "@" + catalogItem.VersionNumber.Trim();
+        }
+
+        return catalogItem.TypeVersionId.Trim();
     }
 
     // Resolves the array item base type.

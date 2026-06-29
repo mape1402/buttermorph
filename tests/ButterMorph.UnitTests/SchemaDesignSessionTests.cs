@@ -86,7 +86,7 @@ public sealed class SchemaDesignSessionTests
         }, []);
 
         Assert.True(result.Succeeded);
-        Assert.Contains("\"key\":\"customer-code\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"key\":\"customer-code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"minLength\":3", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"maxLength\":24", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"enum\":[\"ABC\"]", result.JsonSchema, StringComparison.Ordinal);
@@ -123,7 +123,7 @@ public sealed class SchemaDesignSessionTests
         ]);
 
         Assert.True(result.Succeeded);
-        Assert.Contains("\"$ref\":\"#/$defs/customer-code-v1\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.Contains("\"$ref\":\"#/$defs/CustomerCode@1.0.0\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"typeId\":\"customer-code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"$defs\"", result.JsonSchema, StringComparison.Ordinal);
     }
@@ -167,7 +167,7 @@ public sealed class SchemaDesignSessionTests
         }, [], []);
 
         Assert.True(result.Succeeded);
-        Assert.Contains("\"key\":\"payload\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"key\":\"payload\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"Code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"required\":true", result.JsonSchema, StringComparison.Ordinal);
     }

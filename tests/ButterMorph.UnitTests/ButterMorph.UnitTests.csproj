@@ -37,6 +37,7 @@
     <ProjectReference Include="..\..\src\ButterMorph.Web.Razor\ButterMorph.Web.Razor.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.Playground\ButterMorph.Playground.csproj" />
+    <ProjectReference Include="..\..\samples\ButterMorph.StudioPlayground\ButterMorph.StudioPlayground.csproj" />
   </ItemGroup>
 
 </Project>

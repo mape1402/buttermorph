@@ -67,7 +67,7 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
                 Version = input.Version.Trim(),
                 VersionComment = input.VersionComment.Trim(),
                 Metadata = CopyMetadata(input.Metadata),
-                JsonSchema = AddSchemaIdentity(input.JsonSchema, input)
+                JsonSchema = CreateAtlasSchema(input.JsonSchema, input.Metadata)
             };
         }
         catch (JsonException exception)
@@ -96,33 +96,17 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
         };
     }
 
-    // Adds canonical ButterMorph schema identity to the payload JSON Schema.
-    private static string AddSchemaIdentity(string jsonSchema, PayloadSchemaDesignInput input)
+    // Creates Atlas-compatible JSON Schema without embedding host-owned identity fields.
+    private static string CreateAtlasSchema(string jsonSchema, IReadOnlyDictionary<string, string> metadata)
     {
         using JsonDocument document = JsonDocument.Parse(jsonSchema);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
 
         writer.WriteStartObject();
-        writer.WriteString("key", input.Key.Trim());
-        writer.WriteString("name", input.Name.Trim());
-        writer.WriteString("version", input.Version.Trim());
-
-        if (!string.IsNullOrWhiteSpace(input.Description))
-        {
-            writer.WriteString("description", input.Description.Trim());
-        }
-
-        if (!string.IsNullOrWhiteSpace(input.VersionComment))
-        {
-            writer.WriteString("versionComment", input.VersionComment.Trim());
-        }
-
-        WriteOpenMetadata(writer, input.Metadata);
-
         foreach (JsonProperty property in document.RootElement.EnumerateObject())
         {
-            if (IsIdentityProperty(property.Name))
+            if (ShouldSkipRootProperty(property.Name, metadata))
             {
                 continue;
             }
@@ -130,21 +114,27 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             property.WriteTo(writer);
         }
 
+        WriteOpenMetadata(writer, metadata);
+
         writer.WriteEndObject();
         writer.Flush();
 
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    // Detects root identity keywords already controlled by ButterMorph.
-    private static bool IsIdentityProperty(string propertyName)
+    // Detects root keywords controlled outside the JSON Schema body.
+    private static bool ShouldSkipRootProperty(string propertyName, IReadOnlyDictionary<string, string> metadata)
     {
+        if (metadata.Count > 0 && string.Equals(propertyName, "metadata", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         return string.Equals(propertyName, "key", StringComparison.Ordinal) ||
             string.Equals(propertyName, "name", StringComparison.Ordinal) ||
             string.Equals(propertyName, "description", StringComparison.Ordinal) ||
             string.Equals(propertyName, "version", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "versionComment", StringComparison.Ordinal) ||
-            string.Equals(propertyName, "metadata", StringComparison.Ordinal);
+            string.Equals(propertyName, "versionComment", StringComparison.Ordinal);
     }
 
     // Copies open metadata safely.
