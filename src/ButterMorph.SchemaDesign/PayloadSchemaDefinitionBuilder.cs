@@ -85,8 +85,6 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
         {
             string definitionKey = ResolveDefinitionKey(customType);
             writer.WriteString("$ref", "#/$defs/" + definitionKey);
-            writer.WriteString("typeId", customType.TypeId);
-            writer.WriteString("typeVersionId", customType.TypeVersionId);
             AddDefinition(definitionKey, customType, definitions);
         }
         else
@@ -272,9 +270,13 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
         return string.IsNullOrWhiteSpace(dataType) ? "string" : dataType.Trim();
     }
 
-    // Resolves an Atlas-style definition key.
+    // Resolves a ButterMorph definition key.
     private static string ResolveDefinitionKey(SchemaTypeCatalogItem customType)
     {
-        return customType.Name.Trim() + "@" + customType.VersionNumber.Trim();
+        string key = string.IsNullOrWhiteSpace(customType.TypeId)
+            ? customType.Name
+            : customType.TypeId;
+
+        return key.Trim() + "@" + customType.VersionNumber.Trim();
     }
 }

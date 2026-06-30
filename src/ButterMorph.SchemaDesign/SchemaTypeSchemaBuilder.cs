@@ -294,8 +294,6 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         {
             string definitionKey = ResolveDefinitionKey(catalogItem);
             writer.WriteString("$ref", "#/$defs/" + definitionKey);
-            writer.WriteString("typeId", catalogItem.TypeId);
-            writer.WriteString("typeVersionId", catalogItem.TypeVersionId);
         }
         else
         {
@@ -369,7 +367,11 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
     {
         if (!string.IsNullOrWhiteSpace(catalogItem.Name) && !string.IsNullOrWhiteSpace(catalogItem.VersionNumber))
         {
-            return catalogItem.Name.Trim() + "@" + catalogItem.VersionNumber.Trim();
+            string key = string.IsNullOrWhiteSpace(catalogItem.TypeId)
+                ? catalogItem.Name
+                : catalogItem.TypeId;
+
+            return key.Trim() + "@" + catalogItem.VersionNumber.Trim();
         }
 
         return catalogItem.TypeVersionId.Trim();

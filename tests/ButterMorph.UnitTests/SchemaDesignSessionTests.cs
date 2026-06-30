@@ -123,8 +123,9 @@ public sealed class SchemaDesignSessionTests
         ]);
 
         Assert.True(result.Succeeded);
-        Assert.Contains("\"$ref\":\"#/$defs/CustomerCode@1.0.0\"", result.JsonSchema, StringComparison.Ordinal);
-        Assert.Contains("\"typeId\":\"customer-code\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.Contains("\"$ref\":\"#/$defs/customer-code@1.0.0\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"typeId\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"typeVersionId\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"$defs\"", result.JsonSchema, StringComparison.Ordinal);
     }
 

@@ -82,6 +82,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.False(HasRootProperty(visibleDocument.RootElement, "savedAt"));
         Assert.False(HasRootProperty(visibleDocument.RootElement, "succeeded"));
         Assert.False(HasRootProperty(visibleDocument.RootElement, "diagnostics"));
+        Assert.DoesNotContain("typeVersionId", visible, StringComparison.Ordinal);
     }
 
     /// <summary>

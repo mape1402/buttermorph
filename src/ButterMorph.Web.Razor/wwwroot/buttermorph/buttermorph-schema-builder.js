@@ -281,10 +281,10 @@
         if (!select) {
             return;
         }
-        const version = definition.typeVersionId || "";
+        const definitionKey = readReferenceDefinitionKey(definition);
         const type = definition.type || "string";
         const match = Array.from(select.options).find(function (option) {
-            return option.value === version || option.value === type || option.dataset.baseType === type;
+            return option.dataset.definitionKey === definitionKey || option.value === type || option.dataset.baseType === type;
         });
         if (match) {
             select.value = match.value;
@@ -365,9 +365,19 @@
             if (option.dataset.jsonSchema) {
                 defs[definitionKey] = safeJson(option.dataset.jsonSchema);
             }
-            return { $ref: "#/$defs/" + definitionKey, typeId: option.dataset.typeId || "", typeVersionId: version };
+            return { $ref: "#/$defs/" + definitionKey };
         }
         return { type: baseType };
+    }
+
+    function readReferenceDefinitionKey(definition) {
+        const reference = definition.$ref || "";
+        const marker = "#/$defs/";
+        if (reference.indexOf(marker) === 0) {
+            return reference.substring(marker.length);
+        }
+
+        return "";
     }
 
     function safeJson(json) {
@@ -406,7 +416,7 @@
     }
 
     function createDefinitionKey(item) {
-        const name = item.name || item.Name || "";
+        const name = item.typeId || item.TypeId || item.key || item.Key || item.name || item.Name || "";
         const version = item.versionNumber || item.VersionNumber || "";
         return name && version ? name + "@" + version : "";
     }
