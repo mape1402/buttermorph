@@ -274,21 +274,29 @@
     const overlay = document.createElement("div");
     overlay.className = "studio-modal-overlay";
     overlay.innerHTML = `
-      <div class="studio-modal">
+      <div class="studio-modal studio-modal-wide mapping-setup-modal">
         <div class="studio-modal-header">
           <strong>New Mapping Setup</strong>
           <button type="button" data-close-mapping-setup>&times;</button>
         </div>
         <p class="studio-modal-help">Choose the target schema and all source schemas that ButterMorph will receive for this mapping designer session.</p>
-        <div class="detail-grid">
+        <div class="mapping-setup-grid">
           <label>Name<input id="new-mapping-name" placeholder="Mapping display name"></label>
           <label>Target Schema<select id="new-mapping-target">${schemaOptions("")}</select></label>
-          <label class="check-row"><input type="checkbox" id="new-mapping-schema-actions"> Allow schema loading in ButterMorph Studio</label>
+          <label class="mapping-toggle"><input type="checkbox" id="new-mapping-schema-actions"><span>Allow schema loading in ButterMorph Studio</span></label>
         </div>
         <div class="mapping-source-editor">
           <div class="mapping-source-header">
-            <strong>Sources</strong>
+            <div>
+              <strong>Sources</strong>
+              <span>Each source needs a unique alias used by mapping expressions.</span>
+            </div>
             <button class="ghost-button" type="button" data-add-new-mapping-source>Add Source</button>
+          </div>
+          <div class="mapping-source-columns">
+            <span>Alias</span>
+            <span>Schema</span>
+            <span></span>
           </div>
           <div data-new-mapping-sources>
             ${mappingSourceRow("new", "source", "")}
