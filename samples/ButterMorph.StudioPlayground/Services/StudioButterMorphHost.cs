@@ -232,8 +232,8 @@ internal sealed class StudioButterMorphHost :
         schema.Description = definition.Description;
         schema.Version = definition.Version;
         schema.VersionComment = definition.VersionComment;
-        schema.JsonSchema = definition.JsonSchema;
-        schema.ButterMorphResultJson = SerializeButterMorphDefinition(definition);
+        schema.JsonSchema = SerializeButterMorphDefinition(definition);
+        schema.ButterMorphResultJson = schema.JsonSchema;
         store.SaveSchema(schema);
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerSaveResult

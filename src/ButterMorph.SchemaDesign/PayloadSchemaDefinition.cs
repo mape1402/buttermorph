@@ -1,5 +1,8 @@
 namespace ButterMorph.SchemaDesign;
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// Represents the clean payload schema definition produced for hosts.
 /// </summary>
@@ -33,10 +36,21 @@ public sealed class PayloadSchemaDefinition
     /// <summary>
     /// Gets or sets open schema metadata.
     /// </summary>
-    public IReadOnlyDictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
+    public IReadOnlyDictionary<string, JsonElement> Metadata { get; set; } = new Dictionary<string, JsonElement>();
 
     /// <summary>
-    /// Gets or sets the payload JSON Schema.
+    /// Gets or sets the root schema type.
     /// </summary>
-    public string JsonSchema { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the schema properties.
+    /// </summary>
+    public IReadOnlyDictionary<string, JsonElement> Properties { get; set; } = new Dictionary<string, JsonElement>();
+
+    /// <summary>
+    /// Gets or sets reusable schema definitions.
+    /// </summary>
+    [JsonPropertyName("$defs")]
+    public IReadOnlyDictionary<string, JsonElement> Definitions { get; set; } = new Dictionary<string, JsonElement>();
 }

@@ -244,7 +244,7 @@ internal sealed class PlaygroundSchemaDesignerHost :
             DisplayName = definition.Name,
             Description = definition.Description,
             DesignerPath = "/buttermorph/payload-schema/designer",
-            JsonSchema = definition.JsonSchema,
+            JsonSchema = SerializePayloadDefinition(definition),
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
             VersionNumber = definition.Version,
             VersionComment = definition.VersionComment,
@@ -912,6 +912,26 @@ internal sealed class PlaygroundSchemaDesignerHost :
         }
 
         return System.Text.Json.JsonSerializer.Serialize(metadata);
+    }
+
+    // Serializes typed schema metadata for playground state.
+    private static string SerializeMetadata(IReadOnlyDictionary<string, System.Text.Json.JsonElement> metadata)
+    {
+        if (metadata == null || metadata.Count == 0)
+        {
+            return "{}";
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(metadata);
+    }
+
+    // Serializes the clean payload definition as the final schema JSON.
+    private static string SerializePayloadDefinition(PayloadSchemaDefinition definition)
+    {
+        return System.Text.Json.JsonSerializer.Serialize(definition, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+        });
     }
 
     // Parses schema metadata stored as JSON text.

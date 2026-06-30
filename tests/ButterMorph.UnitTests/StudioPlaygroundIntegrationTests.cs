@@ -74,12 +74,13 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         string json = await client.GetStringAsync("/api/" + kind + "/" + id);
         using JsonDocument document = JsonDocument.Parse(json);
         string visible = document.RootElement.GetProperty("butterMorphResultJson").GetString();
+        using JsonDocument visibleDocument = JsonDocument.Parse(visible);
 
         Assert.Contains("\"key\"", visible, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"id\"", visible, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\"savedAt\"", visible, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\"succeeded\"", visible, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\"diagnostics\"", visible, StringComparison.OrdinalIgnoreCase);
+        Assert.False(HasRootProperty(visibleDocument.RootElement, "id"));
+        Assert.False(HasRootProperty(visibleDocument.RootElement, "savedAt"));
+        Assert.False(HasRootProperty(visibleDocument.RootElement, "succeeded"));
+        Assert.False(HasRootProperty(visibleDocument.RootElement, "diagnostics"));
     }
 
     /// <summary>
@@ -160,5 +161,19 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, itemResponse.StatusCode);
+    }
+
+    // Checks root property presence using case-insensitive comparison.
+    private static bool HasRootProperty(JsonElement element, string propertyName)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -62,16 +62,8 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
                 return Fail("BMSD306", "Required fields must be stored as required: true on each field.", "JsonSchema");
             }
 
-            PayloadSchemaDefinition definition = new()
-            {
-                Key = input.Key.Trim(),
-                Name = input.Name.Trim(),
-                Description = input.Description.Trim(),
-                Version = input.Version.Trim(),
-                VersionComment = input.VersionComment.Trim(),
-                Metadata = CopyMetadata(input.Metadata),
-                JsonSchema = CreateAtlasSchema(input)
-            };
+            string jsonSchema = CreateAtlasSchema(input);
+            PayloadSchemaDefinition definition = CreateDefinition(jsonSchema);
 
             return new PayloadSchemaDesignResult
             {
@@ -83,14 +75,64 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
                 Description = definition.Description,
                 Version = definition.Version,
                 VersionComment = definition.VersionComment,
-                Metadata = definition.Metadata,
-                JsonSchema = definition.JsonSchema
+                Metadata = CopyMetadata(input.Metadata),
+                JsonSchema = jsonSchema
             };
         }
         catch (JsonException exception)
         {
             return Fail("BMSD303", exception.Message, "JsonSchema");
         }
+    }
+
+    // Creates the guardable host payload from the canonical schema JSON.
+    private static PayloadSchemaDefinition CreateDefinition(string jsonSchema)
+    {
+        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        JsonElement root = document.RootElement;
+
+        return new PayloadSchemaDefinition
+        {
+            Key = ReadString(root, "key"),
+            Name = ReadString(root, "name"),
+            Description = ReadString(root, "description"),
+            Version = ReadString(root, "version"),
+            VersionComment = ReadString(root, "versionComment"),
+            Metadata = ReadElementMap(root, "metadata"),
+            Type = ReadString(root, "type"),
+            Properties = ReadElementMap(root, "properties"),
+            Definitions = ReadElementMap(root, "$defs")
+        };
+    }
+
+    // Reads a string property.
+    private static string ReadString(JsonElement element, string propertyName)
+    {
+        if (element.TryGetProperty(propertyName, out JsonElement property) &&
+            property.ValueKind == JsonValueKind.String)
+        {
+            return property.GetString();
+        }
+
+        return string.Empty;
+    }
+
+    // Reads a JSON element map property.
+    private static IReadOnlyDictionary<string, JsonElement> ReadElementMap(JsonElement element, string propertyName)
+    {
+        Dictionary<string, JsonElement> values = new(StringComparer.Ordinal);
+        if (!element.TryGetProperty(propertyName, out JsonElement property) ||
+            property.ValueKind != JsonValueKind.Object)
+        {
+            return values;
+        }
+
+        foreach (JsonProperty child in property.EnumerateObject())
+        {
+            values[child.Name] = child.Value.Clone();
+        }
+
+        return values;
     }
 
     // Normalizes model-bound values that can arrive as null from form posts.
