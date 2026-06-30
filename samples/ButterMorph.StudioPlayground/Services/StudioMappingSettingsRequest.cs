@@ -19,4 +19,9 @@ internal sealed class StudioMappingSettingsRequest
     /// Gets or sets the target schema context key.
     /// </summary>
     public string TargetSchemaId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether ButterMorph can load schemas manually.
+    /// </summary>
+    public bool ShowSchemaActions { get; set; }
 }

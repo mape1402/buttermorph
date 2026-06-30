@@ -13,6 +13,7 @@ internal sealed class StudioStore
     private readonly ConcurrentDictionary<string, StudioCustomField> customFields = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioSchema> schemas = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioMapping> mappings = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioMappingSetup> mappingSetups = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets all custom types.
@@ -72,6 +73,15 @@ internal sealed class StudioStore
     {
         item.SavedAt = DateTimeOffset.UtcNow;
         mappings[item.Id] = item;
+    }
+
+    /// <summary>
+    /// Saves a temporary mapping setup.
+    /// </summary>
+    /// <param name="item">The setup.</param>
+    public void SaveMappingSetup(StudioMappingSetup item)
+    {
+        mappingSetups[item.Id] = item;
     }
 
     /// <summary>
@@ -163,6 +173,26 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Attempts to get a temporary mapping setup.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    /// <param name="item">The mapping setup.</param>
+    /// <returns>True when found.</returns>
+    public bool TryGetMappingSetup(string id, out StudioMappingSetup item)
+    {
+        return mappingSetups.TryGetValue(id, out item);
+    }
+
+    /// <summary>
+    /// Deletes a temporary mapping setup.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    public void DeleteMappingSetup(string id)
+    {
+        mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup);
+    }
+
+    /// <summary>
     /// Deletes one item by kind and key.
     /// </summary>
     /// <param name="kind">The item kind.</param>
@@ -175,7 +205,7 @@ internal sealed class StudioStore
             "customTypes" => customTypes.TryRemove(id, out StudioCustomType removedType),
             "customFields" => customFields.TryRemove(id, out StudioCustomField removedField),
             "schemas" => schemas.TryRemove(id, out StudioSchema removedSchema),
-            "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping),
+            "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping) | mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup),
             _ => false
         };
     }

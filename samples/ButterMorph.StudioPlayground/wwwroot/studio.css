@@ -337,6 +337,54 @@ textarea {
   margin: .25rem 0;
 }
 
+.check-row {
+  align-items: center;
+  flex-direction: row !important;
+  gap: .45rem !important;
+  justify-content: flex-start;
+  min-height: 30px;
+}
+
+.mapping-source-editor {
+  background: #fbfbff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: .75rem;
+  padding: .65rem;
+}
+
+.mapping-source-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: .55rem;
+}
+
+.mapping-source-row {
+  align-items: end;
+  display: grid;
+  gap: .55rem;
+  grid-template-columns: minmax(120px, .65fr) minmax(220px, 1fr) auto;
+  margin-bottom: .45rem;
+}
+
+.mapping-source-row label {
+  color: #4b4f74;
+  display: flex;
+  flex-direction: column;
+  font-size: .68rem;
+  font-weight: 800;
+  gap: .15rem;
+}
+
+.mapping-source-row input,
+.mapping-source-row select {
+  border: 1px solid #cfd3e6;
+  border-radius: 6px;
+  min-height: 30px;
+  padding: .35rem .45rem;
+}
+
 pre,
 textarea {
   font-family: Consolas, "Cascadia Code", monospace;

@@ -128,6 +128,8 @@
     section.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteItem(button.dataset.delete, button.dataset.key)));
     section.querySelectorAll("[data-save-injection]").forEach(button => button.addEventListener("click", () => saveInjection(button.dataset.key)));
     section.querySelectorAll("[data-save-mapping-settings]").forEach(button => button.addEventListener("click", () => saveMappingSettings(button.dataset.key)));
+    section.querySelectorAll("[data-add-mapping-source]").forEach(button => button.addEventListener("click", () => addMappingSourceRow(button.dataset.addMappingSource)));
+    section.querySelectorAll("[data-remove-mapping-source]").forEach(button => button.addEventListener("click", () => removeMappingSourceRow(button)));
   }
 
   function renderDetail(kind, item) {
@@ -178,8 +180,16 @@
       <div class="detail-grid">
         <label>Name<input id="mapping-name-${item.id}" value="${escapeAttr(item.name || "")}"></label>
         <label>Target Schema<select id="mapping-target-${item.id}">${schemaOptions(item.targetSchemaId)}</select></label>
-        <label>Source Alias<input id="mapping-source-alias-${item.id}" value="${escapeAttr(Object.keys(item.sourceSchemaIds || {})[0] || "source")}"></label>
-        <label>Source Schema<select id="mapping-source-schema-${item.id}">${schemaOptions(Object.values(item.sourceSchemaIds || {})[0] || "")}</select></label>
+        <label class="check-row"><input type="checkbox" id="mapping-schema-actions-${item.id}" ${item.showSchemaActions ? "checked" : ""}> Allow schema loading in ButterMorph Studio</label>
+      </div>
+      <div class="mapping-source-editor">
+        <div class="mapping-source-header">
+          <strong>Sources</strong>
+          <button class="ghost-button" data-add-mapping-source="${item.id}" type="button">Add Source</button>
+        </div>
+        <div data-mapping-sources="${item.id}">
+          ${mappingSourceRows(item.id, item.sourceSchemaIds || {})}
+        </div>
       </div>
       <pre>${escapeHtml(item.dslContent || "No DSL saved yet.")}</pre>`;
   }
@@ -206,20 +216,7 @@
       openDesigner(route, id, "create", "");
       return;
     }
-
-    const name = prompt("Mapping name");
-    if (!name) {
-      return;
-    }
-
-    const response = await fetch("/api/" + kind, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name })
-    });
-    const created = await response.json();
-    selected[kind] = created.id;
-    await reloadStateFromBackend();
+    openMappingSetup(createHostId(kind), "/buttermorph/designer");
   }
 
   async function openDesigner(route, id, mode, extraQuery) {
@@ -273,6 +270,61 @@
     });
   }
 
+  function openMappingSetup(id, route) {
+    const overlay = document.createElement("div");
+    overlay.className = "studio-modal-overlay";
+    overlay.innerHTML = `
+      <div class="studio-modal">
+        <div class="studio-modal-header">
+          <strong>New Mapping Setup</strong>
+          <button type="button" data-close-mapping-setup>&times;</button>
+        </div>
+        <p class="studio-modal-help">Choose the target schema and all source schemas that ButterMorph will receive for this mapping designer session.</p>
+        <div class="detail-grid">
+          <label>Name<input id="new-mapping-name" placeholder="Mapping display name"></label>
+          <label>Target Schema<select id="new-mapping-target">${schemaOptions("")}</select></label>
+          <label class="check-row"><input type="checkbox" id="new-mapping-schema-actions"> Allow schema loading in ButterMorph Studio</label>
+        </div>
+        <div class="mapping-source-editor">
+          <div class="mapping-source-header">
+            <strong>Sources</strong>
+            <button class="ghost-button" type="button" data-add-new-mapping-source>Add Source</button>
+          </div>
+          <div data-new-mapping-sources>
+            ${mappingSourceRow("new", "source", "")}
+          </div>
+        </div>
+        <div class="action-row studio-modal-actions">
+          <button class="ghost-button" type="button" data-close-mapping-setup>Cancel</button>
+          <button class="primary-button" type="button" data-create-mapping-with-setup>Create Mapping</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close-mapping-setup]").forEach(button => button.addEventListener("click", () => overlay.remove()));
+    overlay.querySelector("[data-add-new-mapping-source]").addEventListener("click", () => {
+      const host = overlay.querySelector("[data-new-mapping-sources]");
+      host.insertAdjacentHTML("beforeend", mappingSourceRow("new", "source" + String(host.children.length + 1), ""));
+      host.querySelectorAll("[data-remove-mapping-source]").forEach(button => button.onclick = () => removeMappingSourceRow(button));
+    });
+    overlay.querySelectorAll("[data-remove-mapping-source]").forEach(button => button.addEventListener("click", () => removeMappingSourceRow(button)));
+    overlay.querySelector("[data-create-mapping-with-setup]").addEventListener("click", async () => {
+      const setup = collectMappingSetup("new", {
+        name: overlay.querySelector("#new-mapping-name").value,
+        targetSchemaId: overlay.querySelector("#new-mapping-target").value,
+        showSchemaActions: overlay.querySelector("#new-mapping-schema-actions").checked,
+        sourceHost: overlay.querySelector("[data-new-mapping-sources]")
+      });
+      if (!setup.name || !setup.targetSchemaId || Object.keys(setup.sourceSchemaIds).length === 0) {
+        alert("Mapping name, target schema and at least one source are required.");
+        return;
+      }
+
+      await saveMappingSetup(id, setup);
+      overlay.remove();
+      openDesigner(route, id, "create", "");
+    });
+  }
+
   function setupCheckbox(kind, item) {
     const attr = kind === "type" ? "data-setup-type" : "data-setup-field";
     return `<label><input type="checkbox" ${attr} value="${escapeAttr(item.id)}"> ${escapeHtml(item.name || item.key)}</label>`;
@@ -321,16 +373,79 @@
   }
 
   async function saveMappingSettings(id) {
-    const name = document.getElementById(`mapping-name-${id}`).value;
-    const alias = document.getElementById(`mapping-source-alias-${id}`).value || "source";
-    const sourceSchema = document.getElementById(`mapping-source-schema-${id}`).value;
-    const targetSchema = document.getElementById(`mapping-target-${id}`).value;
+    const setup = collectMappingSetup(id, {
+      name: document.getElementById(`mapping-name-${id}`).value,
+      targetSchemaId: document.getElementById(`mapping-target-${id}`).value,
+      showSchemaActions: document.getElementById(`mapping-schema-actions-${id}`).checked,
+      sourceHost: document.querySelector(`[data-mapping-sources="${id}"]`)
+    });
     await fetch(`/api/mappings/${encodeURIComponent(id)}/settings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, targetSchemaId: targetSchema, sourceSchemaIds: { [alias]: sourceSchema } })
+      body: JSON.stringify(setup)
     });
     await reloadStateFromBackend();
+  }
+
+  async function saveMappingSetup(id, setup) {
+    await fetch(`/api/mappings/${encodeURIComponent(id)}/setup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(setup)
+    });
+  }
+
+  function collectMappingSetup(id, values) {
+    const sourceSchemaIds = {};
+    const selector = id === "new" ? "[data-mapping-source-row='new']" : `[data-mapping-source-row="${id}"]`;
+    values.sourceHost.querySelectorAll(selector).forEach(row => {
+      const alias = row.querySelector("[data-mapping-source-alias]")?.value.trim() || "";
+      const schemaId = row.querySelector("[data-mapping-source-schema]")?.value || "";
+      if (alias && schemaId) {
+        sourceSchemaIds[alias] = schemaId;
+      }
+    });
+    return {
+      name: values.name || "",
+      targetSchemaId: values.targetSchemaId || "",
+      showSchemaActions: values.showSchemaActions === true,
+      sourceSchemaIds
+    };
+  }
+
+  function mappingSourceRows(id, sourceSchemaIds) {
+    const entries = Object.entries(sourceSchemaIds || {});
+    if (entries.length === 0) {
+      return mappingSourceRow(id, "source", "");
+    }
+    return entries.map(([alias, schemaId]) => mappingSourceRow(id, alias, schemaId)).join("");
+  }
+
+  function mappingSourceRow(id, alias, schemaId) {
+    return `
+      <div class="mapping-source-row" data-mapping-source-row="${escapeAttr(id)}">
+        <label>Alias<input data-mapping-source-alias value="${escapeAttr(alias)}"></label>
+        <label>Schema<select data-mapping-source-schema>${schemaOptions(schemaId)}</select></label>
+        <button class="danger-button" type="button" data-remove-mapping-source="${escapeAttr(id)}">Remove</button>
+      </div>`;
+  }
+
+  function addMappingSourceRow(id) {
+    const host = document.querySelector(`[data-mapping-sources="${id}"]`);
+    if (!host) {
+      return;
+    }
+    host.insertAdjacentHTML("beforeend", mappingSourceRow(id, "source" + String(host.children.length + 1), ""));
+    host.querySelectorAll("[data-remove-mapping-source]").forEach(button => button.onclick = () => removeMappingSourceRow(button));
+  }
+
+  function removeMappingSourceRow(button) {
+    const row = button.closest(".mapping-source-row");
+    const host = row?.parentElement;
+    if (!row || !host || host.querySelectorAll(".mapping-source-row").length <= 1) {
+      return;
+    }
+    row.remove();
   }
 
   function renderExecutionPicker() {

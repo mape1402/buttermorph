@@ -201,20 +201,20 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
     }
 
     /// <summary>
-    /// Confirms mapping create persists because mappings are configured by the host.
+    /// Confirms mapping setup stays temporary until ButterMorph saves.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
-    public async Task StudioMappingCreatePersistsHostItem()
+    public async Task StudioMappingSetupDoesNotPersistHostItem()
     {
         HttpClient client = factory.CreateClient();
-        using StringContent content = new("{\"id\":\"mapping-unsaved-test\",\"name\":\"Host Mapping\"}", Encoding.UTF8, "application/json");
+        using StringContent content = new("{\"name\":\"Host Mapping\",\"targetSchemaId\":\"schema-customer-summary\",\"sourceSchemaIds\":{\"customer\":\"schema-customer-profile\"},\"showSchemaActions\":true}", Encoding.UTF8, "application/json");
 
-        HttpResponseMessage createResponse = await client.PostAsync("/api/mappings", content);
+        HttpResponseMessage createResponse = await client.PostAsync("/api/mappings/mapping-unsaved-test/setup", content);
         HttpResponseMessage itemResponse = await client.GetAsync("/api/mappings/mapping-unsaved-test");
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, itemResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, itemResponse.StatusCode);
     }
 
     // Checks root property presence using case-insensitive comparison.

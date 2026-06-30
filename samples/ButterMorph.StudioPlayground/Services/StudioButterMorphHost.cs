@@ -2,6 +2,7 @@
 
 using System.Text.Json;
 using ButterMorph.Abstractions;
+using ButterMorph.Core;
 using ButterMorph.Json.Schema;
 using ButterMorph.SchemaDesign;
 using ButterMorph.StudioPlayground.Models;
@@ -39,10 +40,7 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     public Task<ButterMorphDesignerLoadResult> Load(ButterMorphDesignerLoadRequest request)
     {
-        if (!store.TryGetMapping(request.ContextKey, out StudioMapping mapping))
-        {
-            mapping = CreateDraftMapping(request.ContextKey);
-        }
+        StudioMapping mapping = ResolveMappingForLoad(request.ContextKey);
 
         Dictionary<string, IStructureSchema> sourceSchemas = new(StringComparer.OrdinalIgnoreCase);
         foreach (KeyValuePair<string, string> source in mapping.SourceSchemaIds)
@@ -66,7 +64,7 @@ internal sealed class StudioButterMorphHost :
             SourceSchemas = sourceSchemas,
             TargetSchema = targetSchema,
             InitialDocument = mapping.Document,
-            ShowSchemaActions = false,
+            ShowSchemaActions = mapping.ShowSchemaActions,
             Message = string.Empty
         });
     }
@@ -76,11 +74,12 @@ internal sealed class StudioButterMorphHost :
     {
         StudioMapping mapping = store.TryGetMapping(request.ContextKey, out StudioMapping existing)
             ? existing
-            : CreateDraftMapping(request.ContextKey);
+            : CreateMappingFromSetup(request.ContextKey);
 
         mapping.Document = request.Document;
         mapping.DslContent = request.DslContent;
         store.SaveMapping(mapping);
+        store.DeleteMappingSetup(request.ContextKey);
 
         return Task.FromResult(new ButterMorphDesignerSaveResult
         {
@@ -316,13 +315,40 @@ internal sealed class StudioButterMorphHost :
             .ToArray();
     }
 
-    private static StudioMapping CreateDraftMapping(string id)
+    private StudioMapping ResolveMappingForLoad(string id)
     {
-        return new StudioMapping
+        if (store.TryGetMapping(id, out StudioMapping mapping))
+        {
+            return mapping;
+        }
+
+        return CreateMappingFromSetup(id);
+    }
+
+    private StudioMapping CreateMappingFromSetup(string id)
+    {
+        StudioMapping mapping = new()
         {
             Id = id,
-            Name = id
+            Name = id,
+            ShowSchemaActions = true,
+            Document = new TransformationDocument()
         };
+
+        if (!store.TryGetMappingSetup(id, out StudioMappingSetup setup))
+        {
+            return mapping;
+        }
+
+        mapping.Name = string.IsNullOrWhiteSpace(setup.Name) ? id : setup.Name;
+        mapping.TargetSchemaId = setup.TargetSchemaId;
+        mapping.ShowSchemaActions = setup.ShowSchemaActions;
+        foreach (KeyValuePair<string, string> source in setup.SourceSchemaIds)
+        {
+            mapping.SourceSchemaIds[source.Key] = source.Value;
+        }
+
+        return mapping;
     }
 
     private static string SerializeButterMorphDefinition<T>(T definition)

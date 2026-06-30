@@ -40,11 +40,6 @@ internal static class StudioEndpoints
             id = string.IsNullOrWhiteSpace(id) ? CreateId(kind) : id;
             name = string.IsNullOrWhiteSpace(name) ? CreateDisplayName(kind) : name;
 
-            if (kind == "mappings")
-            {
-                store.SaveMapping(new StudioMapping { Id = id, Name = name, Document = new TransformationDocument() });
-            }
-
             return Results.Json(new { id, name });
         });
         app.MapDelete("/api/{kind}/{id}", (string kind, string id, StudioStore store) =>
@@ -85,6 +80,7 @@ internal static class StudioEndpoints
 
             mapping.Name = string.IsNullOrWhiteSpace(body.Name) ? mapping.Name : body.Name;
             mapping.TargetSchemaId = body.TargetSchemaId;
+            mapping.ShowSchemaActions = body.ShowSchemaActions;
             mapping.SourceSchemaIds.Clear();
             foreach (KeyValuePair<string, string> source in body.SourceSchemaIds)
             {
@@ -101,6 +97,28 @@ internal static class StudioEndpoints
 
             store.SaveMapping(mapping);
             return Results.Json(mapping);
+        });
+        app.MapPost("/api/mappings/{id}/setup", async (string id, StudioStore store, HttpRequest request) =>
+        {
+            StudioMappingSettingsRequest body = await JsonSerializer.DeserializeAsync<StudioMappingSettingsRequest>(request.Body, JsonOptions) ?? new StudioMappingSettingsRequest();
+            StudioMappingSetup setup = new()
+            {
+                Id = id,
+                Name = body.Name,
+                TargetSchemaId = body.TargetSchemaId,
+                ShowSchemaActions = body.ShowSchemaActions
+            };
+
+            foreach (KeyValuePair<string, string> source in body.SourceSchemaIds)
+            {
+                if (!string.IsNullOrWhiteSpace(source.Key) && !string.IsNullOrWhiteSpace(source.Value))
+                {
+                    setup.SourceSchemaIds[source.Key] = source.Value;
+                }
+            }
+
+            store.SaveMappingSetup(setup);
+            return Results.Json(new { setup.Id, setup.Name, setup.TargetSchemaId, setup.SourceSchemaIds, setup.ShowSchemaActions });
         });
         app.MapPost("/api/mappings/{id}/execute", async (
             string id,
@@ -134,6 +152,7 @@ internal static class StudioEndpoints
                 mapping.SourceSchemaIds,
                 mapping.SourceSamples,
                 mapping.DslContent,
+                mapping.ShowSchemaActions,
                 mapping.SavedAt
             })
         });

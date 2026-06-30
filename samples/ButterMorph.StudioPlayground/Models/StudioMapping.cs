@@ -33,6 +33,11 @@ internal sealed class StudioMapping
     public Dictionary<string, string> SourceSamples { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Gets or sets a value indicating whether ButterMorph can load schemas manually.
+    /// </summary>
+    public bool ShowSchemaActions { get; set; }
+
+    /// <summary>
     /// Gets or sets the transformation document.
     /// </summary>
     public ITransformationDocument Document { get; set; }
