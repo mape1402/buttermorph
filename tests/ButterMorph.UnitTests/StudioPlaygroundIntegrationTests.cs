@@ -55,6 +55,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("UniqueIdentifier", json, StringComparison.Ordinal);
         Assert.Contains("RFC", json, StringComparison.Ordinal);
         Assert.Contains("Topic", json, StringComparison.Ordinal);
+        Assert.Contains("allowedValues", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile to Summary", json, StringComparison.Ordinal);
     }
@@ -144,6 +145,24 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, itemResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms schema creation lets the host choose injection before opening ButterMorph.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSchemaCreateRendersPreDesignerInjectionSetup()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string script = await client.GetStringAsync("/studio.js");
+
+        Assert.Contains("New Schema Setup", script, StringComparison.Ordinal);
+        Assert.Contains("customTypes=", script, StringComparison.Ordinal);
+        Assert.Contains("customFields=", script, StringComparison.Ordinal);
+        Assert.Contains("data-setup-type", script, StringComparison.Ordinal);
+        Assert.Contains("data-setup-field", script, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -104,7 +104,7 @@ internal static class StudioSeedData
             AppliesToJson = "[\"Field\"]",
             IsRequired = false,
             IsActive = true,
-            ValidationJson = "{\"enum\":[\"Public\",\"Private\",\"Confidential\"]}"
+            ValidationJson = "{\"allowedValues\":[\"Public\",\"Private\",\"Confidential\"]}"
         };
         securityClassification.ButterMorphResultJson = SerializeButterMorphDefinition(CreateFieldDefinition(securityClassification));
 

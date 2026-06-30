@@ -21,6 +21,7 @@ internal sealed class StudioButterMorphHost :
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         WriteIndented = true
     };
 
@@ -142,16 +143,7 @@ internal sealed class StudioButterMorphHost :
         FieldMetadataDesignInput input = new();
         if (store.TryGetCustomField(request.ContextKey, out StudioCustomField item))
         {
-            input.Name = item.Name;
-            input.Key = item.Key;
-            input.Description = item.Description;
-            input.DataType = item.DataType;
-            input.AppliesTo = item.AppliesToJson;
-            input.IsRequired = item.IsRequired;
-            input.IsActive = item.IsActive;
-            input.ChildrenDefinitionJson = item.ChildrenDefinitionJson;
-            input.ArrayItemDataType = item.ArrayItemDataType;
-            input.ArrayItemDefinitionJson = item.ArrayItemDefinitionJson;
+            input = CreateFieldInput(item);
         }
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerLoadResult
@@ -197,11 +189,13 @@ internal sealed class StudioButterMorphHost :
             ? existing
             : new StudioSchema { Id = request.ContextKey, Version = "1.0.0" };
 
+        IReadOnlyCollection<string> customTypeIds = ResolveInjectedIds(request.InjectedCustomTypeIds, schema.InjectedCustomTypeKeys);
+        IReadOnlyCollection<string> customFieldIds = ResolveInjectedIds(request.InjectedCustomFieldIds, schema.InjectedCustomFieldKeys);
         IReadOnlyCollection<StudioCustomType> injectedTypes = store.CustomTypes
-            .Where(item => schema.InjectedCustomTypeKeys.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
+            .Where(item => customTypeIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
             .ToArray();
         IReadOnlyCollection<StudioCustomField> injectedFields = store.CustomFields
-            .Where(item => schema.InjectedCustomFieldKeys.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
+            .Where(item => customFieldIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
@@ -234,6 +228,12 @@ internal sealed class StudioButterMorphHost :
         schema.VersionComment = definition.VersionComment;
         schema.JsonSchema = SerializeButterMorphDefinition(definition);
         schema.ButterMorphResultJson = schema.JsonSchema;
+        IReadOnlyCollection<string> savedTypeIds = ResolveInjectedIds(request.InjectedCustomTypeIds, schema.InjectedCustomTypeKeys);
+        IReadOnlyCollection<string> savedFieldIds = ResolveInjectedIds(request.InjectedCustomFieldIds, schema.InjectedCustomFieldKeys);
+        schema.InjectedCustomTypeKeys.Clear();
+        schema.InjectedCustomTypeKeys.AddRange(savedTypeIds);
+        schema.InjectedCustomFieldKeys.Clear();
+        schema.InjectedCustomFieldKeys.AddRange(savedFieldIds);
         store.SaveSchema(schema);
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerSaveResult
@@ -322,6 +322,146 @@ internal sealed class StudioButterMorphHost :
     private static string SerializeButterMorphDefinition<T>(T definition)
     {
         return JsonSerializer.Serialize(definition, ResultJsonOptions);
+    }
+
+    private static IReadOnlyCollection<string> ResolveInjectedIds(IReadOnlyCollection<string> requestIds, IReadOnlyCollection<string> storedIds)
+    {
+        if (requestIds.Count > 0)
+        {
+            return requestIds.ToArray();
+        }
+
+        return storedIds.ToArray();
+    }
+
+    private static FieldMetadataDesignInput CreateFieldInput(StudioCustomField item)
+    {
+        CustomFieldDefinition definition = ReadFieldDefinition(item);
+        FieldMetadataDesignInput input = new()
+        {
+            Name = definition.Name,
+            Key = definition.Key,
+            Description = definition.Description,
+            DataType = definition.DataType,
+            AppliesTo = ConvertJsonArrayToLines(definition.AppliesToJson),
+            IsRequired = definition.IsRequired,
+            IsActive = definition.IsActive,
+            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ArrayItemDataType = definition.ArrayItemDataType,
+            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
+        };
+
+        ApplyValidation(input, definition.ValidationJson);
+        return input;
+    }
+
+    private static CustomFieldDefinition ReadFieldDefinition(StudioCustomField item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.ButterMorphResultJson))
+        {
+            try
+            {
+                CustomFieldDefinition definition = JsonSerializer.Deserialize<CustomFieldDefinition>(item.ButterMorphResultJson, ResultJsonOptions);
+                if (definition != null && !string.IsNullOrWhiteSpace(definition.Key))
+                {
+                    return definition;
+                }
+            }
+            catch (JsonException)
+            {
+            }
+        }
+
+        return new CustomFieldDefinition
+        {
+            Key = item.Key,
+            Name = item.Name,
+            Description = item.Description,
+            DataType = item.DataType,
+            AppliesToJson = item.AppliesToJson,
+            IsRequired = item.IsRequired,
+            IsActive = item.IsActive,
+            ValidationJson = item.ValidationJson,
+            ChildrenDefinitionJson = item.ChildrenDefinitionJson,
+            ArrayItemDataType = item.ArrayItemDataType,
+            ArrayItemDefinitionJson = item.ArrayItemDefinitionJson
+        };
+    }
+
+    private static string ConvertJsonArrayToLines(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            List<string> values = [];
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                values.Add(element.ToString());
+            }
+
+            return string.Join(Environment.NewLine, values);
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static void ApplyValidation(FieldMetadataDesignInput input, string validationJson)
+    {
+        if (string.IsNullOrWhiteSpace(validationJson))
+        {
+            return;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(validationJson);
+            JsonElement root = document.RootElement;
+            input.MinLength = ReadValidationValue(root, "minLength");
+            input.MaxLength = ReadValidationValue(root, "maxLength");
+            input.Pattern = ReadValidationValue(root, "pattern");
+            input.Minimum = ReadValidationValue(root, "minimum");
+            input.Maximum = ReadValidationValue(root, "maximum");
+            input.DateMinimum = ReadValidationValue(root, "dateMinimum");
+            input.DateMaximum = ReadValidationValue(root, "dateMaximum");
+            input.AllowedValues = ReadAllowedValues(root);
+        }
+        catch (JsonException)
+        {
+        }
+    }
+
+    private static string ReadValidationValue(JsonElement root, string propertyName)
+    {
+        if (root.TryGetProperty(propertyName, out JsonElement element))
+        {
+            return element.ToString();
+        }
+
+        return string.Empty;
+    }
+
+    private static string ReadAllowedValues(JsonElement root)
+    {
+        if (!root.TryGetProperty("allowedValues", out JsonElement values) ||
+            values.ValueKind != JsonValueKind.Array)
+        {
+            return string.Empty;
+        }
+
+        List<string> lines = [];
+        foreach (JsonElement value in values.EnumerateArray())
+        {
+            lines.Add(value.ToString());
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 }
 

@@ -16,4 +16,14 @@ public sealed class ButterMorphPayloadSchemaDesignerSaveRequest
     /// Gets or sets the clean payload schema definition.
     /// </summary>
     public PayloadSchemaDefinition Definition { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets host custom type ids used for this saved schema.
+    /// </summary>
+    public IReadOnlyCollection<string> InjectedCustomTypeIds { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets host custom field ids used for this saved schema.
+    /// </summary>
+    public IReadOnlyCollection<string> InjectedCustomFieldIds { get; set; } = [];
 }

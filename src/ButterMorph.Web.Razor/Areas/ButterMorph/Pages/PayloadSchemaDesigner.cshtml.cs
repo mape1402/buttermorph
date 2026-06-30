@@ -224,7 +224,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             saveResult = await host.Save(new ButterMorphPayloadSchemaDesignerSaveRequest
             {
                 ContextKey = ResolveContextKey(),
-                Definition = result.Definition
+                Definition = result.Definition,
+                InjectedCustomTypeIds = ResolveInjectedIds("customTypes"),
+                InjectedCustomFieldIds = ResolveInjectedIds("customFields")
             });
             break;
         }
@@ -258,7 +260,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         {
             ButterMorphPayloadSchemaDesignerLoadResult result = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest
             {
-                ContextKey = ResolveContextKey()
+                ContextKey = ResolveContextKey(),
+                InjectedCustomTypeIds = ResolveInjectedIds("customTypes"),
+                InjectedCustomFieldIds = ResolveInjectedIds("customFields")
             });
             PayloadSchemaJson = result.JsonSchema;
             SchemaKey = result.Key;
@@ -292,7 +296,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         {
             ButterMorphPayloadSchemaDesignerLoadResult result = await host.Load(new ButterMorphPayloadSchemaDesignerLoadRequest
             {
-                ContextKey = ResolveContextKey()
+                ContextKey = ResolveContextKey(),
+                InjectedCustomTypeIds = ResolveInjectedIds("customTypes"),
+                InjectedCustomFieldIds = ResolveInjectedIds("customFields")
             });
             SchemaTypes = result.SchemaTypes;
             MetadataFields = result.MetadataFields;
@@ -564,8 +570,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         try
         {
             using JsonDocument document = JsonDocument.Parse(validation);
-            if (!document.RootElement.TryGetProperty("allowedValues", out JsonElement allowedValues) ||
-                allowedValues.ValueKind != JsonValueKind.Array)
+            if (!TryGetAllowedValuesElement(document.RootElement, out JsonElement allowedValues))
             {
                 return values;
             }
@@ -583,10 +588,44 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         return values;
     }
 
+    // Reads either the ButterMorph custom-field allowedValues key or enum-style values.
+    private static bool TryGetAllowedValuesElement(JsonElement root, out JsonElement allowedValues)
+    {
+        if (root.TryGetProperty("allowedValues", out allowedValues) &&
+            allowedValues.ValueKind == JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        if (root.TryGetProperty("enum", out allowedValues) &&
+            allowedValues.ValueKind == JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     // Resolves the host context key.
     private string ResolveContextKey()
     {
         return DesignerSessionKeyResolver.ResolveContextKey(this, options);
+    }
+
+    // Resolves comma-separated host ids supplied by the embedding host.
+    private IReadOnlyCollection<string> ResolveInjectedIds(string queryName)
+    {
+        string value = Request.Query[queryName].ToString();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        return value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     // Resolves the form action while preserving host flow query parameters.

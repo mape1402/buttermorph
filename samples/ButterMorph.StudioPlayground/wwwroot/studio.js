@@ -157,7 +157,11 @@
       const id = createHostId(kind);
       selected[kind] = id;
       const route = kind === "customTypes" ? "/buttermorph/schema-types/designer" : kind === "customFields" ? "/buttermorph/metadata-fields/designer" : "/buttermorph/payload-schema/designer";
-      openDesigner(route, id, "create");
+      if (kind === "schemas") {
+        openSchemaSetup(id, route);
+        return;
+      }
+      openDesigner(route, id, "create", "");
       return;
     }
 
@@ -176,10 +180,46 @@
     await loadState();
   }
 
-  function openDesigner(route, id, mode) {
+  function openDesigner(route, id, mode, extraQuery) {
     const modeQuery = mode ? `&mode=${encodeURIComponent(mode)}` : "";
-    const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}&popup=true&returnUrl=/`;
+    const injectionQuery = extraQuery || "";
+    const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
     window.ButterMorphHost.openFrame(url, { title: "ButterMorph Designer", width: 1420, height: 900 });
+  }
+
+  function openSchemaSetup(id, route) {
+    const overlay = document.createElement("div");
+    overlay.className = "studio-modal-overlay";
+    overlay.innerHTML = `
+      <div class="studio-modal">
+        <div class="studio-modal-header">
+          <strong>New Schema Setup</strong>
+          <button type="button" data-close-schema-setup>×</button>
+        </div>
+        <p class="studio-modal-help">Choose the custom types and custom fields that ButterMorph will receive for this schema designer session.</p>
+        <div class="injection-grid setup-injection-grid">
+          <div class="check-list"><strong>Inject Custom Types</strong>${state.customTypes.map(type => setupCheckbox("type", type)).join("") || "<span>No custom types available.</span>"}</div>
+          <div class="check-list"><strong>Inject Custom Fields</strong>${state.customFields.map(field => setupCheckbox("field", field)).join("") || "<span>No custom fields available.</span>"}</div>
+        </div>
+        <div class="action-row studio-modal-actions">
+          <button class="ghost-button" type="button" data-close-schema-setup>Cancel</button>
+          <button class="primary-button" type="button" data-create-schema-with-injection>Create Schema</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close-schema-setup]").forEach(button => button.addEventListener("click", () => overlay.remove()));
+    overlay.querySelector("[data-create-schema-with-injection]").addEventListener("click", () => {
+      const typeIds = Array.from(overlay.querySelectorAll("[data-setup-type]:checked")).map(input => input.value);
+      const fieldIds = Array.from(overlay.querySelectorAll("[data-setup-field]:checked")).map(input => input.value);
+      const query = `&customTypes=${encodeURIComponent(typeIds.join(","))}&customFields=${encodeURIComponent(fieldIds.join(","))}`;
+      overlay.remove();
+      openDesigner(route, id, "create", query);
+    });
+  }
+
+  function setupCheckbox(kind, item) {
+    const attr = kind === "type" ? "data-setup-type" : "data-setup-field";
+    return `<label><input type="checkbox" ${attr} value="${escapeAttr(item.id)}"> ${escapeHtml(item.name || item.key)}</label>`;
   }
 
   function createHostId(kind) {

@@ -638,7 +638,8 @@
 
         const description = readCatalogValue(item, "description", "Description");
         const value = metadata[key] || "";
-        const allowedValues = Array.isArray(validation.allowedValues) ? validation.allowedValues : [];
+        const allowedValues = Array.isArray(validation.allowedValues) ? validation.allowedValues :
+            Array.isArray(validation.enum) ? validation.enum : [];
         let input = null;
 
         if (dataType === "object") {
