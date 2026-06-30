@@ -40,21 +40,21 @@
                         <label class="form-label">Name</label>
                         <input class="form-control" asp-for="SchemaName" placeholder="Display name" required />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">Description</label>
                         <input class="form-control" asp-for="SchemaDescription" placeholder="Short schema description" />
                     </div>
+                </section>
+                <section class="row g-3 mb-3">
                     <div class="col-md-2">
                         <label class="form-label">Version</label>
                         <input class="form-control" asp-for="SchemaVersion" placeholder="1.0.0" maxlength="13" required />
                     </div>
-                </section>
-                <section class="row g-3 mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <label class="form-label">Version Comment</label>
                         <input class="form-control" asp-for="SchemaVersionComment" placeholder="Version change notes" maxlength="1000" />
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <input type="hidden" id="schema-metadata-json" asp-for="SchemaMetadataText" />
                         <div class="schema-metadata-launcher">
                             <button type="button" class="btn btn-secondary" id="open-schema-metadata-btn">Metadata</button>

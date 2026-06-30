@@ -147,7 +147,7 @@
         <label>Name<input value="${escapeAttr(item.name || "")}" readonly></label>
         <label>Key<input value="${escapeAttr(item.key || "")}" readonly></label>
       </div>
-      <pre>${escapeHtml(pretty(item.butterMorphResultJson || "{}"))}</pre>`;
+      <pre class="json-viewer">${escapeHtml(pretty(item.butterMorphResultJson || "{}"))}</pre>`;
   }
 
   function renderSchemaDetail(item) {
@@ -165,7 +165,7 @@
         <div class="check-list"><strong>Inject Custom Types</strong>${state.customTypes.map(type => checkbox("type", item, type)).join("")}</div>
         <div class="check-list"><strong>Inject Custom Fields</strong>${state.customFields.map(field => checkbox("field", item, field)).join("")}</div>
       </div>
-      <pre>${escapeHtml(pretty(item.butterMorphResultJson || "{}"))}</pre>`;
+      <pre class="json-viewer schema-json-viewer">${escapeHtml(pretty(item.butterMorphResultJson || "{}"))}</pre>`;
   }
 
   function renderMappingDetail(item) {

@@ -18,7 +18,7 @@ internal static class StudioHtml
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
-              <link rel="stylesheet" href="/studio.css?v=2">
+              <link rel="stylesheet" href="/studio.css?v=3">
               <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=1"></script>
             </head>
             <body>
