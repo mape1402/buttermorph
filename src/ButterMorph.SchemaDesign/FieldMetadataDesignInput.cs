@@ -21,6 +21,16 @@ public sealed class FieldMetadataDesignInput
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the metadata field version.
+    /// </summary>
+    public string Version { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Gets or sets the version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the metadata data type.
     /// </summary>
     public string DataType { get; set; } = "string";

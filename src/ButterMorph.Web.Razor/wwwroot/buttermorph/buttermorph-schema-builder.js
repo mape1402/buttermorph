@@ -30,9 +30,13 @@
 
     function syncPayloadSchemaInput() {
         const defs = {};
-        const schema = buildRootSchema(rootList, defs);
+        const metadataDefs = collectSchemaMetadataDefinitions();
+        const schema = buildRootSchema(rootList, defs, metadataDefs);
         if (Object.keys(defs).length > 0) {
             schema.$defs = defs;
+        }
+        if (Object.keys(metadataDefs).length > 0) {
+            schema.$metadataDefs = metadataDefs;
         }
         hiddenSchemaInput.value = JSON.stringify(schema);
     }
@@ -222,10 +226,66 @@
         arrayObjectBuilder?.classList.toggle("d-none", itemType !== "object");
         nestedArrayBuilder?.classList.toggle("d-none", itemType !== "array");
         editArrayButton?.classList.toggle("d-none", type !== "array" || itemType !== "object");
-        validationButton?.classList.toggle("d-none", getValidationKeys(field).length === 0);
+        validationButton?.classList.toggle("d-none", selectedIsCustomType(field) || getValidationKeys(field).length === 0);
         updateSummaries();
     }
 
+    function selectedIsCustomType(field) {
+        const selected = field.querySelector(".field-type-select")?.selectedOptions?.[0];
+        return selected?.dataset?.isSystem === "false";
+    }
+
+    function collectSchemaMetadataDefinitions() {
+        const values = safeJson(document.getElementById("schema-metadata-json")?.value || "{}");
+        const defs = {};
+        addMetadataDefinitions(defs, values, "Schema");
+        return defs;
+    }
+
+    function addMetadataDefinitions(defs, values, scope) {
+        if (!defs || !values) {
+            return;
+        }
+        metadataCatalog.forEach(function (item) {
+            const key = readCatalogValue(item, "key", "Key");
+            if (!key || values[key] === undefined || !appliesToScope(readCatalogValue(item, "appliesToJson", "AppliesToJson"), scope)) {
+                return;
+            }
+            const version = readCatalogValue(item, "version", "Version") || "1.0.0";
+            defs[key + "@" + version] = createMetadataDefinitionSnapshot(item);
+        });
+    }
+
+    function createMetadataDefinitionSnapshot(item) {
+        const definition = createMetadataDefinition(item);
+        const snapshot = {
+            key: definition.key,
+            name: definition.name,
+            description: readCatalogValue(item, "description", "Description") || "",
+            version: readCatalogValue(item, "version", "Version") || "1.0.0",
+            versionComment: readCatalogValue(item, "versionComment", "VersionComment") || "",
+            dataType: definition.dataType
+        };
+        if (definition.allowedValues && definition.allowedValues.length > 0) {
+            snapshot.allowedValues = definition.allowedValues;
+        }
+        if (definition.children && definition.children.length > 0) {
+            snapshot.children = definition.children;
+        }
+        if (definition.arrayItem) {
+            snapshot.arrayItem = definition.arrayItem;
+        }
+        return snapshot;
+    }
+
+    function wrapMetadataValue(field, value) {
+        const key = field.dataset.key || "";
+        const version = field.dataset.version || "";
+        if (!key || !version) {
+            return value;
+        }
+        return { $ref: "#/$metadataDefs/" + key + "@" + version, value: value };
+    }
     function getSelectedBaseType(select) {
         const selected = select?.selectedOptions?.[0];
         return selected?.dataset?.baseType || select?.value || "string";
@@ -301,10 +361,10 @@
         return result;
     }
 
-    function buildRootSchema(list, defs) {
+    function buildRootSchema(list, defs, metadataDefs) {
         const schema = { type: "object", properties: {} };
         Array.from(list.children).forEach(function (field) {
-            const built = buildField(field, defs);
+            const built = buildField(field, defs, metadataDefs);
             if (!built.name) {
                 return;
             }
@@ -313,7 +373,7 @@
         return schema;
     }
 
-    function buildField(field, defs) {
+    function buildField(field, defs, metadataDefs) {
         const name = field.dataset.noName === "1" ? "" : (field.querySelector(".field-name-input")?.value || "").trim();
         const required = !!field.querySelector(".field-required-input")?.checked;
         const description = (field.querySelector(".field-description-input")?.value || "").trim();
@@ -327,29 +387,30 @@
         }
         const metadata = safeJson(field.dataset.metadata || "{}");
         if (Object.keys(metadata).length > 0) {
+            addMetadataDefinitions(metadataDefs, metadata, "Field");
             definition.metadata = metadata;
         }
         Object.assign(definition, safeJson(field.dataset.validation || "{}"));
         if (definition.type === "object") {
-            const childSchema = buildRootSchema(field.querySelector(".child-fields-list"), defs);
+            const childSchema = buildRootSchema(field.querySelector(".child-fields-list"), defs, metadataDefs);
             definition.properties = childSchema.properties;
         }
         if (definition.type === "array") {
-            definition.items = buildArrayItem(field, defs);
+            definition.items = buildArrayItem(field, defs, metadataDefs);
         }
         return { name: name, definition: definition, required: required };
     }
 
-    function buildArrayItem(field, defs) {
+    function buildArrayItem(field, defs, metadataDefs) {
         const selected = field.querySelector(".array-item-type-select")?.selectedOptions?.[0];
         const item = createDefinitionFromOption(selected, defs);
         if (item.type === "object") {
-            const childSchema = buildRootSchema(field.querySelector(".array-object-fields-list"), defs);
+            const childSchema = buildRootSchema(field.querySelector(".array-object-fields-list"), defs, metadataDefs);
             item.properties = childSchema.properties;
         }
         if (item.type === "array") {
             const nested = field.querySelector(".nested-array-item-list .schema-field");
-            item.items = nested ? buildField(nested, defs).definition : { type: "string" };
+            item.items = nested ? buildField(nested, defs, metadataDefs).definition : { type: "string" };
         }
         return item;
     }
@@ -638,6 +699,8 @@
         wrapper.className = "schema-metadata-field";
         wrapper.dataset.key = key;
         wrapper.dataset.type = dataType;
+        wrapper.dataset.version = readCatalogValue(item, "version", "Version") || "1.0.0";
+        wrapper.dataset.versionComment = readCatalogValue(item, "versionComment", "VersionComment") || "";
 
         const header = document.createElement("div");
         header.className = "schema-metadata-field-header";
@@ -916,13 +979,16 @@
                 delete metadata[key];
                 return;
             }
-            metadata[key] = value;
+            metadata[key] = wrapMetadataValue(field, value);
         });
         activeMetadataField.dataset.metadata = JSON.stringify(metadata);
         closeModal("field-metadata-modal");
     }
 
     function unwrapMetadataValue(value) {
+        if (value && typeof value === "object" && value.$ref && value.value !== undefined) {
+            return value.value;
+        }
         if (value && typeof value === "object" && value.type !== undefined && value.value !== undefined) {
             return value.value;
         }
@@ -1039,5 +1105,8 @@
         return labels[key] || key;
     }
 }());
+
+
+
 
 

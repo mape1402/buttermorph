@@ -28,6 +28,8 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
                 Name = input.Name,
                 Key = input.Key,
                 Description = input.Description,
+                Version = input.Version,
+                VersionComment = input.VersionComment,
                 DataType = input.DataType,
                 IsRequired = input.IsRequired,
                 IsActive = input.IsActive,
@@ -42,14 +44,16 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             Name = input.Name.Trim(),
             Key = input.Key.Trim(),
             Description = input.Description.Trim(),
+            Version = input.Version.Trim(),
+            VersionComment = input.VersionComment.Trim(),
             DataType = input.DataType.Trim(),
-            AppliesToJson = WriteStringArray(SchemaDesignJsonTools.ReadLines(input.AppliesTo)),
+            AppliesTo = SchemaDesignJsonTools.ReadLines(input.AppliesTo),
             IsRequired = input.IsRequired,
             IsActive = input.IsActive,
-            ValidationJson = CreateValidationJson(input),
-            ChildrenDefinitionJson = input.ChildrenDefinitionJson.Trim(),
-            ArrayItemDataType = input.ArrayItemDataType.Trim(),
-            ArrayItemDefinitionJson = input.ArrayItemDefinitionJson.Trim()
+            Validation = CreateValidationMap(input),
+            ChildrenDefinition = CreateOptionalJsonElement(input.ChildrenDefinitionJson, string.Equals(input.DataType, "object", StringComparison.OrdinalIgnoreCase)),
+            ArrayItemDataType = string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase) ? input.ArrayItemDataType.Trim() : null,
+            ArrayItemDefinition = CreateOptionalJsonElement(input.ArrayItemDefinitionJson, string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase) && string.Equals(input.ArrayItemDataType, "object", StringComparison.OrdinalIgnoreCase))
         };
 
         return new FieldMetadataDesignResult
@@ -60,14 +64,16 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             Name = definition.Name,
             Key = definition.Key,
             Description = definition.Description,
+            Version = definition.Version,
+            VersionComment = definition.VersionComment,
             DataType = definition.DataType,
-            AppliesToJson = definition.AppliesToJson,
+            AppliesToJson = WriteStringArray(definition.AppliesTo),
             IsRequired = definition.IsRequired,
             IsActive = definition.IsActive,
-            ValidationJson = definition.ValidationJson,
-            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
-            ArrayItemDataType = definition.ArrayItemDataType,
-            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
+            ValidationJson = CreateValidationJson(input),
+            ChildrenDefinitionJson = string.Equals(input.DataType, "object", StringComparison.OrdinalIgnoreCase) ? input.ChildrenDefinitionJson.Trim() : string.Empty,
+            ArrayItemDataType = string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase) ? input.ArrayItemDataType.Trim() : string.Empty,
+            ArrayItemDefinitionJson = string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase) && string.Equals(input.ArrayItemDataType, "object", StringComparison.OrdinalIgnoreCase) ? input.ArrayItemDefinitionJson.Trim() : string.Empty
         };
     }
 
@@ -84,6 +90,8 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             Name = SafeString(input.Name),
             Key = SafeString(input.Key),
             Description = SafeString(input.Description),
+            Version = SafeString(input.Version),
+            VersionComment = SafeString(input.VersionComment),
             DataType = SafeString(input.DataType),
             AppliesTo = SafeString(input.AppliesTo),
             IsRequired = input.IsRequired,
@@ -131,6 +139,11 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
         if (string.IsNullOrWhiteSpace(input.DataType))
         {
             diagnostics.Add(CreateDiagnostic("BMSD203", "Metadata data type is required.", "DataType"));
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Version))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSD208", "Metadata version is required.", "Version"));
         }
 
         if (string.Equals(input.DataType, "object", StringComparison.OrdinalIgnoreCase))
@@ -195,7 +208,6 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
         writer.WriteStartObject();
-        WriteString(writer, "dataType", input.DataType);
         WriteString(writer, "minLength", input.MinLength);
         WriteString(writer, "maxLength", input.MaxLength);
         WriteString(writer, "pattern", input.Pattern);
@@ -218,6 +230,32 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
         writer.Flush();
 
         return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    // Creates validation JSON as a dictionary of JSON values.
+    private static IReadOnlyDictionary<string, JsonElement> CreateValidationMap(FieldMetadataDesignInput input)
+    {
+        string json = CreateValidationJson(input);
+        Dictionary<string, JsonElement> values = new(StringComparer.Ordinal);
+        using JsonDocument document = JsonDocument.Parse(json);
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            values[property.Name] = property.Value.Clone();
+        }
+
+        return values.Count == 0 ? null : values;
+    }
+
+    // Creates an optional JSON element when the selected shape needs it.
+    private static JsonElement CreateOptionalJsonElement(string json, bool enabled)
+    {
+        if (!enabled || string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 
     // Writes a string array JSON document.

@@ -2,6 +2,7 @@ using ButterMorph.Abstractions;
 using ButterMorph.Json.Schema;
 using ButterMorph.SchemaDesign;
 using ButterMorph.Web.Razor;
+using System.Text.Json;
 
 /// <summary>
 /// Provides playground schema designer host integration.
@@ -167,17 +168,19 @@ internal sealed class PlaygroundSchemaDesignerHost :
             DisplayName = definition.Name,
             Description = definition.Description,
             DesignerPath = "/buttermorph/metadata-fields/designer",
-            JsonSchema = definition.ValidationJson,
+            JsonSchema = SerializeButterMorphDefinition(definition),
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
             Key = definition.Key,
             DataType = definition.DataType,
-            AppliesToJson = definition.AppliesToJson,
-            ValidationJson = definition.ValidationJson,
+            VersionNumber = definition.Version,
+            VersionComment = definition.VersionComment,
+            AppliesToJson = SerializeStringArray(definition.AppliesTo),
+            ValidationJson = SerializeElementMap(definition.Validation),
             IsRequired = definition.IsRequired,
             IsActive = definition.IsActive,
-            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ChildrenDefinitionJson = SerializeElement(definition.ChildrenDefinition),
             ArrayItemDataType = definition.ArrayItemDataType,
-            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
+            ArrayItemDefinitionJson = SerializeElement(definition.ArrayItemDefinition)
         });
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerSaveResult
@@ -717,6 +720,43 @@ internal sealed class PlaygroundSchemaDesignerHost :
     private static SchemaMetadataDefinition CreatePayloadMetadataDefinition()
     {
         return new SchemaMetadataDefinition();
+    }
+
+    // Serializes the exact ButterMorph definition held by the host.
+    private static string SerializeButterMorphDefinition<T>(T definition)
+    {
+        return JsonSerializer.Serialize(definition, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+    }
+
+    // Serializes string arrays for catalog transport.
+    private static string SerializeStringArray(IReadOnlyCollection<string> values)
+    {
+        return JsonSerializer.Serialize(values ?? []);
+    }
+
+    // Serializes optional JSON element values.
+    private static string SerializeElement(System.Text.Json.JsonElement element)
+    {
+        if (element.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+        {
+            return string.Empty;
+        }
+
+        return element.GetRawText();
+    }
+
+    // Serializes JSON element maps for catalog transport.
+    private static string SerializeElementMap(IReadOnlyDictionary<string, System.Text.Json.JsonElement> values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return "{}";
+        }
+
+        return JsonSerializer.Serialize(values);
     }
 
     // Creates a system catalog item.

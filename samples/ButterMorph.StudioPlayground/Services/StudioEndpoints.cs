@@ -25,6 +25,12 @@ internal static class StudioEndpoints
     public static void MapStudioEndpoints(this WebApplication app)
     {
         app.MapGet("/api/state", (StudioStore store) => CreateState(store));
+        app.MapPost("/api/state/hydrate", async (StudioStore store, HttpRequest request) =>
+        {
+            StudioStateSnapshot snapshot = await JsonSerializer.DeserializeAsync<StudioStateSnapshot>(request.Body, JsonOptions) ?? new StudioStateSnapshot();
+            store.ReplaceFromSnapshot(snapshot);
+            return CreateState(store);
+        });
         app.MapGet("/api/{kind}/{id}", (string kind, string id, StudioStore store) => GetItem(kind, id, store));
         app.MapPost("/api/{kind}", async (string kind, StudioStore store, HttpRequest request) =>
         {

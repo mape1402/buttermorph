@@ -53,6 +53,7 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             Description = input.Description.Trim(),
             Version = input.VersionNumber.Trim(),
             BaseType = input.BaseType.Trim(),
+            Schema = ParseSchemaElement(jsonSchema),
             JsonSchema = jsonSchema,
             Comment = input.Comment
         };
@@ -70,6 +71,13 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
             JsonSchema = definition.JsonSchema,
             Comment = definition.Comment
         };
+    }
+
+    // Parses schema text into a reusable JSON element.
+    private static JsonElement ParseSchemaElement(string jsonSchema)
+    {
+        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        return document.RootElement.Clone();
     }
 
     // Normalizes model-bound string values because browser posts may omit optional fields.

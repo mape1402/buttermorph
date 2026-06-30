@@ -36,12 +36,24 @@
                     </div>
                     <div class="row g-3">
                         <div class="col-md-4">
+                            <label class="form-label">Key</label>
+                            <input class="form-control" asp-for="Input.Key" placeholder="Unique metadata key" />
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Name</label>
                             <input class="form-control" asp-for="Input.Name" placeholder="Display name" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Key</label>
-                            <input class="form-control" asp-for="Input.Key" placeholder="Unique metadata key" />
+                            <label class="form-label">Description</label>
+                            <input class="form-control" asp-for="Input.Description" placeholder="Short metadata field description" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Version</label>
+                            <input class="form-control" asp-for="Input.Version" placeholder="1.0.0" maxlength="13" />
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Version Comment</label>
+                            <input class="form-control" asp-for="Input.VersionComment" placeholder="Version change notes" maxlength="1000" />
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Data Type</label>
@@ -55,10 +67,6 @@
                                 <option value="object">object</option>
                                 <option value="array">array</option>
                             </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" asp-for="Input.Description" rows="2" placeholder="Short metadata field description"></textarea>
                         </div>
                     </div>
                 </section>

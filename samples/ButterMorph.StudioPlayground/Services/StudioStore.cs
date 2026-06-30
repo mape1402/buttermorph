@@ -75,6 +75,50 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Replaces the runtime state from browser-owned persisted state.
+    /// </summary>
+    /// <param name="snapshot">The browser state snapshot.</param>
+    public void ReplaceFromSnapshot(StudioStateSnapshot snapshot)
+    {
+        customTypes.Clear();
+        customFields.Clear();
+        schemas.Clear();
+        mappings.Clear();
+
+        foreach (StudioCustomType item in snapshot.CustomTypes)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                customTypes[item.Id] = item;
+            }
+        }
+
+        foreach (StudioCustomField item in snapshot.CustomFields)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                customFields[item.Id] = item;
+            }
+        }
+
+        foreach (StudioSchema item in snapshot.Schemas)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                schemas[item.Id] = item;
+            }
+        }
+
+        foreach (StudioMapping item in snapshot.Mappings)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                mappings[item.Id] = item;
+            }
+        }
+    }
+
+    /// <summary>
     /// Attempts to get a custom type.
     /// </summary>
     /// <param name="id">The host-owned id.</param>

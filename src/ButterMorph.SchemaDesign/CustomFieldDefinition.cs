@@ -1,5 +1,8 @@
 namespace ButterMorph.SchemaDesign;
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// Represents the clean custom field definition produced for hosts.
 /// </summary>
@@ -21,14 +24,24 @@ public sealed class CustomFieldDefinition
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the metadata field version.
+    /// </summary>
+    public string Version { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the metadata data type.
     /// </summary>
     public string DataType { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets serialized target scopes.
+    /// Gets or sets target scopes.
     /// </summary>
-    public string AppliesToJson { get; set; } = string.Empty;
+    public IReadOnlyCollection<string> AppliesTo { get; set; } = [];
 
     /// <summary>
     /// Gets or sets a value indicating whether the metadata value is required.
@@ -41,22 +54,26 @@ public sealed class CustomFieldDefinition
     public bool IsActive { get; set; }
 
     /// <summary>
-    /// Gets or sets validation JSON.
+    /// Gets or sets validation data.
     /// </summary>
-    public string ValidationJson { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public IReadOnlyDictionary<string, JsonElement> Validation { get; set; }
 
     /// <summary>
-    /// Gets or sets object children as JSON Schema text.
+    /// Gets or sets object children definition.
     /// </summary>
-    public string ChildrenDefinitionJson { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public JsonElement ChildrenDefinition { get; set; }
 
     /// <summary>
     /// Gets or sets the array item data type.
     /// </summary>
-    public string ArrayItemDataType { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public string ArrayItemDataType { get; set; }
 
     /// <summary>
-    /// Gets or sets array item definition as JSON Schema text.
+    /// Gets or sets array item definition.
     /// </summary>
-    public string ArrayItemDefinitionJson { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public JsonElement ArrayItemDefinition { get; set; }
 }

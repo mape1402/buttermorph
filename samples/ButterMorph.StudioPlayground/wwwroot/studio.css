@@ -346,6 +346,7 @@ pre {
   background: #141428;
   border-radius: 8px;
   color: #e9ebff;
+  max-height: calc(100dvh - 360px);
   min-height: 220px;
   overflow: auto;
   padding: .75rem;

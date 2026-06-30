@@ -86,6 +86,8 @@ internal static class StudioSeedData
             Key = "topic",
             Name = "Topic",
             Description = "Queue or topic name used by the host.",
+            Version = "1.0.0",
+            VersionComment = "Initial version.",
             DataType = "string",
             AppliesToJson = "[\"Schema\"]",
             IsRequired = true,
@@ -100,6 +102,8 @@ internal static class StudioSeedData
             Key = "SecurityClasification",
             Name = "Security Clasification",
             Description = "Security classification metadata for schemas and fields.",
+            Version = "1.0.0",
+            VersionComment = "Initial version.",
             DataType = "string",
             AppliesToJson = "[\"Field\"]",
             IsRequired = false,
@@ -203,15 +207,65 @@ internal static class StudioSeedData
             Key = field.Key,
             Name = field.Name,
             Description = field.Description,
+            Version = field.Version,
+            VersionComment = field.VersionComment,
             DataType = field.DataType,
-            AppliesToJson = field.AppliesToJson,
+            AppliesTo = ReadStringArray(field.AppliesToJson),
             IsRequired = field.IsRequired,
             IsActive = field.IsActive,
-            ValidationJson = field.ValidationJson,
-            ChildrenDefinitionJson = field.ChildrenDefinitionJson,
+            Validation = ReadElementMap(field.ValidationJson),
+            ChildrenDefinition = ReadElement(field.ChildrenDefinitionJson),
             ArrayItemDataType = field.ArrayItemDataType,
-            ArrayItemDefinitionJson = field.ArrayItemDefinitionJson
+            ArrayItemDefinition = ReadElement(field.ArrayItemDefinitionJson)
         };
+    }
+
+    // Reads string arrays from compact JSON.
+    private static IReadOnlyCollection<string> ReadStringArray(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        List<string> values = [];
+        foreach (JsonElement element in document.RootElement.EnumerateArray())
+        {
+            values.Add(element.GetString());
+        }
+
+        return values;
+    }
+
+    // Reads a JSON element map.
+    private static IReadOnlyDictionary<string, JsonElement> ReadElementMap(string json)
+    {
+        Dictionary<string, JsonElement> values = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return values;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+        {
+            values[property.Name] = property.Value.Clone();
+        }
+
+        return values;
+    }
+
+    // Reads an optional JSON element.
+    private static JsonElement ReadElement(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 
     // Serializes the exact ButterMorph result object held by the host.

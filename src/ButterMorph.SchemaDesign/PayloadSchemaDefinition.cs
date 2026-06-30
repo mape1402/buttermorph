@@ -53,4 +53,10 @@ public sealed class PayloadSchemaDefinition
     /// </summary>
     [JsonPropertyName("$defs")]
     public IReadOnlyDictionary<string, JsonElement> Definitions { get; set; } = new Dictionary<string, JsonElement>();
+
+    /// <summary>
+    /// Gets or sets reusable metadata field definitions.
+    /// </summary>
+    [JsonPropertyName("$metadataDefs")]
+    public IReadOnlyDictionary<string, JsonElement> MetadataDefinitions { get; set; } = new Dictionary<string, JsonElement>();
 }

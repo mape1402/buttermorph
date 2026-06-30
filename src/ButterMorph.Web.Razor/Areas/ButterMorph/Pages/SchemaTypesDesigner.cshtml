@@ -55,6 +55,10 @@
                         <label class="form-label">Version</label>
                         <input class="form-control" asp-for="Input.VersionNumber" placeholder="1.0.0" maxlength="13" required />
                     </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Version Comment</label>
+                        <input class="form-control" asp-for="Input.Comment" placeholder="Version change notes" maxlength="1000" />
+                    </div>
                     <div class="col-md-3">
                         <label class="form-label">Base Type</label>
                         <select id="type-base-select" class="form-control" asp-for="Input.BaseType">
@@ -65,10 +69,6 @@
                             <option value="object">object</option>
                             <option value="array">array</option>
                         </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Version Comment</label>
-                        <input class="form-control" asp-for="Input.Comment" placeholder="Version change notes" maxlength="1000" />
                     </div>
                 </section>
 

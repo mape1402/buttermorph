@@ -26,19 +26,20 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
     /// <inheritdoc />
     public PayloadSchemaDesignResult Build(PayloadSchemaDesignInput input, IReadOnlyCollection<PayloadSchemaField> fields, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields)
     {
-        input.JsonSchema = CreateBody(fields, schemaTypes);
+        input.JsonSchema = CreateBody(fields, schemaTypes, metadataFields);
         return payloadSchemaBuilder.Build(input, schemaTypes, metadataFields);
     }
 
     // Creates the schema body consumed by PayloadSchemaBuilder.
-    private static string CreateBody(IReadOnlyCollection<PayloadSchemaField> fields, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes)
+    private static string CreateBody(IReadOnlyCollection<PayloadSchemaField> fields, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields)
     {
         Dictionary<string, JsonElement> definitions = new(StringComparer.Ordinal);
+        Dictionary<string, JsonElement> metadataDefinitions = new(StringComparer.Ordinal);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
         writer.WriteStartObject();
         writer.WriteString("type", MapType);
-        WriteProperties(writer, fields, schemaTypes, definitions);
+        WriteProperties(writer, fields, schemaTypes, metadataFields, definitions, metadataDefinitions);
         if (definitions.Count > 0)
         {
             writer.WritePropertyName("$defs");
@@ -52,13 +53,26 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
             writer.WriteEndObject();
         }
 
+        if (metadataDefinitions.Count > 0)
+        {
+            writer.WritePropertyName("$metadataDefs");
+            writer.WriteStartObject();
+            foreach (KeyValuePair<string, JsonElement> definition in metadataDefinitions)
+            {
+                writer.WritePropertyName(definition.Key);
+                definition.Value.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
         writer.WriteEndObject();
         writer.Flush();
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     // Writes object properties.
-    private static void WriteProperties(Utf8JsonWriter writer, IReadOnlyCollection<PayloadSchemaField> fields, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, Dictionary<string, JsonElement> definitions)
+    private static void WriteProperties(Utf8JsonWriter writer, IReadOnlyCollection<PayloadSchemaField> fields, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, Dictionary<string, JsonElement> definitions, Dictionary<string, JsonElement> metadataDefinitions)
     {
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
@@ -70,14 +84,14 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
             }
 
             writer.WritePropertyName(field.Name.Trim());
-            WriteFieldDefinition(writer, field, schemaTypes, definitions);
+            WriteFieldDefinition(writer, field, schemaTypes, metadataFields, definitions, metadataDefinitions);
         }
 
         writer.WriteEndObject();
     }
 
     // Writes one field definition.
-    private static void WriteFieldDefinition(Utf8JsonWriter writer, PayloadSchemaField field, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, Dictionary<string, JsonElement> definitions)
+    private static void WriteFieldDefinition(Utf8JsonWriter writer, PayloadSchemaField field, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, Dictionary<string, JsonElement> definitions, Dictionary<string, JsonElement> metadataDefinitions)
     {
         writer.WriteStartObject();
         SchemaTypeCatalogItem customType = FindType(field.CustomTypeVersionId, schemaTypes);
@@ -102,24 +116,24 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
             writer.WriteBoolean("required", true);
         }
 
-        WriteMetadata(writer, field.Metadata);
+        WriteMetadata(writer, field.Metadata, metadataFields, metadataDefinitions);
         WriteValidation(writer, field.Validation);
         if (string.Equals(ResolveDataType(field.DataType), MapType, StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(customType.TypeVersionId))
         {
-            WriteProperties(writer, field.Children, schemaTypes, definitions);
+            WriteProperties(writer, field.Children, schemaTypes, metadataFields, definitions, metadataDefinitions);
         }
 
         if (string.Equals(ResolveDataType(field.DataType), "array", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(customType.TypeVersionId))
         {
             writer.WritePropertyName("items");
-            WriteFieldDefinition(writer, field.ArrayItem ?? new PayloadSchemaField { DataType = "string" }, schemaTypes, definitions);
+            WriteFieldDefinition(writer, field.ArrayItem ?? new PayloadSchemaField { DataType = "string" }, schemaTypes, metadataFields, definitions, metadataDefinitions);
         }
 
         writer.WriteEndObject();
     }
 
     // Writes metadata values.
-    private static void WriteMetadata(Utf8JsonWriter writer, IReadOnlyDictionary<string, string> metadata)
+    private static void WriteMetadata(Utf8JsonWriter writer, IReadOnlyDictionary<string, string> metadata, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, Dictionary<string, JsonElement> metadataDefinitions)
     {
         if (metadata == null || metadata.Count == 0)
         {
@@ -130,10 +144,102 @@ public sealed class PayloadSchemaDefinitionBuilder : IPayloadSchemaDefinitionBui
         writer.WriteStartObject();
         foreach (KeyValuePair<string, string> pair in metadata)
         {
-            writer.WriteString(pair.Key, pair.Value);
+            FieldMetadataCatalogItem metadataField = FindMetadataField(pair.Key, metadataFields);
+            if (string.IsNullOrWhiteSpace(metadataField.Key))
+            {
+                writer.WriteString(pair.Key, pair.Value);
+                continue;
+            }
+
+            string definitionKey = ResolveMetadataDefinitionKey(metadataField);
+            AddMetadataDefinition(definitionKey, metadataField, metadataDefinitions);
+            writer.WritePropertyName(pair.Key);
+            writer.WriteStartObject();
+            writer.WriteString("$ref", "#/$metadataDefs/" + definitionKey);
+            writer.WriteString("value", pair.Value);
+            writer.WriteEndObject();
         }
 
         writer.WriteEndObject();
+    }
+
+    // Finds one metadata field by key.
+    private static FieldMetadataCatalogItem FindMetadataField(string key, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields)
+    {
+        foreach (FieldMetadataCatalogItem item in metadataFields)
+        {
+            if (string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                return item;
+            }
+        }
+
+        return new FieldMetadataCatalogItem();
+    }
+
+    // Adds one metadata definition once.
+    private static void AddMetadataDefinition(string definitionKey, FieldMetadataCatalogItem item, Dictionary<string, JsonElement> metadataDefinitions)
+    {
+        if (metadataDefinitions.ContainsKey(definitionKey))
+        {
+            return;
+        }
+
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
+        writer.WriteStartObject();
+        writer.WriteString("key", item.Key);
+        writer.WriteString("name", item.Name);
+        if (!string.IsNullOrWhiteSpace(item.Description))
+        {
+            writer.WriteString("description", item.Description);
+        }
+
+        writer.WriteString("version", ResolveValue(item.Version, "1.0.0"));
+        if (!string.IsNullOrWhiteSpace(item.VersionComment))
+        {
+            writer.WriteString("versionComment", item.VersionComment);
+        }
+
+        writer.WriteString("dataType", item.DataType);
+        WriteJsonProperty(writer, "validation", item.Validation);
+        WriteJsonProperty(writer, "children", item.ChildrenDefinitionJson);
+        if (!string.IsNullOrWhiteSpace(item.ArrayItemDataType))
+        {
+            writer.WriteString("arrayItemDataType", item.ArrayItemDataType);
+        }
+
+        WriteJsonProperty(writer, "arrayItem", item.ArrayItemDefinitionJson);
+        writer.WriteEndObject();
+        writer.Flush();
+
+        using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(stream.ToArray()));
+        metadataDefinitions[definitionKey] = document.RootElement.Clone();
+    }
+
+    // Writes optional raw JSON property.
+    private static void WriteJsonProperty(Utf8JsonWriter writer, string propertyName, string json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "{}", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        writer.WritePropertyName(propertyName);
+        document.RootElement.WriteTo(writer);
+    }
+
+    // Resolves a metadata definition key.
+    private static string ResolveMetadataDefinitionKey(FieldMetadataCatalogItem item)
+    {
+        return item.Key.Trim() + "@" + ResolveValue(item.Version, "1.0.0").Trim();
+    }
+
+    // Resolves a string value.
+    private static string ResolveValue(string value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     // Writes validation keywords.

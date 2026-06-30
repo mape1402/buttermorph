@@ -101,7 +101,8 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             Metadata = ReadElementMap(root, "metadata"),
             Type = ReadString(root, "type"),
             Properties = ReadElementMap(root, "properties"),
-            Definitions = ReadElementMap(root, "$defs")
+            Definitions = ReadElementMap(root, "$defs"),
+            MetadataDefinitions = ReadElementMap(root, "$metadataDefs")
         };
     }
 

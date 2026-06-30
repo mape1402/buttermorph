@@ -347,6 +347,13 @@
             errors.push((field.name || field.key) + " is required.");
         }
 
+        if (field.version) {
+            return {
+                $ref: "#/$metadataDefs/" + field.key + "@" + field.version,
+                value: value
+            };
+        }
+
         return {
             type: type,
             value: value
@@ -422,6 +429,9 @@
 
     function readValueNode(key) {
         const existing = currentMetadata[key];
+        if (existing && typeof existing === "object" && existing.$ref && existing.value !== undefined) {
+            return existing;
+        }
         if (existing && typeof existing === "object" && existing.type !== undefined) {
             return existing;
         }
@@ -430,6 +440,9 @@
     }
 
     function normalizeExistingValue(field, value) {
+        if (value && typeof value === "object" && value.$ref && value.value !== undefined) {
+            return value;
+        }
         if (value && typeof value === "object" && value.type !== undefined && value.value !== undefined) {
             return value;
         }
@@ -525,6 +538,8 @@
             key: field.key || field.Key || "",
             name: field.name || field.Name || field.key || field.Key || "",
             description: field.description || field.Description || "",
+            version: field.version || field.Version || "",
+            versionComment: field.versionComment || field.VersionComment || "",
             dataType: normalizeType(field.dataType || field.DataType || "String"),
             isRequired: field.isRequired === true || field.IsRequired === true,
             defaultValue: field.defaultValue || field.DefaultValue || "",
@@ -601,6 +616,7 @@
             .replace(/"/g, "&quot;");
     }
 }());
+
 
 
 

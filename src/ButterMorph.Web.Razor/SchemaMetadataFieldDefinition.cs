@@ -21,6 +21,16 @@ public sealed class SchemaMetadataFieldDefinition
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the metadata definition version.
+    /// </summary>
+    public string Version { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// Gets or sets the metadata definition version comment.
+    /// </summary>
+    public string VersionComment { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the metadata data type.
     /// </summary>
     public SchemaMetadataDataType DataType { get; set; } = SchemaMetadataDataType.String;

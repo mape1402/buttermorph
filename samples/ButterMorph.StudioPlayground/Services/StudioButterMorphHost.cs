@@ -164,14 +164,16 @@ internal sealed class StudioButterMorphHost :
             Key = definition.Key,
             Name = definition.Name,
             Description = definition.Description,
+            Version = definition.Version,
+            VersionComment = definition.VersionComment,
             DataType = definition.DataType,
-            AppliesToJson = definition.AppliesToJson,
+            AppliesToJson = SerializeStringArray(definition.AppliesTo),
             IsRequired = definition.IsRequired,
             IsActive = definition.IsActive,
-            ValidationJson = definition.ValidationJson,
-            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ValidationJson = SerializeElementMap(definition.Validation),
+            ChildrenDefinitionJson = SerializeElement(definition.ChildrenDefinition),
             ArrayItemDataType = definition.ArrayItemDataType,
-            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson,
+            ArrayItemDefinitionJson = SerializeElement(definition.ArrayItemDefinition),
             ButterMorphResultJson = SerializeButterMorphDefinition(definition)
         });
 
@@ -300,6 +302,8 @@ internal sealed class StudioButterMorphHost :
                 Key = item.Key,
                 Name = item.Name,
                 Description = item.Description,
+                Version = item.Version,
+                VersionComment = item.VersionComment,
                 DataType = item.DataType,
                 IsRequired = item.IsRequired,
                 Validation = item.ValidationJson,
@@ -343,16 +347,18 @@ internal sealed class StudioButterMorphHost :
             Name = definition.Name,
             Key = definition.Key,
             Description = definition.Description,
+            Version = definition.Version,
+            VersionComment = definition.VersionComment,
             DataType = definition.DataType,
-            AppliesTo = ConvertJsonArrayToLines(definition.AppliesToJson),
+            AppliesTo = string.Join(Environment.NewLine, definition.AppliesTo),
             IsRequired = definition.IsRequired,
             IsActive = definition.IsActive,
-            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ChildrenDefinitionJson = SerializeElement(definition.ChildrenDefinition),
             ArrayItemDataType = definition.ArrayItemDataType,
-            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
+            ArrayItemDefinitionJson = SerializeElement(definition.ArrayItemDefinition)
         };
 
-        ApplyValidation(input, definition.ValidationJson);
+        ApplyValidation(input, SerializeElementMap(definition.Validation));
         return input;
     }
 
@@ -378,15 +384,125 @@ internal sealed class StudioButterMorphHost :
             Key = item.Key,
             Name = item.Name,
             Description = item.Description,
+            Version = item.Version,
+            VersionComment = item.VersionComment,
             DataType = item.DataType,
-            AppliesToJson = item.AppliesToJson,
+            AppliesTo = ReadStringArray(item.AppliesToJson),
             IsRequired = item.IsRequired,
             IsActive = item.IsActive,
-            ValidationJson = item.ValidationJson,
-            ChildrenDefinitionJson = item.ChildrenDefinitionJson,
+            Validation = ReadElementMap(item.ValidationJson),
+            ChildrenDefinition = ReadElement(item.ChildrenDefinitionJson),
             ArrayItemDataType = item.ArrayItemDataType,
-            ArrayItemDefinitionJson = item.ArrayItemDefinitionJson
+            ArrayItemDefinition = ReadElement(item.ArrayItemDefinitionJson)
         };
+    }
+
+    private static string SerializeStringArray(IReadOnlyCollection<string> values)
+    {
+        return JsonSerializer.Serialize(values ?? []);
+    }
+
+    private static string SerializeElement(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Undefined)
+        {
+            return string.Empty;
+        }
+
+        return element.GetRawText();
+    }
+
+    private static string SerializeElementMap(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return "{}";
+        }
+
+        return JsonSerializer.Serialize(values, ResultJsonOptions);
+    }
+
+    private static IReadOnlyCollection<string> ReadStringArray(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            List<string> values = [];
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.String)
+                {
+                    values.Add(element.GetString());
+                }
+                else
+                {
+                    values.Add(element.ToString());
+                }
+            }
+
+            return values;
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static IReadOnlyDictionary<string, JsonElement> ReadElementMap(string json)
+    {
+        Dictionary<string, JsonElement> values = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return values;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return values;
+            }
+
+            foreach (JsonProperty property in document.RootElement.EnumerateObject())
+            {
+                values[property.Name] = property.Value.Clone();
+            }
+        }
+        catch (JsonException)
+        {
+            return values;
+        }
+
+        return values;
+    }
+
+    private static JsonElement ReadElement(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return default;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            return document.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
     }
 
     private static string ConvertJsonArrayToLines(string json)

@@ -1,5 +1,6 @@
 namespace ButterMorph.UnitTests;
 
+using System.Text.Json;
 using ButterMorph.Abstractions;
 using ButterMorph.Json.Schema;
 using ButterMorph.SchemaDesign;
@@ -148,7 +149,10 @@ public sealed class SchemaDesignSessionTests
 
         Assert.True(result.Succeeded);
         Assert.Contains("\"allowedValues\":[\"Internal\",\"Public\"]", result.ValidationJson, StringComparison.Ordinal);
-        Assert.Contains("\"allowedValues\":[\"Internal\",\"Public\"]", result.Definition.ValidationJson, StringComparison.Ordinal);
+        Assert.True(result.Definition.Validation.ContainsKey("allowedValues"));
+        Assert.Equal(JsonValueKind.Array, result.Definition.Validation["allowedValues"].ValueKind);
+        Assert.Contains("Schema", result.Definition.AppliesTo);
+        Assert.Contains("Field", result.Definition.AppliesTo);
         Assert.Contains("\"Schema\"", result.AppliesToJson, StringComparison.Ordinal);
     }
 

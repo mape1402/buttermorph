@@ -335,6 +335,8 @@ public sealed class PayloadSchemaDesignerModel : PageModel
                 Key = item.Key,
                 Name = item.Name,
                 Description = item.Description,
+                Version = string.IsNullOrWhiteSpace(item.Version) ? "1.0.0" : item.Version,
+                VersionComment = item.VersionComment,
                 DataType = ConvertMetadataDataType(item.DataType),
                 IsRequired = item.IsRequired,
                 AllowedValues = ReadAllowedValues(item.Validation),

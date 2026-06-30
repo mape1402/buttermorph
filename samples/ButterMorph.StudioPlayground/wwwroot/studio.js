@@ -1,4 +1,5 @@
-﻿(() => {
+(() => {
+  const storageKey = "ButterMorph.StudioPlayground.State";
   let state = { customTypes: [], customFields: [], schemas: [], mappings: [] };
   let selected = { customTypes: "", customFields: "", schemas: "", mappings: "" };
 
@@ -23,23 +24,64 @@
     const type = event.data.type || "";
     if (type.startsWith("ButterMorph")) {
       selectSavedItem(type, event.data.contextKey || "");
-      loadState();
+      reloadStateFromBackend();
     }
   });
 
   loadState();
 
   async function loadState() {
+    const persisted = readPersistedState();
+    if (persisted) {
+      state = persisted;
+      await syncStateToBackend();
+      renderAll();
+      return;
+    }
+
     const response = await fetch("/api/state", { cache: "no-store" });
     state = await response.json();
+    persistState();
     renderAll();
+  }
+
+  async function reloadStateFromBackend() {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    state = await response.json();
+    persistState();
+    renderAll();
+  }
+
+  function readPersistedState() {
+    try {
+      const json = localStorage.getItem(storageKey);
+      if (!json) {
+        return null;
+      }
+      const parsed = JSON.parse(json);
+      return parsed && Array.isArray(parsed.customTypes) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function persistState() {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }
+
+  async function syncStateToBackend() {
+    await fetch("/api/state/hydrate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state)
+    });
   }
 
   function renderAll() {
     renderMetrics();
-    renderCrud("customTypes", "Custom Type", item => item.name || item.key, item => item.baseType + " Â· " + item.version);
-    renderCrud("customFields", "Custom Field", item => item.name || item.key, item => item.dataType + " Â· " + item.appliesToJson);
-    renderCrud("schemas", "Schema", item => item.name || item.key, item => item.key + " Â· " + item.version);
+    renderCrud("customTypes", "Custom Type", item => item.name || item.key, item => item.baseType + " · " + item.version);
+    renderCrud("customFields", "Custom Field", item => item.name || item.key, item => item.dataType + " · " + item.appliesToJson);
+    renderCrud("schemas", "Schema", item => item.name || item.key, item => item.key + " · " + item.version);
     renderCrud("mappings", "Mapping", item => item.name || item.id, item => item.targetSchemaId || "No target selected");
     renderExecutionPicker();
   }
@@ -177,10 +219,11 @@
     });
     const created = await response.json();
     selected[kind] = created.id;
-    await loadState();
+    await reloadStateFromBackend();
   }
 
-  function openDesigner(route, id, mode, extraQuery) {
+  async function openDesigner(route, id, mode, extraQuery) {
+    await syncStateToBackend();
     const modeQuery = mode ? `&mode=${encodeURIComponent(mode)}` : "";
     const injectionQuery = extraQuery || "";
     const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
@@ -194,7 +237,7 @@
       <div class="studio-modal">
         <div class="studio-modal-header">
           <strong>New Schema Setup</strong>
-          <button type="button" data-close-schema-setup>×</button>
+          <button type="button" data-close-schema-setup>&times;</button>
         </div>
         <p class="studio-modal-help">Choose the custom types and custom fields that ButterMorph will receive for this schema designer session.</p>
         <div class="injection-grid setup-injection-grid">
@@ -250,7 +293,7 @@
   async function deleteItem(kind, id) {
     await fetch(`/api/${kind}/${encodeURIComponent(id)}`, { method: "DELETE" });
     selected[kind] = "";
-    await loadState();
+    await reloadStateFromBackend();
   }
 
   async function saveInjection(id) {
@@ -261,7 +304,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customTypeKeys: typeKeys, customFieldKeys: fieldKeys })
     });
-    await loadState();
+    await reloadStateFromBackend();
   }
 
   async function saveMappingSettings(id) {
@@ -274,7 +317,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, targetSchemaId: targetSchema, sourceSchemaIds: { [alias]: sourceSchema } })
     });
-    await loadState();
+    await reloadStateFromBackend();
   }
 
   function renderExecutionPicker() {
@@ -335,4 +378,7 @@
     return escapeHtml(value);
   }
 })();
+
+
+
 
