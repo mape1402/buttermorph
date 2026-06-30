@@ -46,17 +46,29 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
 
         string jsonSchema = CreateSchema(input, catalog);
 
+        SchemaTypeDefinition definition = new()
+        {
+            Key = input.Key.Trim(),
+            Name = input.Name.Trim(),
+            Description = input.Description.Trim(),
+            Version = input.VersionNumber.Trim(),
+            BaseType = input.BaseType.Trim(),
+            JsonSchema = jsonSchema,
+            Comment = input.Comment
+        };
+
         return new SchemaTypeDesignResult
         {
             Succeeded = true,
             Diagnostics = [],
-            Key = input.Key.Trim(),
-            Name = input.Name.Trim(),
-            Description = input.Description.Trim(),
-            VersionNumber = input.VersionNumber.Trim(),
-            BaseType = input.BaseType.Trim(),
-            JsonSchema = jsonSchema,
-            Comment = input.Comment
+            Definition = definition,
+            Key = definition.Key,
+            Name = definition.Name,
+            Description = definition.Description,
+            VersionNumber = definition.Version,
+            BaseType = definition.BaseType,
+            JsonSchema = definition.JsonSchema,
+            Comment = definition.Comment
         };
     }
 
@@ -295,12 +307,16 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
 
         if (!string.IsNullOrWhiteSpace(catalogItem.TypeVersionId) && !string.IsNullOrWhiteSpace(catalogItem.JsonSchema))
         {
-            string definitionKey = ResolveDefinitionKey(catalogItem);
+            Dictionary<string, JsonElement> definitions = [];
+            AddDefinition(ResolveDefinitionKey(catalogItem), catalogItem.JsonSchema, definitions);
             writer.WritePropertyName("$defs");
             writer.WriteStartObject();
-            writer.WritePropertyName(definitionKey);
-            using JsonDocument document = JsonDocument.Parse(catalogItem.JsonSchema);
-            document.RootElement.WriteTo(writer);
+            foreach (KeyValuePair<string, JsonElement> definition in definitions)
+            {
+                writer.WritePropertyName(definition.Key);
+                WriteDefinitionBody(writer, definition.Value);
+            }
+
             writer.WriteEndObject();
         }
     }
@@ -357,6 +373,48 @@ public sealed class SchemaTypeSchemaBuilder : ISchemaTypeSchemaBuilder
         }
 
         return catalogItem.TypeVersionId.Trim();
+    }
+
+    // Adds one definition and any nested definitions it contains.
+    private static void AddDefinition(string definitionKey, string jsonSchema, Dictionary<string, JsonElement> definitions)
+    {
+        if (definitions.ContainsKey(definitionKey) || string.IsNullOrWhiteSpace(jsonSchema))
+        {
+            return;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        definitions[definitionKey] = document.RootElement.Clone();
+        if (!document.RootElement.TryGetProperty("$defs", out JsonElement defs) ||
+            defs.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        foreach (JsonProperty definition in defs.EnumerateObject())
+        {
+            if (!definitions.ContainsKey(definition.Name))
+            {
+                definitions[definition.Name] = definition.Value.Clone();
+            }
+        }
+    }
+
+    // Writes one definition without carrying nested $defs into the current definition.
+    private static void WriteDefinitionBody(Utf8JsonWriter writer, JsonElement definition)
+    {
+        writer.WriteStartObject();
+        foreach (JsonProperty property in definition.EnumerateObject())
+        {
+            if (string.Equals(property.Name, "$defs", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            property.WriteTo(writer);
+        }
+
+        writer.WriteEndObject();
     }
 
     // Resolves the array item base type.

@@ -542,11 +542,10 @@
         }
         host.innerHTML = "";
         const schema = readJson(json, {});
-        const required = Array.isArray(schema.required) ? schema.required : [];
         const properties = schema.properties || {};
         Object.keys(properties).forEach(function (key) {
             const definition = properties[key] || {};
-            host.appendChild(createDefinitionRow(key, definition.type || "string", definition.description || "", required.includes(key) || definition.required === true, definition));
+            host.appendChild(createDefinitionRow(key, definition.type || "string", definition.description || "", definition.required === true, definition));
         });
     }
 
@@ -581,7 +580,6 @@
 
     function buildDefinition(host) {
         const schema = { type: "object", properties: {} };
-        const required = [];
         if (!host) {
             return schema;
         }
@@ -593,13 +591,9 @@
             const definition = buildRowDefinition(row);
             if (row.querySelector(".metadata-definition-required-input")?.checked) {
                 definition.required = true;
-                required.push(key);
             }
             schema.properties[key] = definition;
         });
-        if (required.length > 0) {
-            schema.required = required;
-        }
         return schema;
     }
 
@@ -614,9 +608,6 @@
         if (type === "object") {
             const childSchema = buildDefinition(row.querySelector(".metadata-definition-nested"));
             definition.properties = childSchema.properties;
-            if (childSchema.required) {
-                definition.required = childSchema.required;
-            }
         }
         if (type === "array") {
             const itemType = row.querySelector(".metadata-definition-array-type")?.value || "string";
@@ -624,9 +615,6 @@
             if (itemType === "object") {
                 const itemSchema = buildDefinition(row.querySelector(".metadata-definition-array-children"));
                 definition.items.properties = itemSchema.properties;
-                if (itemSchema.required) {
-                    definition.items.required = itemSchema.required;
-                }
             }
         }
         return definition;

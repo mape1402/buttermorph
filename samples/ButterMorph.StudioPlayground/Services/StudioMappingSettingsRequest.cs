@@ -13,10 +13,10 @@ internal sealed class StudioMappingSettingsRequest
     /// <summary>
     /// Gets or sets source schema context keys by alias.
     /// </summary>
-    public Dictionary<string, string> SourceSchemaKeys { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SourceSchemaIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets or sets the target schema context key.
     /// </summary>
-    public string TargetSchemaKey { get; set; } = string.Empty;
+    public string TargetSchemaId { get; set; } = string.Empty;
 }

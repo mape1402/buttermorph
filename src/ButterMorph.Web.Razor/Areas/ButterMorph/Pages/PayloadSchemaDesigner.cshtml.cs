@@ -224,7 +224,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             saveResult = await host.Save(new ButterMorphPayloadSchemaDesignerSaveRequest
             {
                 ContextKey = ResolveContextKey(),
-                Result = result
+                Definition = result.Definition
             });
             break;
         }
@@ -305,11 +305,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     // Refreshes serialized catalogs.
     private void RefreshCatalogs()
     {
-        if (SchemaTypes.Count == 0)
-        {
-            SchemaTypes = CreateDefaultCatalog();
-        }
-
+        SchemaTypes = MergeSchemaTypeCatalog(CreateDefaultCatalog(), SchemaTypes);
         MetadataDefinition = MergeMetadataDefinitions(MetadataDefinition, CreateMetadataDefinitionFromCatalog(MetadataFields, "Schema"));
 
         SchemaTypeCatalogJson = JsonSerializer.Serialize(SchemaTypes);
@@ -473,10 +469,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             return children;
         }
 
-        HashSet<string> required = ReadRequiredNames(schema);
         foreach (JsonProperty property in properties.EnumerateObject())
         {
-            children.Add(ReadMetadataField(property.Name, property.Value, required.Contains(property.Name)));
+            children.Add(ReadMetadataField(property.Name, property.Value, false));
         }
 
         return children;
@@ -536,27 +531,6 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         }
 
         return item;
-    }
-
-    // Reads required property names from a JSON Schema element.
-    private static HashSet<string> ReadRequiredNames(JsonElement schema)
-    {
-        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
-        if (!schema.TryGetProperty("required", out JsonElement required) ||
-            required.ValueKind != JsonValueKind.Array)
-        {
-            return names;
-        }
-
-        foreach (JsonElement element in required.EnumerateArray())
-        {
-            if (element.ValueKind == JsonValueKind.String)
-            {
-                names.Add(element.GetString() ?? string.Empty);
-            }
-        }
-
-        return names;
     }
 
     // Reads a string property from JSON.
@@ -694,6 +668,31 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             CreateCatalogItem("obj" + "ect"),
             CreateCatalogItem("array")
         ];
+    }
+
+    // Combines system types with host-injected custom types.
+    private static IReadOnlyCollection<SchemaTypeCatalogItem> MergeSchemaTypeCatalog(IReadOnlyCollection<SchemaTypeCatalogItem> systemTypes, IReadOnlyCollection<SchemaTypeCatalogItem> customTypes)
+    {
+        Dictionary<string, SchemaTypeCatalogItem> catalog = new(StringComparer.OrdinalIgnoreCase);
+        foreach (SchemaTypeCatalogItem item in systemTypes)
+        {
+            catalog[item.Name] = item;
+        }
+
+        foreach (SchemaTypeCatalogItem item in customTypes)
+        {
+            if (string.IsNullOrWhiteSpace(item.Name) || string.IsNullOrWhiteSpace(item.JsonSchema))
+            {
+                continue;
+            }
+
+            string key = string.IsNullOrWhiteSpace(item.TypeVersionId)
+                ? item.Name
+                : item.TypeVersionId;
+            catalog[key] = item;
+        }
+
+        return catalog.Values.ToArray();
     }
 
     // Creates a system catalog item.

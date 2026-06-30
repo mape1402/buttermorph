@@ -60,6 +60,29 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
     }
 
     /// <summary>
+    /// Confirms the visible Studio payload is the clean ButterMorph definition.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Theory]
+    [InlineData("customTypes", "3d56346a-934c-414c-8659-8bc203e021c4")]
+    [InlineData("customFields", "field-topic")]
+    [InlineData("schemas", "schema-customer-profile")]
+    public async Task StudioVisibleDefinitionDoesNotExposeOperationalOrHostFields(string kind, string id)
+    {
+        HttpClient client = factory.CreateClient();
+
+        string json = await client.GetStringAsync("/api/" + kind + "/" + id);
+        using JsonDocument document = JsonDocument.Parse(json);
+        string visible = document.RootElement.GetProperty("butterMorphResultJson").GetString();
+
+        Assert.Contains("\"key\"", visible, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"id\"", visible, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"savedAt\"", visible, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"succeeded\"", visible, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"diagnostics\"", visible, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Confirms seeded mapping execution returns output JSON.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -99,5 +122,43 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("3d56346a-934c-414c-8659-8bc203e021c4", json, StringComparison.Ordinal);
         Assert.Contains("field-topic", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms schema tooling create requests only reserve host ids until ButterMorph saves.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Theory]
+    [InlineData("customTypes")]
+    [InlineData("customFields")]
+    [InlineData("schemas")]
+    public async Task StudioSchemaToolCreateDoesNotPersistBeforeDesignerSave(string kind)
+    {
+        HttpClient client = factory.CreateClient();
+        string id = kind + "-unsaved-test";
+        using StringContent content = new("{\"id\":\"" + id + "\",\"name\":\"Unsaved Item\"}", Encoding.UTF8, "application/json");
+
+        HttpResponseMessage createResponse = await client.PostAsync("/api/" + kind, content);
+        HttpResponseMessage itemResponse = await client.GetAsync("/api/" + kind + "/" + id);
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, itemResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms mapping create persists because mappings are configured by the host.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioMappingCreatePersistsHostItem()
+    {
+        HttpClient client = factory.CreateClient();
+        using StringContent content = new("{\"id\":\"mapping-unsaved-test\",\"name\":\"Host Mapping\"}", Encoding.UTF8, "application/json");
+
+        HttpResponseMessage createResponse = await client.PostAsync("/api/mappings", content);
+        HttpResponseMessage itemResponse = await client.GetAsync("/api/mappings/mapping-unsaved-test");
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, itemResponse.StatusCode);
     }
 }

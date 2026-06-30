@@ -146,7 +146,7 @@ public sealed class SchemaTypesDesignerModel : PageModel
             saveResult = await host.Save(new ButterMorphSchemaTypeDesignerSaveRequest
             {
                 ContextKey = ResolveContextKey(),
-                Result = result
+                Definition = result.Definition
             });
             break;
         }

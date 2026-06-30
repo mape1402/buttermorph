@@ -13,7 +13,7 @@ public sealed class ButterMorphFieldMetadataDesignerSaveRequest
     public string ContextKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the field metadata design result.
+    /// Gets or sets the clean custom field definition.
     /// </summary>
-    public FieldMetadataDesignResult Result { get; set; } = new();
+    public CustomFieldDefinition Definition { get; set; } = new();
 }

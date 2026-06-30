@@ -105,20 +105,21 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The save result.</returns>
     public Task<ButterMorphSchemaTypeDesignerSaveResult> Save(ButterMorphSchemaTypeDesignerSaveRequest request)
     {
+        SchemaTypeDefinition definition = request.Definition;
         store.Save(new PlaygroundSchemaSave
         {
             ContextKey = request.ContextKey,
             Kind = "type",
-            Key = request.Result.Key,
-            DisplayName = request.Result.Name,
-            Description = request.Result.Description,
+            Key = definition.Key,
+            DisplayName = definition.Name,
+            Description = definition.Description,
             DesignerPath = "/buttermorph/schema-types/designer",
-            JsonSchema = request.Result.JsonSchema,
+            JsonSchema = definition.JsonSchema,
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
-            VersionNumber = request.Result.VersionNumber,
-            BaseType = request.Result.BaseType,
-            Comment = request.Result.Comment,
-            VersionComment = request.Result.Comment
+            VersionNumber = definition.Version,
+            BaseType = definition.BaseType,
+            Comment = definition.Comment,
+            VersionComment = definition.Comment
         });
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerSaveResult
@@ -158,24 +159,25 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The save result.</returns>
     public Task<ButterMorphFieldMetadataDesignerSaveResult> Save(ButterMorphFieldMetadataDesignerSaveRequest request)
     {
+        CustomFieldDefinition definition = request.Definition;
         store.Save(new PlaygroundSchemaSave
         {
             ContextKey = request.ContextKey,
             Kind = "field",
-            DisplayName = request.Result.Name,
-            Description = request.Result.Description,
+            DisplayName = definition.Name,
+            Description = definition.Description,
             DesignerPath = "/buttermorph/metadata-fields/designer",
-            JsonSchema = request.Result.ValidationJson,
+            JsonSchema = definition.ValidationJson,
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
-            Key = request.Result.Key,
-            DataType = request.Result.DataType,
-            AppliesToJson = request.Result.AppliesToJson,
-            ValidationJson = request.Result.ValidationJson,
-            IsRequired = request.Result.IsRequired,
-            IsActive = request.Result.IsActive,
-            ChildrenDefinitionJson = request.Result.ChildrenDefinitionJson,
-            ArrayItemDataType = request.Result.ArrayItemDataType,
-            ArrayItemDefinitionJson = request.Result.ArrayItemDefinitionJson
+            Key = definition.Key,
+            DataType = definition.DataType,
+            AppliesToJson = definition.AppliesToJson,
+            ValidationJson = definition.ValidationJson,
+            IsRequired = definition.IsRequired,
+            IsActive = definition.IsActive,
+            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ArrayItemDataType = definition.ArrayItemDataType,
+            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
         });
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerSaveResult
@@ -233,19 +235,20 @@ internal sealed class PlaygroundSchemaDesignerHost :
     /// <returns>The save result.</returns>
     public Task<ButterMorphPayloadSchemaDesignerSaveResult> Save(ButterMorphPayloadSchemaDesignerSaveRequest request)
     {
+        PayloadSchemaDefinition definition = request.Definition;
         store.Save(new PlaygroundSchemaSave
         {
             ContextKey = request.ContextKey,
             Kind = "payload",
-            Key = request.Result.Key,
-            DisplayName = request.Result.Name,
-            Description = request.Result.Description,
+            Key = definition.Key,
+            DisplayName = definition.Name,
+            Description = definition.Description,
             DesignerPath = "/buttermorph/payload-schema/designer",
-            JsonSchema = request.Result.JsonSchema,
+            JsonSchema = definition.JsonSchema,
             SavedAt = DateTimeOffset.UtcNow.ToString("O"),
-            VersionNumber = request.Result.Version,
-            VersionComment = request.Result.VersionComment,
-            MetadataJson = SerializeMetadata(request.Result.Metadata)
+            VersionNumber = definition.Version,
+            VersionComment = definition.VersionComment,
+            MetadataJson = SerializeMetadata(definition.Metadata)
         });
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerSaveResult

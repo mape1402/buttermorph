@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Models;
+﻿namespace ButterMorph.StudioPlayground.Models;
 
 /// <summary>
 /// Represents a host-owned custom data type.
@@ -6,9 +6,9 @@ namespace ButterMorph.StudioPlayground.Models;
 internal sealed class StudioCustomType
 {
     /// <summary>
-    /// Gets or sets the context key used by ButterMorph designers.
+    /// Gets or sets the host-owned identifier used to correlate ButterMorph designers.
     /// </summary>
-    public string ContextKey { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the canonical custom type key.
@@ -46,7 +46,13 @@ internal sealed class StudioCustomType
     public string JsonSchema { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the serialized ButterMorph result received by the host.
+    /// </summary>
+    public string ButterMorphResultJson { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the last saved timestamp.
     /// </summary>
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+

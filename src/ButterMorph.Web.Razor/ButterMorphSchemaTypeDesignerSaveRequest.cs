@@ -13,7 +13,7 @@ public sealed class ButterMorphSchemaTypeDesignerSaveRequest
     public string ContextKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the schema type design result.
+    /// Gets or sets the clean custom type definition.
     /// </summary>
-    public SchemaTypeDesignResult Result { get; set; } = new();
+    public SchemaTypeDefinition Definition { get; set; } = new();
 }

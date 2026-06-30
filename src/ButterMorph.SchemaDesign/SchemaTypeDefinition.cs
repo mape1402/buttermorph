@@ -1,27 +1,10 @@
 namespace ButterMorph.SchemaDesign;
 
-using ButterMorph.Abstractions;
-
 /// <summary>
-/// Represents schema type design output.
+/// Represents the clean custom type definition produced for hosts.
 /// </summary>
-public sealed class SchemaTypeDesignResult
+public sealed class SchemaTypeDefinition
 {
-    /// <summary>
-    /// Gets or sets a value indicating whether design succeeded.
-    /// </summary>
-    public bool Succeeded { get; set; }
-
-    /// <summary>
-    /// Gets or sets operation diagnostics.
-    /// </summary>
-    public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets the clean definition produced for hosts.
-    /// </summary>
-    public SchemaTypeDefinition Definition { get; set; } = new();
-
     /// <summary>
     /// Gets or sets the canonical type key.
     /// </summary>
@@ -40,7 +23,7 @@ public sealed class SchemaTypeDesignResult
     /// <summary>
     /// Gets or sets the version number.
     /// </summary>
-    public string VersionNumber { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the base type.
@@ -48,13 +31,12 @@ public sealed class SchemaTypeDesignResult
     public string BaseType { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the generated JSON Schema.
-    /// </summary>
-    public string JsonSchema { get; set; } = string.Empty;
-
-    /// <summary>
     /// Gets or sets the save comment.
     /// </summary>
     public string Comment { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Gets or sets the generated JSON Schema.
+    /// </summary>
+    public string JsonSchema { get; set; } = string.Empty;
 }

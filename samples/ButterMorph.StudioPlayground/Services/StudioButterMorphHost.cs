@@ -1,5 +1,6 @@
-namespace ButterMorph.StudioPlayground.Services;
+﻿namespace ButterMorph.StudioPlayground.Services;
 
+using System.Text.Json;
 using ButterMorph.Abstractions;
 using ButterMorph.Json.Schema;
 using ButterMorph.SchemaDesign;
@@ -17,6 +18,11 @@ internal sealed class StudioButterMorphHost :
 {
     private readonly StudioStore store;
     private readonly IJsonSchemaImporter schemaImporter;
+    private static readonly JsonSerializerOptions ResultJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StudioButterMorphHost"/> class.
@@ -38,7 +44,7 @@ internal sealed class StudioButterMorphHost :
         }
 
         Dictionary<string, IStructureSchema> sourceSchemas = new(StringComparer.OrdinalIgnoreCase);
-        foreach (KeyValuePair<string, string> source in mapping.SourceSchemaKeys)
+        foreach (KeyValuePair<string, string> source in mapping.SourceSchemaIds)
         {
             if (store.TryGetSchema(source.Value, out StudioSchema schema) &&
                 TryImportSchema(schema, out IStructureSchema importedSchema))
@@ -48,7 +54,7 @@ internal sealed class StudioButterMorphHost :
         }
 
         IStructureSchema targetSchema = null;
-        if (store.TryGetSchema(mapping.TargetSchemaKey, out StudioSchema target) &&
+        if (store.TryGetSchema(mapping.TargetSchemaId, out StudioSchema target) &&
             TryImportSchema(target, out IStructureSchema importedTarget))
         {
             targetSchema = importedTarget;
@@ -109,17 +115,18 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphSchemaTypeDesignerSaveResult> IButterMorphSchemaTypeDesignerHost.Save(ButterMorphSchemaTypeDesignerSaveRequest request)
     {
-        SchemaTypeDesignResult result = request.Result;
+        SchemaTypeDefinition definition = request.Definition;
         store.SaveCustomType(new StudioCustomType
         {
-            ContextKey = request.ContextKey,
-            Key = result.Key,
-            Name = result.Name,
-            Description = result.Description,
-            Version = result.VersionNumber,
-            BaseType = result.BaseType,
-            Comment = result.Comment,
-            JsonSchema = result.JsonSchema
+            Id = request.ContextKey,
+            Key = definition.Key,
+            Name = definition.Name,
+            Description = definition.Description,
+            Version = definition.Version,
+            BaseType = definition.BaseType,
+            Comment = definition.Comment,
+            JsonSchema = definition.JsonSchema,
+            ButterMorphResultJson = SerializeButterMorphDefinition(definition)
         });
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerSaveResult
@@ -158,21 +165,22 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphFieldMetadataDesignerSaveResult> IButterMorphFieldMetadataDesignerHost.Save(ButterMorphFieldMetadataDesignerSaveRequest request)
     {
-        FieldMetadataDesignResult result = request.Result;
+        CustomFieldDefinition definition = request.Definition;
         store.SaveCustomField(new StudioCustomField
         {
-            ContextKey = request.ContextKey,
-            Key = result.Key,
-            Name = result.Name,
-            Description = result.Description,
-            DataType = result.DataType,
-            AppliesToJson = result.AppliesToJson,
-            IsRequired = result.IsRequired,
-            IsActive = result.IsActive,
-            ValidationJson = result.ValidationJson,
-            ChildrenDefinitionJson = result.ChildrenDefinitionJson,
-            ArrayItemDataType = result.ArrayItemDataType,
-            ArrayItemDefinitionJson = result.ArrayItemDefinitionJson
+            Id = request.ContextKey,
+            Key = definition.Key,
+            Name = definition.Name,
+            Description = definition.Description,
+            DataType = definition.DataType,
+            AppliesToJson = definition.AppliesToJson,
+            IsRequired = definition.IsRequired,
+            IsActive = definition.IsActive,
+            ValidationJson = definition.ValidationJson,
+            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ArrayItemDataType = definition.ArrayItemDataType,
+            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson,
+            ButterMorphResultJson = SerializeButterMorphDefinition(definition)
         });
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerSaveResult
@@ -187,13 +195,13 @@ internal sealed class StudioButterMorphHost :
     {
         StudioSchema schema = store.TryGetSchema(request.ContextKey, out StudioSchema existing)
             ? existing
-            : new StudioSchema { ContextKey = request.ContextKey, Version = "1.0.0" };
+            : new StudioSchema { Id = request.ContextKey, Version = "1.0.0" };
 
         IReadOnlyCollection<StudioCustomType> injectedTypes = store.CustomTypes
-            .Where(item => schema.InjectedCustomTypeKeys.Contains(item.ContextKey, StringComparer.OrdinalIgnoreCase))
+            .Where(item => schema.InjectedCustomTypeKeys.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
             .ToArray();
         IReadOnlyCollection<StudioCustomField> injectedFields = store.CustomFields
-            .Where(item => schema.InjectedCustomFieldKeys.Contains(item.ContextKey, StringComparer.OrdinalIgnoreCase))
+            .Where(item => schema.InjectedCustomFieldKeys.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
@@ -214,17 +222,18 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphPayloadSchemaDesignerSaveResult> IButterMorphPayloadSchemaDesignerHost.Save(ButterMorphPayloadSchemaDesignerSaveRequest request)
     {
-        PayloadSchemaDesignResult result = request.Result;
+        PayloadSchemaDefinition definition = request.Definition;
         StudioSchema schema = store.TryGetSchema(request.ContextKey, out StudioSchema existing)
             ? existing
-            : new StudioSchema { ContextKey = request.ContextKey };
+            : new StudioSchema { Id = request.ContextKey };
 
-        schema.Key = result.Key;
-        schema.Name = result.Name;
-        schema.Description = result.Description;
-        schema.Version = result.Version;
-        schema.VersionComment = result.VersionComment;
-        schema.JsonSchema = result.JsonSchema;
+        schema.Key = definition.Key;
+        schema.Name = definition.Name;
+        schema.Description = definition.Description;
+        schema.Version = definition.Version;
+        schema.VersionComment = definition.VersionComment;
+        schema.JsonSchema = definition.JsonSchema;
+        schema.ButterMorphResultJson = SerializeButterMorphDefinition(definition);
         store.SaveSchema(schema);
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerSaveResult
@@ -265,7 +274,7 @@ internal sealed class StudioButterMorphHost :
             .Select(item => new SchemaTypeCatalogItem
             {
                 TypeId = item.Key,
-                TypeVersionId = item.ContextKey,
+                TypeVersionId = item.Id,
                 Name = item.Name,
                 VersionNumber = item.Version,
                 BaseType = item.BaseType,
@@ -286,7 +295,7 @@ internal sealed class StudioButterMorphHost :
             .Where(item => item.IsActive && !string.IsNullOrWhiteSpace(item.Key))
             .Select(item => new FieldMetadataCatalogItem
             {
-                Id = item.ContextKey,
+                Id = item.Id,
                 Key = item.Key,
                 Name = item.Name,
                 Description = item.Description,
@@ -301,12 +310,18 @@ internal sealed class StudioButterMorphHost :
             .ToArray();
     }
 
-    private static StudioMapping CreateDraftMapping(string contextKey)
+    private static StudioMapping CreateDraftMapping(string id)
     {
         return new StudioMapping
         {
-            ContextKey = contextKey,
-            Name = contextKey
+            Id = id,
+            Name = id
         };
     }
+
+    private static string SerializeButterMorphDefinition<T>(T definition)
+    {
+        return JsonSerializer.Serialize(definition, ResultJsonOptions);
+    }
 }
+

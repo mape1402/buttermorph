@@ -1,6 +1,5 @@
 ﻿namespace ButterMorph.StudioPlayground.Services;
 
-using System.Text;
 using System.Text.Json;
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
@@ -12,8 +11,11 @@ using ButterMorph.StudioPlayground.Models;
 /// </summary>
 internal static class StudioSeedData
 {
-    // JSON text used for map-shaped schema values.
-    private const string MapType = "obj" + "ect";
+    private static readonly JsonSerializerOptions ResultJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
 
     /// <summary>
     /// Seeds the in-memory store.
@@ -23,6 +25,7 @@ internal static class StudioSeedData
     {
         SchemaTypeSchemaBuilder typeBuilder = new();
         PayloadSchemaBuilder payloadBuilder = new();
+        PayloadSchemaDefinitionBuilder schemaBuilder = new(payloadBuilder);
         List<StudioCustomType> customTypes = [];
 
         StudioCustomType uniqueIdentifier = AddType(customTypes, typeBuilder, new SchemaTypeDesignInput
@@ -77,32 +80,9 @@ internal static class StudioSeedData
             Comment = "Initial version."
         }, "de2ec2c8-efff-4f96-b2d7-5604549f88a2");
 
-        StudioCustomType contact = AddType(customTypes, typeBuilder, new SchemaTypeDesignInput
-        {
-            Key = "70b0e156-0b7e-4a9e-9a36-271dc8ff7424",
-            Name = "Contact",
-            Description = "Contact",
-            VersionNumber = "1.0.0",
-            BaseType = MapType,
-            PayloadSchemaJson = CreateContactTypeSchema(email, phoneNumber),
-            Comment = "Initial version."
-        }, "a42053f2-2789-4f2f-a351-36b548a869af");
-
-        StudioCustomType contactList = AddType(customTypes, typeBuilder, new SchemaTypeDesignInput
-        {
-            Key = "29bef8df-5c75-41b7-ac9e-7a38478ba064",
-            Name = "ContactList",
-            Description = "Contact List",
-            VersionNumber = "1.0.0",
-            BaseType = "array",
-            ArrayItemTypeVersionId = contact.ContextKey,
-            MinItems = "1",
-            Comment = "Initial version."
-        }, "bb023fcb-101e-437f-81cf-4b3a407e4048");
-
         StudioCustomField topic = new()
         {
-            ContextKey = "field-topic",
+            Id = "field-topic",
             Key = "topic",
             Name = "Topic",
             Description = "Queue or topic name used by the host.",
@@ -112,10 +92,11 @@ internal static class StudioSeedData
             IsActive = true,
             ValidationJson = "{\"minLength\":3}"
         };
+        topic.ButterMorphResultJson = SerializeButterMorphDefinition(CreateFieldDefinition(topic));
 
         StudioCustomField securityClassification = new()
         {
-            ContextKey = "field-security-classification",
+            Id = "field-security-classification",
             Key = "SecurityClasification",
             Name = "Security Clasification",
             Description = "Security classification metadata for schemas and fields.",
@@ -125,6 +106,7 @@ internal static class StudioSeedData
             IsActive = true,
             ValidationJson = "{\"enum\":[\"Public\",\"Private\",\"Confidential\"]}"
         };
+        securityClassification.ButterMorphResultJson = SerializeButterMorphDefinition(CreateFieldDefinition(securityClassification));
 
         foreach (StudioCustomType customType in customTypes)
         {
@@ -137,31 +119,29 @@ internal static class StudioSeedData
         IReadOnlyCollection<SchemaTypeCatalogItem> typeCatalog = StudioButterMorphHost.CreateTypeCatalog(customTypes);
         IReadOnlyCollection<FieldMetadataCatalogItem> fieldCatalog = StudioButterMorphHost.CreateFieldCatalog([topic, securityClassification]);
 
-        StudioSchema customerProfile = CreateSchema(payloadBuilder, typeCatalog, fieldCatalog, new PayloadSchemaDesignInput
+        StudioSchema customerProfile = CreateSchema(schemaBuilder, typeCatalog, fieldCatalog, new PayloadSchemaDesignInput
         {
             Key = "customer-profile",
             Name = "Customer Profile",
             Description = "Atlas-style customer profile schema.",
             Version = "1.0.0",
-            VersionComment = "Seed version.",
-            JsonSchema = CreateCustomerProfileSchema(uniqueIdentifier, rfc, contactList, contact, email, phoneNumber, typeCatalog)
-        }, "schema-customer-profile");
-        customerProfile.InjectedCustomTypeKeys.AddRange(customTypes.Select(item => item.ContextKey));
-        customerProfile.InjectedCustomFieldKeys.Add(topic.ContextKey);
-        customerProfile.InjectedCustomFieldKeys.Add(securityClassification.ContextKey);
+            VersionComment = "Seed version."
+        }, CreateCustomerProfileFields(uniqueIdentifier, rfc, email, phoneNumber), "schema-customer-profile");
+        customerProfile.InjectedCustomTypeKeys.AddRange(customTypes.Select(item => item.Id));
+        customerProfile.InjectedCustomFieldKeys.Add(topic.Id);
+        customerProfile.InjectedCustomFieldKeys.Add(securityClassification.Id);
 
-        StudioSchema customerSummary = CreateSchema(payloadBuilder, typeCatalog, fieldCatalog, new PayloadSchemaDesignInput
+        StudioSchema customerSummary = CreateSchema(schemaBuilder, typeCatalog, fieldCatalog, new PayloadSchemaDesignInput
         {
             Key = "customer-summary",
             Name = "Customer Summary",
             Description = "Atlas-style customer summary output schema.",
             Version = "1.0.0",
-            VersionComment = "Seed version.",
-            JsonSchema = CreateCustomerSummarySchema(uniqueIdentifier, rfc, email, phoneNumber, typeCatalog)
-        }, "schema-customer-summary");
-        customerSummary.InjectedCustomTypeKeys.AddRange(customTypes.Select(item => item.ContextKey));
-        customerSummary.InjectedCustomFieldKeys.Add(topic.ContextKey);
-        customerSummary.InjectedCustomFieldKeys.Add(securityClassification.ContextKey);
+            VersionComment = "Seed version."
+        }, CreateCustomerSummaryFields(uniqueIdentifier, rfc, email, phoneNumber), "schema-customer-summary");
+        customerSummary.InjectedCustomTypeKeys.AddRange(customTypes.Select(item => item.Id));
+        customerSummary.InjectedCustomFieldKeys.Add(topic.Id);
+        customerSummary.InjectedCustomFieldKeys.Add(securityClassification.Id);
 
         store.SaveSchema(customerProfile);
         store.SaveSchema(customerSummary);
@@ -169,7 +149,7 @@ internal static class StudioSeedData
     }
 
     // Builds and stores one custom type using the ButterMorph schema type builder.
-    private static StudioCustomType AddType(List<StudioCustomType> customTypes, SchemaTypeSchemaBuilder builder, SchemaTypeDesignInput input, string contextKey)
+    private static StudioCustomType AddType(List<StudioCustomType> customTypes, SchemaTypeSchemaBuilder builder, SchemaTypeDesignInput input, string id)
     {
         SchemaTypeDesignResult result = builder.Build(input, StudioButterMorphHost.CreateTypeCatalog(customTypes));
         if (!result.Succeeded)
@@ -179,23 +159,24 @@ internal static class StudioSeedData
 
         StudioCustomType customType = new()
         {
-            ContextKey = contextKey,
+            Id = id,
             Key = result.Key,
             Name = result.Name,
             Description = result.Description,
             Version = result.VersionNumber,
             BaseType = result.BaseType,
             Comment = result.Comment,
-            JsonSchema = result.JsonSchema
+            JsonSchema = result.JsonSchema,
+            ButterMorphResultJson = SerializeButterMorphDefinition(result.Definition)
         };
         customTypes.Add(customType);
         return customType;
     }
 
     // Builds one payload schema through the ButterMorph payload schema builder.
-    private static StudioSchema CreateSchema(PayloadSchemaBuilder builder, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, PayloadSchemaDesignInput input, string contextKey)
+    private static StudioSchema CreateSchema(PayloadSchemaDefinitionBuilder builder, IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes, IReadOnlyCollection<FieldMetadataCatalogItem> metadataFields, PayloadSchemaDesignInput input, IReadOnlyCollection<PayloadSchemaField> fields, string id)
     {
-        PayloadSchemaDesignResult result = builder.Build(input, schemaTypes, metadataFields);
+        PayloadSchemaDesignResult result = builder.Build(input, fields, schemaTypes, metadataFields);
         if (!result.Succeeded)
         {
             throw new InvalidOperationException("Seed payload schema generation failed for " + input.Name + ".");
@@ -203,202 +184,129 @@ internal static class StudioSeedData
 
         return new StudioSchema
         {
-            ContextKey = contextKey,
+            Id = id,
             Key = result.Key,
             Name = result.Name,
             Description = result.Description,
             Version = result.Version,
             VersionComment = result.VersionComment,
-            JsonSchema = result.JsonSchema
+            JsonSchema = result.JsonSchema,
+            ButterMorphResultJson = SerializeButterMorphDefinition(result.Definition)
         };
     }
 
-    // Creates the structured body for the Contact custom type.
-    private static string CreateContactTypeSchema(StudioCustomType email, StudioCustomType phoneNumber)
+    // Creates a field metadata result from a seeded host item.
+    private static CustomFieldDefinition CreateFieldDefinition(StudioCustomField field)
     {
-        return WriteSchema(writer =>
+        return new CustomFieldDefinition
         {
-            writer.WriteString("type", MapType);
-            writer.WritePropertyName("properties");
-            writer.WriteStartObject();
-            WriteScalarProperty(writer, "Key", "string", "Identifier Key", true, string.Empty);
-            WriteCustomProperty(writer, "Email", email, false, string.Empty);
-            WriteCustomProperty(writer, "Phone", phoneNumber, true, string.Empty);
-            writer.WriteEndObject();
-        });
+            Key = field.Key,
+            Name = field.Name,
+            Description = field.Description,
+            DataType = field.DataType,
+            AppliesToJson = field.AppliesToJson,
+            IsRequired = field.IsRequired,
+            IsActive = field.IsActive,
+            ValidationJson = field.ValidationJson,
+            ChildrenDefinitionJson = field.ChildrenDefinitionJson,
+            ArrayItemDataType = field.ArrayItemDataType,
+            ArrayItemDefinitionJson = field.ArrayItemDefinitionJson
+        };
     }
 
-    // Creates the structured body for the source schema seed.
-    private static string CreateCustomerProfileSchema(StudioCustomType uniqueIdentifier, StudioCustomType rfc, StudioCustomType contactList, StudioCustomType contact, StudioCustomType email, StudioCustomType phoneNumber, IReadOnlyCollection<SchemaTypeCatalogItem> catalog)
+    // Serializes the exact ButterMorph result object held by the host.
+    private static string SerializeButterMorphDefinition<T>(T definition)
     {
-        return WriteSchema(writer =>
-        {
-            writer.WriteString("type", MapType);
-            writer.WritePropertyName("properties");
-            writer.WriteStartObject();
-            WriteScalarProperty(writer, "Name", "string", string.Empty, true, "Confidential", minLength: 3, maxLength: 60);
-            WriteCustomProperty(writer, "Id", uniqueIdentifier, true, "Public");
-            WriteCustomProperty(writer, "RFC", rfc, true, "Private");
-            WriteCustomProperty(writer, "Contacts", contactList, true, "Private");
-            WriteScalarProperty(writer, "Status", "string", string.Empty, true, "Public", allowedValues: ["Active", "Inactive"]);
-            writer.WriteEndObject();
-            WriteDefinitions(writer, catalog, uniqueIdentifier, rfc, contactList, contact, email, phoneNumber);
-        });
+        return JsonSerializer.Serialize(definition, ResultJsonOptions);
     }
 
-    // Creates the structured body for the target schema seed.
-    private static string CreateCustomerSummarySchema(StudioCustomType uniqueIdentifier, StudioCustomType rfc, StudioCustomType email, StudioCustomType phoneNumber, IReadOnlyCollection<SchemaTypeCatalogItem> catalog)
+    // Creates source schema fields.
+    private static IReadOnlyCollection<PayloadSchemaField> CreateCustomerProfileFields(StudioCustomType uniqueIdentifier, StudioCustomType rfc, StudioCustomType email, StudioCustomType phoneNumber)
     {
-        return WriteSchema(writer =>
-        {
-            writer.WriteString("type", MapType);
-            writer.WritePropertyName("properties");
-            writer.WriteStartObject();
-            WriteCustomProperty(writer, "CustomerId", uniqueIdentifier, true, "Public");
-            WriteScalarProperty(writer, "DisplayName", "string", string.Empty, true, "Confidential");
-            WriteCustomProperty(writer, "TaxIdentifier", rfc, false, "Private");
-            WriteScalarProperty(writer, "Status", "string", string.Empty, true, "Public");
-            writer.WritePropertyName("PrimaryContact");
-            writer.WriteStartObject();
-            writer.WriteString("type", MapType);
-            writer.WritePropertyName("properties");
-            writer.WriteStartObject();
-            WriteCustomProperty(writer, "Email", email, false, string.Empty);
-            WriteCustomProperty(writer, "Phone", phoneNumber, false, string.Empty);
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            WriteDefinitions(writer, catalog, uniqueIdentifier, rfc, email, phoneNumber);
-        });
-    }
-
-    // Creates compact JSON through a writer callback.
-    private static string WriteSchema(Action<Utf8JsonWriter> writeBody)
-    {
-        using MemoryStream stream = new();
-        using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
-        writer.WriteStartObject();
-        writeBody(writer);
-        writer.WriteEndObject();
-        writer.Flush();
-        return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    // Writes a scalar property compatible with Atlas conventions.
-    private static void WriteScalarProperty(Utf8JsonWriter writer, string name, string type, string description, bool required, string classification, int minLength = 0, int maxLength = 0, IReadOnlyCollection<string> allowedValues = null)
-    {
-        writer.WritePropertyName(name);
-        writer.WriteStartObject();
-        writer.WriteString("type", type);
-        if (!string.IsNullOrWhiteSpace(description))
-        {
-            writer.WriteString("description", description);
-        }
-
-        if (required)
-        {
-            writer.WriteBoolean("required", true);
-        }
-
-        WriteClassification(writer, classification);
-        if (minLength > 0)
-        {
-            writer.WriteNumber("minLength", minLength);
-        }
-
-        if (maxLength > 0)
-        {
-            writer.WriteNumber("maxLength", maxLength);
-        }
-
-        if (allowedValues != null && allowedValues.Count > 0)
-        {
-            writer.WritePropertyName("enum");
-            writer.WriteStartArray();
-            foreach (string value in allowedValues)
+        return
+        [
+            Scalar("Name", "string", true, "Confidential", new Dictionary<string, string> { ["minLength"] = "3", ["maxLength"] = "60" }),
+            Custom("Id", uniqueIdentifier, true, "Public"),
+            Custom("RFC", rfc, true, "Private"),
+            new PayloadSchemaField
             {
-                writer.WriteStringValue(value);
-            }
-
-            writer.WriteEndArray();
-        }
-
-        writer.WriteEndObject();
+                Name = "Contacts",
+                DataType = "array",
+                IsRequired = true,
+                Metadata = Classification("Private"),
+                ArrayItem = new PayloadSchemaField
+                {
+                    DataType = "object",
+                    Children =
+                    [
+                        new PayloadSchemaField { Name = "Key", DataType = "string", Description = "Identifier Key", IsRequired = true },
+                        Custom("Email", email, false, string.Empty),
+                        Custom("Phone", phoneNumber, true, string.Empty)
+                    ]
+                }
+            },
+            Scalar("Status", "string", true, "Public", new Dictionary<string, string> { ["enum"] = "[\"Active\",\"Inactive\"]" })
+        ];
     }
 
-    // Writes a custom type property compatible with Atlas conventions.
-    private static void WriteCustomProperty(Utf8JsonWriter writer, string name, StudioCustomType customType, bool required, string classification)
+    // Creates target schema fields.
+    private static IReadOnlyCollection<PayloadSchemaField> CreateCustomerSummaryFields(StudioCustomType uniqueIdentifier, StudioCustomType rfc, StudioCustomType email, StudioCustomType phoneNumber)
     {
-        writer.WritePropertyName(name);
-        writer.WriteStartObject();
-        writer.WriteString("$ref", "#/$defs/" + GetDefinitionKey(customType));
-        writer.WriteString("typeId", customType.Key);
-        writer.WriteString("typeVersionId", customType.ContextKey);
-        if (!string.IsNullOrWhiteSpace(customType.Description))
-        {
-            writer.WriteString("description", customType.Description);
-        }
-
-        if (required)
-        {
-            writer.WriteBoolean("required", true);
-        }
-
-        WriteClassification(writer, classification);
-        writer.WriteEndObject();
+        return
+        [
+            Custom("CustomerId", uniqueIdentifier, true, "Public"),
+            Scalar("DisplayName", "string", true, "Confidential", new Dictionary<string, string>()),
+            Custom("TaxIdentifier", rfc, false, "Private"),
+            Scalar("Status", "string", true, "Public", new Dictionary<string, string>()),
+            new PayloadSchemaField
+            {
+                Name = "PrimaryContact",
+                DataType = "object",
+                Children =
+                [
+                    Custom("Email", email, false, string.Empty),
+                    Custom("Phone", phoneNumber, false, string.Empty)
+                ]
+            }
+        ];
     }
 
-    // Writes field metadata in the same shape Atlas uses.
-    private static void WriteClassification(Utf8JsonWriter writer, string classification)
+    // Creates a scalar field.
+    private static PayloadSchemaField Scalar(string name, string dataType, bool required, string classification, IReadOnlyDictionary<string, string> validation)
+    {
+        return new PayloadSchemaField
+        {
+            Name = name,
+            DataType = dataType,
+            IsRequired = required,
+            Metadata = Classification(classification),
+            Validation = validation
+        };
+    }
+
+    // Creates a custom type field.
+    private static PayloadSchemaField Custom(string name, StudioCustomType customType, bool required, string classification)
+    {
+        return new PayloadSchemaField
+        {
+            Name = name,
+            DataType = customType.BaseType,
+            Description = customType.Description,
+            IsRequired = required,
+            CustomTypeVersionId = customType.Id,
+            Metadata = Classification(classification)
+        };
+    }
+
+    // Creates field metadata.
+    private static IReadOnlyDictionary<string, string> Classification(string classification)
     {
         if (string.IsNullOrWhiteSpace(classification))
         {
-            return;
+            return new Dictionary<string, string>();
         }
 
-        writer.WritePropertyName("metadata");
-        writer.WriteStartObject();
-        writer.WriteString("SecurityClasification", classification);
-        writer.WriteEndObject();
-    }
-
-    // Writes $defs for the referenced custom types.
-    private static void WriteDefinitions(Utf8JsonWriter writer, IReadOnlyCollection<SchemaTypeCatalogItem> catalog, params StudioCustomType[] customTypes)
-    {
-        writer.WritePropertyName("$defs");
-        writer.WriteStartObject();
-        foreach (StudioCustomType customType in customTypes)
-        {
-            SchemaTypeCatalogItem item = catalog.First(catalogItem => string.Equals(catalogItem.TypeVersionId, customType.ContextKey, StringComparison.OrdinalIgnoreCase));
-            writer.WritePropertyName(GetDefinitionKey(customType));
-            using JsonDocument document = JsonDocument.Parse(item.JsonSchema);
-            WriteDefinitionBody(writer, document.RootElement);
-        }
-
-        writer.WriteEndObject();
-    }
-
-    // Writes one definition body without carrying nested definition bags into the parent schema.
-    private static void WriteDefinitionBody(Utf8JsonWriter writer, JsonElement definition)
-    {
-        writer.WriteStartObject();
-        foreach (JsonProperty property in definition.EnumerateObject())
-        {
-            if (string.Equals(property.Name, "$defs", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            property.WriteTo(writer);
-        }
-
-        writer.WriteEndObject();
-    }
-
-    // Resolves Atlas-style definition keys.
-    private static string GetDefinitionKey(StudioCustomType customType)
-    {
-        return customType.Name + "@" + customType.Version;
+        return new Dictionary<string, string> { ["SecurityClasification"] = classification };
     }
 
     // Creates the seeded mapping document and sample source data.
@@ -416,9 +324,9 @@ internal static class StudioSeedData
 
         StudioMapping mapping = new()
         {
-            ContextKey = "mapping-customer-profile-to-summary",
+            Id = "mapping-customer-profile-to-summary",
             Name = "Customer Profile to Summary",
-            TargetSchemaKey = targetSchema.ContextKey,
+            TargetSchemaId = targetSchema.Id,
             Document = new TransformationDocument
             {
                 Mappings = mappings,
@@ -441,7 +349,7 @@ internal static class StudioSeedData
                 """
         };
 
-        mapping.SourceSchemaKeys["customer"] = sourceSchema.ContextKey;
+        mapping.SourceSchemaIds["customer"] = sourceSchema.Id;
         mapping.SourceSamples["customer"] = """
             {
               "Name": "Northwind Trading",

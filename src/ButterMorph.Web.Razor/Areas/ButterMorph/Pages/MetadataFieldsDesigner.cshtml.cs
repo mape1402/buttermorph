@@ -139,7 +139,7 @@ public sealed class MetadataFieldsDesignerModel : PageModel
             saveResult = await host.Save(new ButterMorphFieldMetadataDesignerSaveRequest
             {
                 ContextKey = ResolveContextKey(),
-                Result = result
+                Definition = result.Definition
             });
             break;
         }

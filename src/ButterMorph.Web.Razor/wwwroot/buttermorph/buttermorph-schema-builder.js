@@ -4,7 +4,7 @@
     const addRootButton = document.getElementById("add-root-field");
     const template = document.getElementById("schema-field-template");
     const hiddenSchemaInput = document.getElementById("payload-schema-json");
-    const catalog = readCatalog("schema-type-catalog", defaultCatalog());
+    const catalog = mergeCatalogs(defaultCatalog(), readCatalog("schema-type-catalog", []));
     const metadataCatalog = readCatalog("field-metadata-catalog", []);
     const modalStack = [];
     const modalBaseZIndex = 2000;
@@ -103,9 +103,8 @@
         }
 
         rootList.innerHTML = "";
-        const required = Array.isArray(schema.required) ? schema.required : [];
         Object.entries(schema.properties).forEach(function (entry) {
-            rootList.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, required.includes(entry[0]) || entry[1].required === true));
+            rootList.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, entry[1].required === true));
         });
         updateSummaries();
     }
@@ -197,6 +196,7 @@
             option.dataset.isSystem = normalized.isSystem ? "true" : "false";
             option.dataset.typeId = normalized.typeId || "";
             option.dataset.typeVersionId = normalized.typeVersionId || "";
+            option.dataset.definitionKey = normalized.definitionKey || "";
             option.dataset.jsonSchema = normalized.jsonSchema || "";
             (normalized.isSystem ? basic : custom).appendChild(option);
         });
@@ -256,9 +256,8 @@
         field.dataset.validation = JSON.stringify(readValidation(definition));
         if (definition.type === "object") {
             const list = field.querySelector(".child-fields-list");
-            const requiredNames = Array.isArray(definition.required) ? definition.required : [];
             Object.entries(definition.properties || {}).forEach(function (entry) {
-                list.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, requiredNames.includes(entry[0]) || entry[1].required === true));
+                list.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, entry[1].required === true));
             });
         }
         if (definition.type === "array") {
@@ -266,9 +265,8 @@
             setSelectFromDefinition(field.querySelector(".array-item-type-select"), items);
             if (items.type === "object") {
                 const list = field.querySelector(".array-object-fields-list");
-                const requiredNames = Array.isArray(items.required) ? items.required : [];
                 Object.entries(items.properties || {}).forEach(function (entry) {
-                    list.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, requiredNames.includes(entry[0]) || entry[1].required === true));
+                    list.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, entry[1].required === true));
                 });
             }
             if (items.type === "array") {
@@ -305,20 +303,13 @@
 
     function buildRootSchema(list, defs) {
         const schema = { type: "object", properties: {} };
-        const required = [];
         Array.from(list.children).forEach(function (field) {
             const built = buildField(field, defs);
             if (!built.name) {
                 return;
             }
             schema.properties[built.name] = built.definition;
-            if (built.required) {
-                required.push(built.name);
-            }
         });
-        if (required.length > 0) {
-            schema.required = required;
-        }
         return schema;
     }
 
@@ -342,9 +333,6 @@
         if (definition.type === "object") {
             const childSchema = buildRootSchema(field.querySelector(".child-fields-list"), defs);
             definition.properties = childSchema.properties;
-            if (childSchema.required) {
-                definition.required = childSchema.required;
-            }
         }
         if (definition.type === "array") {
             definition.items = buildArrayItem(field, defs);
@@ -358,9 +346,6 @@
         if (item.type === "object") {
             const childSchema = buildRootSchema(field.querySelector(".array-object-fields-list"), defs);
             item.properties = childSchema.properties;
-            if (childSchema.required) {
-                item.required = childSchema.required;
-            }
         }
         if (item.type === "array") {
             const nested = field.querySelector(".nested-array-item-list .schema-field");
@@ -376,10 +361,11 @@
         const baseType = option.dataset.baseType || option.value || "string";
         const version = option.dataset.typeVersionId || "";
         if (version) {
+            const definitionKey = option.dataset.definitionKey || version;
             if (option.dataset.jsonSchema) {
-                defs[version] = safeJson(option.dataset.jsonSchema);
+                defs[definitionKey] = safeJson(option.dataset.jsonSchema);
             }
-            return { type: baseType, $ref: "#/$defs/" + version, typeId: option.dataset.typeId || "", typeVersionId: version };
+            return { $ref: "#/$defs/" + definitionKey, typeId: option.dataset.typeId || "", typeVersionId: version };
         }
         return { type: baseType };
     }
@@ -398,8 +384,31 @@
             versionNumber: item.versionNumber || item.VersionNumber || "",
             baseType: baseType,
             jsonSchema: schema,
+            definitionKey: item.definitionKey || item.DefinitionKey || createDefinitionKey(item),
             isSystem: item.isSystem === true || item.IsSystem === true
         };
+    }
+
+    function mergeCatalogs(basicCatalog, customCatalog) {
+        const result = [];
+        const seen = new Set();
+        basicCatalog.concat(customCatalog || []).forEach(function (item) {
+            const normalized = normalizeCatalogItem(item);
+            const key = normalized.isSystem ? "system:" + normalized.baseType : "custom:" + normalized.typeVersionId;
+            if (seen.has(key) || !isValidCatalogItem(normalized)) {
+                return;
+            }
+
+            seen.add(key);
+            result.push(item);
+        });
+        return result;
+    }
+
+    function createDefinitionKey(item) {
+        const name = item.name || item.Name || "";
+        const version = item.versionNumber || item.VersionNumber || "";
+        return name && version ? name + "@" + version : "";
     }
 
     function isValidCatalogItem(item) {
@@ -702,7 +711,6 @@
     function readMetadataChildren(json) {
         const schema = safeJson(json || "{}");
         const properties = schema.properties || {};
-        const required = Array.isArray(schema.required) ? schema.required : [];
         return Object.keys(properties).map(function (name) {
             const property = properties[name] || {};
             return {
@@ -710,7 +718,7 @@
                 name: name,
                 description: property.description || "",
                 dataType: (property.type || "string").toLowerCase(),
-                isRequired: required.includes(name) || property.required === true,
+                isRequired: property.required === true,
                 children: readMetadataChildren(JSON.stringify(property)),
                 arrayItem: property.items ? {
                     key: "item",

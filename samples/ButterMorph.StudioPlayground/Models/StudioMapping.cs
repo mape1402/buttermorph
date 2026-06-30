@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Models;
+﻿namespace ButterMorph.StudioPlayground.Models;
 
 using ButterMorph.Abstractions;
 
@@ -8,9 +8,9 @@ using ButterMorph.Abstractions;
 internal sealed class StudioMapping
 {
     /// <summary>
-    /// Gets or sets the context key used by ButterMorph designers.
+    /// Gets or sets the host-owned identifier used to correlate ButterMorph designers.
     /// </summary>
-    public string ContextKey { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the display name.
@@ -18,14 +18,14 @@ internal sealed class StudioMapping
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the target schema context key.
+    /// Gets or sets the target schema host id.
     /// </summary>
-    public string TargetSchemaKey { get; set; } = string.Empty;
+    public string TargetSchemaId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the source schema context keys.
+    /// Gets the source schema host ids keyed by mapping alias.
     /// </summary>
-    public Dictionary<string, string> SourceSchemaKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SourceSchemaIds { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the sample JSON payloads keyed by source alias.
@@ -47,3 +47,4 @@ internal sealed class StudioMapping
     /// </summary>
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+

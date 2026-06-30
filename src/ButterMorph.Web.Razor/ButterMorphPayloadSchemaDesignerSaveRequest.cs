@@ -13,7 +13,7 @@ public sealed class ButterMorphPayloadSchemaDesignerSaveRequest
     public string ContextKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the schema design result.
+    /// Gets or sets the clean payload schema definition.
     /// </summary>
-    public PayloadSchemaDesignResult Result { get; set; } = new();
+    public PayloadSchemaDefinition Definition { get; set; } = new();
 }

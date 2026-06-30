@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Models;
+﻿namespace ButterMorph.StudioPlayground.Models;
 
 /// <summary>
 /// Represents a host-owned schema and its designer injection settings.
@@ -6,9 +6,9 @@ namespace ButterMorph.StudioPlayground.Models;
 internal sealed class StudioSchema
 {
     /// <summary>
-    /// Gets or sets the context key used by ButterMorph designers.
+    /// Gets or sets the host-owned identifier used to correlate ButterMorph designers.
     /// </summary>
-    public string ContextKey { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the canonical schema key.
@@ -41,12 +41,17 @@ internal sealed class StudioSchema
     public string JsonSchema { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the custom type context keys available to this schema designer.
+    /// Gets or sets the serialized ButterMorph result received by the host.
+    /// </summary>
+    public string ButterMorphResultJson { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the custom type ids available to this schema designer.
     /// </summary>
     public List<string> InjectedCustomTypeKeys { get; } = [];
 
     /// <summary>
-    /// Gets the custom field context keys available to this schema designer.
+    /// Gets the custom field ids available to this schema designer.
     /// </summary>
     public List<string> InjectedCustomFieldKeys { get; } = [];
 
@@ -55,3 +60,4 @@ internal sealed class StudioSchema
     /// </summary>
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+

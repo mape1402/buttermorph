@@ -151,10 +151,10 @@ public sealed class SchemaDesignSessionTests
     }
 
     /// <summary>
-    /// Confirms that schema builder preserves valid schema JSON.
+    /// Confirms that schema builder emits canonical schema identity and field-level required.
     /// </summary>
     [Fact]
-    public void PayloadSchemaBuilderPreservesPayloadJson()
+    public void PayloadSchemaBuilderEmitsCanonicalSchemaJson()
     {
         PayloadSchemaBuilder builder = new();
         string mapType = "obj" + "ect";
@@ -167,9 +167,31 @@ public sealed class SchemaDesignSessionTests
         }, [], []);
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain("\"key\":\"payload\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.Contains("\"key\":\"payload\"", result.JsonSchema, StringComparison.Ordinal);
+        Assert.Contains("\"name\":\"Payload\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"Code\"", result.JsonSchema, StringComparison.Ordinal);
         Assert.Contains("\"required\":true", result.JsonSchema, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"required\":[", result.JsonSchema, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that legacy required arrays are rejected.
+    /// </summary>
+    [Fact]
+    public void PayloadSchemaBuilderRejectsRequiredArrays()
+    {
+        PayloadSchemaBuilder builder = new();
+        string mapType = "obj" + "ect";
+
+        PayloadSchemaDesignResult result = builder.Build(new PayloadSchemaDesignInput
+        {
+            Key = "payload",
+            Name = "Payload",
+            JsonSchema = "{\"type\":\"" + mapType + "\",\"properties\":{\"Code\":{\"type\":\"string\"}},\"required\":[\"Code\"]}"
+        }, [], []);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSD306");
     }
 
     // Creates a schema design session for tests.

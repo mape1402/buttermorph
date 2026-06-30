@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISchemaTypeSchemaBuilder, SchemaTypeSchemaBuilder>();
         services.AddSingleton<IFieldMetadataDefinitionBuilder, FieldMetadataDefinitionBuilder>();
         services.AddSingleton<IPayloadSchemaBuilder, PayloadSchemaBuilder>();
+        services.AddSingleton<IPayloadSchemaDefinitionBuilder, PayloadSchemaDefinitionBuilder>();
 
         return services;
     }

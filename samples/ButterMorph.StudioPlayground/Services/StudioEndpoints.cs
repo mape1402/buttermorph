@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Services;
+﻿namespace ButterMorph.StudioPlayground.Services;
 
 using System.Text.Json;
 using ButterMorph.Abstractions;
@@ -25,28 +25,31 @@ internal static class StudioEndpoints
     public static void MapStudioEndpoints(this WebApplication app)
     {
         app.MapGet("/api/state", (StudioStore store) => CreateState(store));
-        app.MapGet("/api/{kind}/{contextKey}", (string kind, string contextKey, StudioStore store) => GetItem(kind, contextKey, store));
+        app.MapGet("/api/{kind}/{id}", (string kind, string id, StudioStore store) => GetItem(kind, id, store));
         app.MapPost("/api/{kind}", async (string kind, StudioStore store, HttpRequest request) =>
         {
             JsonElement body = await JsonSerializer.DeserializeAsync<JsonElement>(request.Body, JsonOptions);
-            string contextKey = body.TryGetProperty("contextKey", out JsonElement keyElement) ? keyElement.GetString() : string.Empty;
+            string id = body.TryGetProperty("id", out JsonElement keyElement) ? keyElement.GetString() : string.Empty;
             string name = body.TryGetProperty("name", out JsonElement nameElement) ? nameElement.GetString() : string.Empty;
-            contextKey = string.IsNullOrWhiteSpace(contextKey) ? CreateContextKey(kind) : contextKey;
+            id = string.IsNullOrWhiteSpace(id) ? CreateId(kind) : id;
             name = string.IsNullOrWhiteSpace(name) ? CreateDisplayName(kind) : name;
 
-            CreateDraft(kind, contextKey, name, store);
+            if (kind == "mappings")
+            {
+                store.SaveMapping(new StudioMapping { Id = id, Name = name, Document = new TransformationDocument() });
+            }
 
-            return Results.Json(new { contextKey, name });
+            return Results.Json(new { id, name });
         });
-        app.MapDelete("/api/{kind}/{contextKey}", (string kind, string contextKey, StudioStore store) =>
+        app.MapDelete("/api/{kind}/{id}", (string kind, string id, StudioStore store) =>
         {
-            bool removed = store.Delete(kind, contextKey);
+            bool removed = store.Delete(kind, id);
             return Results.Json(new { removed });
         });
-        app.MapPost("/api/schemas/{contextKey}/injection", async (string contextKey, StudioStore store, HttpRequest request) =>
+        app.MapPost("/api/schemas/{id}/injection", async (string id, StudioStore store, HttpRequest request) =>
         {
             StudioInjectionRequest body = await JsonSerializer.DeserializeAsync<StudioInjectionRequest>(request.Body, JsonOptions) ?? new StudioInjectionRequest();
-            if (!store.TryGetSchema(contextKey, out StudioSchema schema))
+            if (!store.TryGetSchema(id, out StudioSchema schema))
             {
                 return Results.NotFound();
             }
@@ -59,29 +62,29 @@ internal static class StudioEndpoints
 
             return Results.Json(new
             {
-                schema.ContextKey,
+                schema.Id,
                 schema.Key,
                 schema.Name,
                 schema.InjectedCustomTypeKeys,
                 schema.InjectedCustomFieldKeys
             });
         });
-        app.MapPost("/api/mappings/{contextKey}/settings", async (string contextKey, StudioStore store, HttpRequest request) =>
+        app.MapPost("/api/mappings/{id}/settings", async (string id, StudioStore store, HttpRequest request) =>
         {
             StudioMappingSettingsRequest body = await JsonSerializer.DeserializeAsync<StudioMappingSettingsRequest>(request.Body, JsonOptions) ?? new StudioMappingSettingsRequest();
-            if (!store.TryGetMapping(contextKey, out StudioMapping mapping))
+            if (!store.TryGetMapping(id, out StudioMapping mapping))
             {
-                mapping = new StudioMapping { ContextKey = contextKey, Name = body.Name };
+                mapping = new StudioMapping { Id = id, Name = body.Name };
             }
 
             mapping.Name = string.IsNullOrWhiteSpace(body.Name) ? mapping.Name : body.Name;
-            mapping.TargetSchemaKey = body.TargetSchemaKey;
-            mapping.SourceSchemaKeys.Clear();
-            foreach (KeyValuePair<string, string> source in body.SourceSchemaKeys)
+            mapping.TargetSchemaId = body.TargetSchemaId;
+            mapping.SourceSchemaIds.Clear();
+            foreach (KeyValuePair<string, string> source in body.SourceSchemaIds)
             {
                 if (!string.IsNullOrWhiteSpace(source.Key) && !string.IsNullOrWhiteSpace(source.Value))
                 {
-                    mapping.SourceSchemaKeys[source.Key] = source.Value;
+                    mapping.SourceSchemaIds[source.Key] = source.Value;
                 }
             }
 
@@ -93,15 +96,15 @@ internal static class StudioEndpoints
             store.SaveMapping(mapping);
             return Results.Json(mapping);
         });
-        app.MapPost("/api/mappings/{contextKey}/execute", async (
-            string contextKey,
+        app.MapPost("/api/mappings/{id}/execute", async (
+            string id,
             StudioStore store,
             StudioButterMorphHost host,
             IButterMorphEngine engine,
             HttpRequest request) =>
         {
             StudioExecutionRequest body = await JsonSerializer.DeserializeAsync<StudioExecutionRequest>(request.Body, JsonOptions) ?? new StudioExecutionRequest();
-            if (!store.TryGetMapping(contextKey, out StudioMapping mapping))
+            if (!store.TryGetMapping(id, out StudioMapping mapping))
             {
                 return Results.NotFound();
             }
@@ -119,10 +122,10 @@ internal static class StudioEndpoints
             schemas = store.Schemas,
             mappings = store.Mappings.Select(mapping => new
             {
-                mapping.ContextKey,
+                mapping.Id,
                 mapping.Name,
-                mapping.TargetSchemaKey,
-                mapping.SourceSchemaKeys,
+                mapping.TargetSchemaId,
+                mapping.SourceSchemaIds,
                 mapping.SourceSamples,
                 mapping.DslContent,
                 mapping.SavedAt
@@ -130,55 +133,29 @@ internal static class StudioEndpoints
         });
     }
 
-    private static IResult GetItem(string kind, string contextKey, StudioStore store)
+    private static IResult GetItem(string kind, string id, StudioStore store)
     {
-        if (kind == "customTypes" && store.TryGetCustomType(contextKey, out StudioCustomType customType))
+        if (kind == "customTypes" && store.TryGetCustomType(id, out StudioCustomType customType))
         {
             return Results.Json(customType);
         }
 
-        if (kind == "customFields" && store.TryGetCustomField(contextKey, out StudioCustomField customField))
+        if (kind == "customFields" && store.TryGetCustomField(id, out StudioCustomField customField))
         {
             return Results.Json(customField);
         }
 
-        if (kind == "schemas" && store.TryGetSchema(contextKey, out StudioSchema schema))
+        if (kind == "schemas" && store.TryGetSchema(id, out StudioSchema schema))
         {
             return Results.Json(schema);
         }
 
-        if (kind == "mappings" && store.TryGetMapping(contextKey, out StudioMapping mapping))
+        if (kind == "mappings" && store.TryGetMapping(id, out StudioMapping mapping))
         {
             return Results.Json(mapping);
         }
 
         return Results.NotFound();
-    }
-
-    private static void CreateDraft(string kind, string contextKey, string name, StudioStore store)
-    {
-        if (kind == "customTypes")
-        {
-            store.SaveCustomType(new StudioCustomType { ContextKey = contextKey, Name = name, Key = Slug(name), Version = "1.0.0", BaseType = "string" });
-            return;
-        }
-
-        if (kind == "customFields")
-        {
-            store.SaveCustomField(new StudioCustomField { ContextKey = contextKey, Name = name, Key = Slug(name), AppliesToJson = "[\"Schema\",\"Field\"]", IsActive = true });
-            return;
-        }
-
-        if (kind == "schemas")
-        {
-            store.SaveSchema(new StudioSchema { ContextKey = contextKey, Name = name, Key = Slug(name), Version = "1.0.0", JsonSchema = CreateEmptySchemaJson(Slug(name), name) });
-            return;
-        }
-
-        if (kind == "mappings")
-        {
-            store.SaveMapping(new StudioMapping { ContextKey = contextKey, Name = name, Document = new TransformationDocument() });
-        }
     }
 
     private static StudioExecutionView Execute(StudioMapping mapping, StudioExecutionRequest request, StudioButterMorphHost host, IButterMorphEngine engine)
@@ -187,7 +164,7 @@ internal static class StudioEndpoints
         JsonReader reader = new();
         JsonWriter writer = new();
 
-        foreach (KeyValuePair<string, string> source in mapping.SourceSchemaKeys)
+        foreach (KeyValuePair<string, string> source in mapping.SourceSchemaIds)
         {
             string json = request.Sources.TryGetValue(source.Key, out string postedJson)
                 ? postedJson
@@ -213,7 +190,7 @@ internal static class StudioEndpoints
         };
     }
 
-    private static string CreateContextKey(string kind)
+    private static string CreateId(string kind)
     {
         return kind.TrimEnd('s') + "-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
@@ -230,17 +207,6 @@ internal static class StudioEndpoints
         };
     }
 
-    private static string Slug(string value)
-    {
-        string lowered = value.Trim().ToLowerInvariant();
-        return string.Join("-", lowered.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private static string CreateEmptySchemaJson(string key, string name)
-    {
-        return "{\"key\":\"" + key + "\",\"name\":\"" + name + "\",\"version\":\"1.0.0\",\"type\":\"object\",\"properties\":{}}";
-    }
-
     private static string PrettyJson(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -252,3 +218,4 @@ internal static class StudioEndpoints
         return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = true });
     }
 }
+

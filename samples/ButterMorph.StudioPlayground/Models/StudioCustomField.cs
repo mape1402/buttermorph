@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Models;
+﻿namespace ButterMorph.StudioPlayground.Models;
 
 /// <summary>
 /// Represents a host-owned metadata field.
@@ -6,9 +6,9 @@ namespace ButterMorph.StudioPlayground.Models;
 internal sealed class StudioCustomField
 {
     /// <summary>
-    /// Gets or sets the context key used by ButterMorph designers.
+    /// Gets or sets the host-owned identifier used to correlate ButterMorph designers.
     /// </summary>
-    public string ContextKey { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the metadata key.
@@ -66,7 +66,13 @@ internal sealed class StudioCustomField
     public string ArrayItemDefinitionJson { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the serialized ButterMorph result received by the host.
+    /// </summary>
+    public string ButterMorphResultJson { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the last saved timestamp.
     /// </summary>
     public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+

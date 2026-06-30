@@ -1,4 +1,4 @@
-namespace ButterMorph.StudioPlayground.Services;
+﻿namespace ButterMorph.StudioPlayground.Services;
 
 using System.Collections.Concurrent;
 using ButterMorph.StudioPlayground.Models;
@@ -41,7 +41,7 @@ internal sealed class StudioStore
     public void SaveCustomType(StudioCustomType item)
     {
         item.SavedAt = DateTimeOffset.UtcNow;
-        customTypes[item.ContextKey] = item;
+        customTypes[item.Id] = item;
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ internal sealed class StudioStore
     public void SaveCustomField(StudioCustomField item)
     {
         item.SavedAt = DateTimeOffset.UtcNow;
-        customFields[item.ContextKey] = item;
+        customFields[item.Id] = item;
     }
 
     /// <summary>
@@ -61,7 +61,7 @@ internal sealed class StudioStore
     public void SaveSchema(StudioSchema item)
     {
         item.SavedAt = DateTimeOffset.UtcNow;
-        schemas[item.ContextKey] = item;
+        schemas[item.Id] = item;
     }
 
     /// <summary>
@@ -71,68 +71,69 @@ internal sealed class StudioStore
     public void SaveMapping(StudioMapping item)
     {
         item.SavedAt = DateTimeOffset.UtcNow;
-        mappings[item.ContextKey] = item;
+        mappings[item.Id] = item;
     }
 
     /// <summary>
     /// Attempts to get a custom type.
     /// </summary>
-    /// <param name="contextKey">The context key.</param>
+    /// <param name="id">The host-owned id.</param>
     /// <param name="item">The custom type.</param>
     /// <returns>True when found.</returns>
-    public bool TryGetCustomType(string contextKey, out StudioCustomType item)
+    public bool TryGetCustomType(string id, out StudioCustomType item)
     {
-        return customTypes.TryGetValue(contextKey, out item);
+        return customTypes.TryGetValue(id, out item);
     }
 
     /// <summary>
     /// Attempts to get a custom field.
     /// </summary>
-    /// <param name="contextKey">The context key.</param>
+    /// <param name="id">The host-owned id.</param>
     /// <param name="item">The custom field.</param>
     /// <returns>True when found.</returns>
-    public bool TryGetCustomField(string contextKey, out StudioCustomField item)
+    public bool TryGetCustomField(string id, out StudioCustomField item)
     {
-        return customFields.TryGetValue(contextKey, out item);
+        return customFields.TryGetValue(id, out item);
     }
 
     /// <summary>
     /// Attempts to get a schema.
     /// </summary>
-    /// <param name="contextKey">The context key.</param>
+    /// <param name="id">The host-owned id.</param>
     /// <param name="item">The schema.</param>
     /// <returns>True when found.</returns>
-    public bool TryGetSchema(string contextKey, out StudioSchema item)
+    public bool TryGetSchema(string id, out StudioSchema item)
     {
-        return schemas.TryGetValue(contextKey, out item);
+        return schemas.TryGetValue(id, out item);
     }
 
     /// <summary>
     /// Attempts to get a mapping.
     /// </summary>
-    /// <param name="contextKey">The context key.</param>
+    /// <param name="id">The host-owned id.</param>
     /// <param name="item">The mapping.</param>
     /// <returns>True when found.</returns>
-    public bool TryGetMapping(string contextKey, out StudioMapping item)
+    public bool TryGetMapping(string id, out StudioMapping item)
     {
-        return mappings.TryGetValue(contextKey, out item);
+        return mappings.TryGetValue(id, out item);
     }
 
     /// <summary>
     /// Deletes one item by kind and key.
     /// </summary>
     /// <param name="kind">The item kind.</param>
-    /// <param name="contextKey">The context key.</param>
+    /// <param name="id">The host-owned id.</param>
     /// <returns>True when removed.</returns>
-    public bool Delete(string kind, string contextKey)
+    public bool Delete(string kind, string id)
     {
         return kind switch
         {
-            "customTypes" => customTypes.TryRemove(contextKey, out StudioCustomType removedType),
-            "customFields" => customFields.TryRemove(contextKey, out StudioCustomField removedField),
-            "schemas" => schemas.TryRemove(contextKey, out StudioSchema removedSchema),
-            "mappings" => mappings.TryRemove(contextKey, out StudioMapping removedMapping),
+            "customTypes" => customTypes.TryRemove(id, out StudioCustomType removedType),
+            "customFields" => customFields.TryRemove(id, out StudioCustomField removedField),
+            "schemas" => schemas.TryRemove(id, out StudioSchema removedSchema),
+            "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping),
             _ => false
         };
     }
 }
+

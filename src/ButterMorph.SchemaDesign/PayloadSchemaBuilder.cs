@@ -57,17 +57,34 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
                 return Fail("BMSD302", "Payload schema root must be map-shaped.", "JsonSchema");
             }
 
-            return new PayloadSchemaDesignResult
+            if (ContainsRequiredArray(document.RootElement))
             {
-                Succeeded = true,
-                Diagnostics = [],
+                return Fail("BMSD306", "Required fields must be stored as required: true on each field.", "JsonSchema");
+            }
+
+            PayloadSchemaDefinition definition = new()
+            {
                 Key = input.Key.Trim(),
                 Name = input.Name.Trim(),
                 Description = input.Description.Trim(),
                 Version = input.Version.Trim(),
                 VersionComment = input.VersionComment.Trim(),
                 Metadata = CopyMetadata(input.Metadata),
-                JsonSchema = CreateAtlasSchema(input.JsonSchema, input.Metadata)
+                JsonSchema = CreateAtlasSchema(input)
+            };
+
+            return new PayloadSchemaDesignResult
+            {
+                Succeeded = true,
+                Diagnostics = [],
+                Definition = definition,
+                Key = definition.Key,
+                Name = definition.Name,
+                Description = definition.Description,
+                Version = definition.Version,
+                VersionComment = definition.VersionComment,
+                Metadata = definition.Metadata,
+                JsonSchema = definition.JsonSchema
             };
         }
         catch (JsonException exception)
@@ -96,25 +113,37 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
         };
     }
 
-    // Creates Atlas-compatible JSON Schema without embedding host-owned identity fields.
-    private static string CreateAtlasSchema(string jsonSchema, IReadOnlyDictionary<string, string> metadata)
+    // Creates the canonical ButterMorph payload schema using Atlas-style field semantics.
+    private static string CreateAtlasSchema(PayloadSchemaDesignInput input)
     {
-        using JsonDocument document = JsonDocument.Parse(jsonSchema);
+        using JsonDocument document = JsonDocument.Parse(input.JsonSchema);
         using MemoryStream stream = new();
         using Utf8JsonWriter writer = new(stream, new JsonWriterOptions { Indented = false });
 
         writer.WriteStartObject();
+        writer.WriteString("key", input.Key.Trim());
+        writer.WriteString("name", input.Name.Trim());
+        if (!string.IsNullOrWhiteSpace(input.Description))
+        {
+            writer.WriteString("description", input.Description.Trim());
+        }
+
+        writer.WriteString("version", input.Version.Trim());
+        if (!string.IsNullOrWhiteSpace(input.VersionComment))
+        {
+            writer.WriteString("versionComment", input.VersionComment.Trim());
+        }
+
+        WriteOpenMetadata(writer, input.Metadata);
         foreach (JsonProperty property in document.RootElement.EnumerateObject())
         {
-            if (ShouldSkipRootProperty(property.Name, metadata))
+            if (ShouldSkipRootProperty(property.Name, input.Metadata))
             {
                 continue;
             }
 
             property.WriteTo(writer);
         }
-
-        WriteOpenMetadata(writer, metadata);
 
         writer.WriteEndObject();
         writer.Flush();
@@ -135,6 +164,40 @@ public sealed class PayloadSchemaBuilder : IPayloadSchemaBuilder
             string.Equals(propertyName, "description", StringComparison.Ordinal) ||
             string.Equals(propertyName, "version", StringComparison.Ordinal) ||
             string.Equals(propertyName, "versionComment", StringComparison.Ordinal);
+    }
+
+    // Detects unsupported required arrays anywhere in the schema body.
+    private static bool ContainsRequiredArray(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                if (string.Equals(property.Name, "required", StringComparison.Ordinal) &&
+                    property.Value.ValueKind == JsonValueKind.Array)
+                {
+                    return true;
+                }
+
+                if (ContainsRequiredArray(property.Value))
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+            {
+                if (ContainsRequiredArray(item))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     // Copies open metadata safely.

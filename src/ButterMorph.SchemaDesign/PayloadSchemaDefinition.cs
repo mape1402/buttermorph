@@ -1,27 +1,10 @@
 namespace ButterMorph.SchemaDesign;
 
-using ButterMorph.Abstractions;
-
 /// <summary>
-/// Represents payload schema builder output.
+/// Represents the clean payload schema definition produced for hosts.
 /// </summary>
-public sealed class PayloadSchemaDesignResult
+public sealed class PayloadSchemaDefinition
 {
-    /// <summary>
-    /// Gets or sets a value indicating whether design succeeded.
-    /// </summary>
-    public bool Succeeded { get; set; }
-
-    /// <summary>
-    /// Gets or sets operation diagnostics.
-    /// </summary>
-    public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets the clean definition produced for hosts.
-    /// </summary>
-    public PayloadSchemaDefinition Definition { get; set; } = new();
-
     /// <summary>
     /// Gets or sets the canonical schema key.
     /// </summary>

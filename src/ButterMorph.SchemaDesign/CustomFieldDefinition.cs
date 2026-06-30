@@ -1,36 +1,19 @@
 namespace ButterMorph.SchemaDesign;
 
-using ButterMorph.Abstractions;
-
 /// <summary>
-/// Represents field metadata design output.
+/// Represents the clean custom field definition produced for hosts.
 /// </summary>
-public sealed class FieldMetadataDesignResult
+public sealed class CustomFieldDefinition
 {
     /// <summary>
-    /// Gets or sets a value indicating whether design succeeded.
+    /// Gets or sets the metadata key.
     /// </summary>
-    public bool Succeeded { get; set; }
-
-    /// <summary>
-    /// Gets or sets operation diagnostics.
-    /// </summary>
-    public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets the clean definition produced for hosts.
-    /// </summary>
-    public CustomFieldDefinition Definition { get; set; } = new();
+    public string Key { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the metadata display name.
     /// </summary>
     public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the metadata key.
-    /// </summary>
-    public string Key { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the metadata description.

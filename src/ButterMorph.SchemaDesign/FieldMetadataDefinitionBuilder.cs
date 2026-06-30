@@ -37,10 +37,8 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             };
         }
 
-        return new FieldMetadataDesignResult
+        CustomFieldDefinition definition = new()
         {
-            Succeeded = true,
-            Diagnostics = [],
             Name = input.Name.Trim(),
             Key = input.Key.Trim(),
             Description = input.Description.Trim(),
@@ -52,6 +50,24 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
             ChildrenDefinitionJson = input.ChildrenDefinitionJson.Trim(),
             ArrayItemDataType = input.ArrayItemDataType.Trim(),
             ArrayItemDefinitionJson = input.ArrayItemDefinitionJson.Trim()
+        };
+
+        return new FieldMetadataDesignResult
+        {
+            Succeeded = true,
+            Diagnostics = [],
+            Definition = definition,
+            Name = definition.Name,
+            Key = definition.Key,
+            Description = definition.Description,
+            DataType = definition.DataType,
+            AppliesToJson = definition.AppliesToJson,
+            IsRequired = definition.IsRequired,
+            IsActive = definition.IsActive,
+            ValidationJson = definition.ValidationJson,
+            ChildrenDefinitionJson = definition.ChildrenDefinitionJson,
+            ArrayItemDataType = definition.ArrayItemDataType,
+            ArrayItemDefinitionJson = definition.ArrayItemDefinitionJson
         };
     }
 
