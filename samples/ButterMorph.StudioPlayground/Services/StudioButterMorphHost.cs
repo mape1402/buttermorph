@@ -67,7 +67,7 @@ internal sealed class StudioButterMorphHost :
             TargetSchema = targetSchema,
             InitialDocument = mapping.Document,
             ShowSchemaActions = false,
-            Message = "Loaded from Studio host."
+            Message = string.Empty
         });
     }
 
@@ -109,7 +109,7 @@ internal sealed class StudioButterMorphHost :
             Input = input,
             SchemaTypes = CreateTypeCatalog(store.CustomTypes),
             ShowManualActions = false,
-            Message = "Catalog loaded from Studio host."
+            Message = string.Empty
         });
     }
 
@@ -150,7 +150,7 @@ internal sealed class StudioButterMorphHost :
         {
             Input = input,
             ShowManualActions = false,
-            Message = "Metadata field loaded from Studio host."
+            Message = string.Empty
         });
     }
 
@@ -199,6 +199,7 @@ internal sealed class StudioButterMorphHost :
         IReadOnlyCollection<StudioCustomField> injectedFields = store.CustomFields
             .Where(item => customFieldIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
             .ToArray();
+        string schemaJson = ResolveSchemaJson(schema);
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
         {
@@ -207,12 +208,12 @@ internal sealed class StudioButterMorphHost :
             Description = schema.Description,
             Version = schema.Version,
             VersionComment = schema.VersionComment,
-            Metadata = ReadSchemaMetadata(schema.JsonSchema),
-            JsonSchema = schema.JsonSchema,
+            Metadata = ReadSchemaMetadata(schemaJson),
+            JsonSchema = schemaJson,
             SchemaTypes = CreateTypeCatalog(injectedTypes),
             MetadataFields = CreateFieldCatalog(injectedFields),
             ShowManualActions = false,
-            Message = "Schema designer catalog loaded from Studio host."
+            Message = string.Empty
         });
     }
 
@@ -611,6 +612,13 @@ internal sealed class StudioButterMorphHost :
         }
 
         return metadata;
+    }
+
+    private static string ResolveSchemaJson(StudioSchema schema)
+    {
+        return string.IsNullOrWhiteSpace(schema.JsonSchema)
+            ? schema.ButterMorphResultJson
+            : schema.JsonSchema;
     }
 }
 

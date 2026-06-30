@@ -272,7 +272,7 @@
         if (definition.children && definition.children.length > 0) {
             snapshot.children = definition.children;
         }
-        if (definition.arrayItem) {
+        if (definition.dataType === "array" && definition.arrayItem) {
             snapshot.arrayItem = definition.arrayItem;
         }
         return snapshot;
@@ -342,9 +342,19 @@
             return;
         }
         const definitionKey = readReferenceDefinitionKey(definition);
+        if (definitionKey) {
+            const referenceMatch = Array.from(select.options).find(function (option) {
+                return option.dataset.definitionKey === definitionKey;
+            });
+            if (referenceMatch) {
+                select.value = referenceMatch.value;
+            }
+            return;
+        }
+
         const type = definition.type || "string";
         const match = Array.from(select.options).find(function (option) {
-            return option.dataset.definitionKey === definitionKey || option.value === type || option.dataset.baseType === type;
+            return option.value === type || option.dataset.baseType === type;
         });
         if (match) {
             select.value = match.value;
@@ -771,14 +781,15 @@
     function createMetadataDefinition(item) {
         const key = readCatalogValue(item, "key", "Key");
         const dataType = (readCatalogValue(item, "dataType", "DataType") || "string").toLowerCase();
+        const arrayItem = dataType === "array" ? readMetadataArrayItem(
+            readCatalogValue(item, "arrayItemDataType", "ArrayItemDataType"),
+            readCatalogValue(item, "arrayItemDefinitionJson", "ArrayItemDefinitionJson")) : null;
         return {
             key: key,
             name: readCatalogValue(item, "name", "Name") || key,
             dataType: dataType,
             children: readMetadataChildren(readCatalogValue(item, "childrenDefinitionJson", "ChildrenDefinitionJson")),
-            arrayItem: readMetadataArrayItem(
-                readCatalogValue(item, "arrayItemDataType", "ArrayItemDataType"),
-                readCatalogValue(item, "arrayItemDefinitionJson", "ArrayItemDefinitionJson")),
+            arrayItem: arrayItem,
             allowedValues: readAllowedValues(readCatalogValue(item, "validation", "Validation"))
         };
     }

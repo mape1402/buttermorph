@@ -124,7 +124,7 @@
       selected[kind] = button.dataset.key;
       renderAll();
     }));
-    section.querySelectorAll("[data-open-designer]").forEach(button => button.addEventListener("click", () => openDesigner(button.dataset.openDesigner, button.dataset.key)));
+    section.querySelectorAll("[data-open-designer]").forEach(button => button.addEventListener("click", () => openDesigner(button.dataset.openDesigner, button.dataset.key, "", createEditQuery(kind, button.dataset.key))));
     section.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", () => deleteItem(button.dataset.delete, button.dataset.key)));
     section.querySelectorAll("[data-save-injection]").forEach(button => button.addEventListener("click", () => saveInjection(button.dataset.key)));
     section.querySelectorAll("[data-save-mapping-settings]").forEach(button => button.addEventListener("click", () => saveMappingSettings(button.dataset.key)));
@@ -228,6 +228,19 @@
     const injectionQuery = extraQuery || "";
     const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
     window.ButterMorphHost.openFrame(url, { title: "ButterMorph Designer", width: 1420, height: 900 });
+  }
+
+  function createEditQuery(kind, id) {
+    if (kind !== "schemas") {
+      return "";
+    }
+    const schema = state.schemas.find(item => item.id === id);
+    if (!schema) {
+      return "";
+    }
+    const typeIds = schema.injectedCustomTypeKeys || [];
+    const fieldIds = schema.injectedCustomFieldKeys || [];
+    return `&customTypes=${encodeURIComponent(typeIds.join(","))}&customFields=${encodeURIComponent(fieldIds.join(","))}`;
   }
 
   function openSchemaSetup(id, route) {

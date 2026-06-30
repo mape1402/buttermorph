@@ -95,7 +95,7 @@
         if (field.isRequired) {
             const mark = document.createElement("span");
             mark.className = "schema-metadata-required";
-            mark.textContent = " requerido";
+            mark.textContent = " required";
             label.appendChild(mark);
         }
         header.appendChild(label);

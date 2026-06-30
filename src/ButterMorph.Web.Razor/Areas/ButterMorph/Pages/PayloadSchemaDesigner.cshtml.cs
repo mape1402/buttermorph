@@ -341,7 +341,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
                 IsRequired = item.IsRequired,
                 AllowedValues = ReadAllowedValues(item.Validation),
                 Children = ReadMetadataChildren(item.ChildrenDefinitionJson),
-                ArrayItem = ReadMetadataArrayItem(item.ArrayItemDataType, item.ArrayItemDefinitionJson)
+                ArrayItem = IsArrayMetadataType(item.DataType)
+                    ? ReadMetadataArrayItem(item.ArrayItemDataType, item.ArrayItemDefinitionJson)
+                    : null
             });
         }
 
@@ -539,6 +541,12 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         }
 
         return item;
+    }
+
+    // Determines whether a custom metadata field is array-shaped.
+    private static bool IsArrayMetadataType(string dataType)
+    {
+        return string.Equals(dataType, "array", StringComparison.OrdinalIgnoreCase);
     }
 
     // Reads a string property from JSON.
@@ -753,7 +761,8 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     {
         JsonSerializerOptions options = new()
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
         options.Converters.Add(new JsonStringEnumConverter());
         return options;

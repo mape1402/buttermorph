@@ -40,13 +40,13 @@
                         <label class="form-label">Name</label>
                         <input class="form-control" asp-for="SchemaName" placeholder="Display name" required />
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Version</label>
-                        <input class="form-control" asp-for="SchemaVersion" placeholder="1.0.0" maxlength="13" required />
-                    </div>
                     <div class="col-md-4">
                         <label class="form-label">Description</label>
                         <input class="form-control" asp-for="SchemaDescription" placeholder="Short schema description" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Version</label>
+                        <input class="form-control" asp-for="SchemaVersion" placeholder="1.0.0" maxlength="13" required />
                     </div>
                 </section>
                 <section class="row g-3 mb-3">
@@ -103,8 +103,8 @@
             </div>
         </div>
     </div>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=14"></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js?v=5"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=15"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js?v=6"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>
