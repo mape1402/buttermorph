@@ -1,14 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ButterMorph.DependencyInjection\ButterMorph.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Web.Razor\ButterMorph.Web.Razor.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json\ButterMorph.Json.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
-    <ProjectReference Include="..\..\src\ButterMorph.Functions\ButterMorph.Functions.csproj" />
-    <ProjectReference Include="..\..\src\ButterMorph.Core\ButterMorph.Core.csproj" />
-    <ProjectReference Include="..\..\src\ButterMorph.Modeling\ButterMorph.Modeling.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,8 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
-    <ProjectReference Include="..\ButterMorph.Execution\ButterMorph.Execution.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
   </ItemGroup>
 
   <PropertyGroup>

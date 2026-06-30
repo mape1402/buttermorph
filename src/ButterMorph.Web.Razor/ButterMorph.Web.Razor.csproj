@@ -9,15 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Design\ButterMorph.Design.csproj" />
-    <ProjectReference Include="..\ButterMorph.Abstractions\ButterMorph.Abstractions.csproj" />
-    <ProjectReference Include="..\ButterMorph.Core\ButterMorph.Core.csproj" />
     <ProjectReference Include="..\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
     <ProjectReference Include="..\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +30,5 @@
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.js" />
   </ItemGroup>
-
 
 </Project>
