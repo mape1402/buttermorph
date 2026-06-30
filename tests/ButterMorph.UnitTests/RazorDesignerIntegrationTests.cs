@@ -72,6 +72,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage codeMirrorHintScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js");
         string css = await cssResponse.Content.ReadAsStringAsync();
         string script = await scriptResponse.Content.ReadAsStringAsync();
+        string schemaMetadataScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js");
+        string schemaBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js");
 
         Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
@@ -135,6 +137,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains(".bm-dsl-diagnostic-row", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".bm-left-dock:hover .bm-dock-panel-host", css, StringComparison.Ordinal);
         Assert.DoesNotContain("mouseenter", script, StringComparison.Ordinal);
+        Assert.Contains("allowedValues: normalizeAllowedValues", schemaMetadataScript, StringComparison.Ordinal);
+        Assert.Contains("const metadata = Object.assign({}, readCurrentMetadata())", schemaMetadataScript, StringComparison.Ordinal);
+        Assert.Contains("allowedValues: readAllowedValues", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("const metadata = safeJson(activeMetadataField.dataset.metadata || \"{}\")", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("function unwrapMetadataValue", schemaBuilderScript, StringComparison.Ordinal);
     }
 
     /// <summary>

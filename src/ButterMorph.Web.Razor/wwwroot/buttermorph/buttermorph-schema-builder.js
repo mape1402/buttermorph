@@ -637,7 +637,7 @@
         wrapper.appendChild(header);
 
         const description = readCatalogValue(item, "description", "Description");
-        const value = metadata[key] || "";
+        const value = unwrapMetadataValue(metadata[key]);
         const allowedValues = Array.isArray(validation.allowedValues) ? validation.allowedValues :
             Array.isArray(validation.enum) ? validation.enum : [];
         let input = null;
@@ -705,8 +705,20 @@
             children: readMetadataChildren(readCatalogValue(item, "childrenDefinitionJson", "ChildrenDefinitionJson")),
             arrayItem: readMetadataArrayItem(
                 readCatalogValue(item, "arrayItemDataType", "ArrayItemDataType"),
-                readCatalogValue(item, "arrayItemDefinitionJson", "ArrayItemDefinitionJson"))
+                readCatalogValue(item, "arrayItemDefinitionJson", "ArrayItemDefinitionJson")),
+            allowedValues: readAllowedValues(readCatalogValue(item, "validation", "Validation"))
         };
+    }
+
+    function readAllowedValues(validationJson) {
+        const validation = safeJson(validationJson || "{}");
+        if (Array.isArray(validation.allowedValues)) {
+            return validation.allowedValues.map(function (value) { return String(value); });
+        }
+        if (Array.isArray(validation.enum)) {
+            return validation.enum.map(function (value) { return String(value); });
+        }
+        return [];
     }
 
     function readMetadataChildren(json) {
@@ -720,11 +732,15 @@
                 description: property.description || "",
                 dataType: (property.type || "string").toLowerCase(),
                 isRequired: property.required === true,
+                allowedValues: Array.isArray(property.allowedValues) ? property.allowedValues :
+                    Array.isArray(property.enum) ? property.enum : [],
                 children: readMetadataChildren(JSON.stringify(property)),
                 arrayItem: property.items ? {
                     key: "item",
                     name: "Item",
                     dataType: (property.items.type || "string").toLowerCase(),
+                    allowedValues: Array.isArray(property.items.allowedValues) ? property.items.allowedValues :
+                        Array.isArray(property.items.enum) ? property.items.enum : [],
                     children: readMetadataChildren(JSON.stringify(property.items))
                 } : null
             };
@@ -802,22 +818,39 @@
         } else if (wrapper.dataset.type === "array") {
             input = createMetadataArrayInput(definition, value);
         } else {
-            input = document.createElement("input");
-            input.className = "form-control";
-            input.value = value === undefined || value === null ? "" : String(value);
-            input.type = wrapper.dataset.type === "number" || wrapper.dataset.type === "integer" ? "number" :
-                wrapper.dataset.type === "boolean" ? "checkbox" :
-                wrapper.dataset.type === "date" ? "date" :
-                wrapper.dataset.type === "datetime" ? "datetime-local" : "text";
-            if (wrapper.dataset.type === "integer") {
-                input.step = "1";
-            }
-            if (wrapper.dataset.type === "number") {
-                input.step = "any";
-            }
-            if (wrapper.dataset.type === "boolean") {
-                input.className = "form-check-input";
-                input.checked = value === true || value === "true";
+            const allowedValues = Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
+            if (allowedValues.length > 0) {
+                input = document.createElement("select");
+                input.className = "form-control";
+                const empty = document.createElement("option");
+                empty.value = "";
+                empty.textContent = "";
+                input.appendChild(empty);
+                allowedValues.forEach(function (allowedValue) {
+                    const option = document.createElement("option");
+                    option.value = String(allowedValue);
+                    option.textContent = String(allowedValue);
+                    option.selected = String(allowedValue) === String(value);
+                    input.appendChild(option);
+                });
+            } else {
+                input = document.createElement("input");
+                input.className = "form-control";
+                input.value = value === undefined || value === null ? "" : String(value);
+                input.type = wrapper.dataset.type === "number" || wrapper.dataset.type === "integer" ? "number" :
+                    wrapper.dataset.type === "boolean" ? "checkbox" :
+                    wrapper.dataset.type === "date" ? "date" :
+                    wrapper.dataset.type === "datetime" ? "datetime-local" : "text";
+                if (wrapper.dataset.type === "integer") {
+                    input.step = "1";
+                }
+                if (wrapper.dataset.type === "number") {
+                    input.step = "any";
+                }
+                if (wrapper.dataset.type === "boolean") {
+                    input.className = "form-check-input";
+                    input.checked = value === true || value === "true";
+                }
             }
         }
         input.dataset.group = "metadata";
@@ -865,17 +898,26 @@
         if (!activeMetadataField) {
             return;
         }
-        const metadata = {};
+        const metadata = safeJson(activeMetadataField.dataset.metadata || "{}");
         document.querySelectorAll("#field-metadata-fields > .schema-metadata-field").forEach(function (field) {
             const key = field.dataset.key;
             const value = collectMetadataValue(field);
             if ((value === "" || value === null || value === undefined) && value !== false) {
+                delete metadata[key];
                 return;
             }
             metadata[key] = value;
         });
         activeMetadataField.dataset.metadata = JSON.stringify(metadata);
         closeModal("field-metadata-modal");
+    }
+
+    function unwrapMetadataValue(value) {
+        if (value && typeof value === "object" && value.type !== undefined && value.value !== undefined) {
+            return value.value;
+        }
+
+        return value === undefined || value === null ? "" : value;
     }
 
     function collectMetadataValue(field) {

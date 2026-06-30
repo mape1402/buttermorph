@@ -306,13 +306,16 @@
 
     function collectMetadata() {
         const errors = [];
-        const metadata = {};
+        const metadata = Object.assign({}, readCurrentMetadata());
         definition.fields.forEach(function (field) {
             const element = findFieldElement(fieldHost, field.key);
             const value = collectFieldValue(field, element, errors);
             if (!isEmptyValue(value.value) || field.isRequired) {
                 metadata[field.key] = value;
+                return;
             }
+
+            delete metadata[field.key];
         });
 
         return {
@@ -525,9 +528,20 @@
             dataType: normalizeType(field.dataType || field.DataType || "String"),
             isRequired: field.isRequired === true || field.IsRequired === true,
             defaultValue: field.defaultValue || field.DefaultValue || "",
+            allowedValues: normalizeAllowedValues(field.allowedValues || field.AllowedValues),
             children: children.map(normalizeField).filter(function (child) { return child.key; }),
             arrayItem: field.arrayItem || field.ArrayItem ? normalizeField(field.arrayItem || field.ArrayItem) : null
         };
+    }
+
+    function normalizeAllowedValues(values) {
+        if (!Array.isArray(values)) {
+            return [];
+        }
+
+        return values.map(function (value) { return String(value); }).filter(function (value, index, allValues) {
+            return value && allValues.indexOf(value) === index;
+        });
     }
 
     function normalizeType(value) {

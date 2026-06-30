@@ -205,6 +205,7 @@ internal sealed class StudioButterMorphHost :
             Description = schema.Description,
             Version = schema.Version,
             VersionComment = schema.VersionComment,
+            Metadata = ReadSchemaMetadata(schema.JsonSchema),
             JsonSchema = schema.JsonSchema,
             SchemaTypes = CreateTypeCatalog(injectedTypes),
             MetadataFields = CreateFieldCatalog(injectedFields),
@@ -462,6 +463,38 @@ internal sealed class StudioButterMorphHost :
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadSchemaMetadata(string json)
+    {
+        Dictionary<string, string> metadata = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return metadata;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("metadata", out JsonElement metadataElement) ||
+                metadataElement.ValueKind != JsonValueKind.Object)
+            {
+                return metadata;
+            }
+
+            foreach (JsonProperty property in metadataElement.EnumerateObject())
+            {
+                metadata[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                    ? property.Value.GetString()
+                    : property.Value.GetRawText();
+            }
+        }
+        catch (JsonException)
+        {
+            return metadata;
+        }
+
+        return metadata;
     }
 }
 

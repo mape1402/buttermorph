@@ -166,6 +166,40 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
     }
 
     /// <summary>
+    /// Confirms custom field allowed values are injected into schema designer metadata catalogs.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSchemaDesignerReceivesAllowedValuesForInjectedCustomFields()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/designer?context=schema-allowed-values-test&mode=create&customFields=field-security-classification");
+
+        Assert.Contains("field-metadata-catalog", html, StringComparison.Ordinal);
+        Assert.Contains("Security Clasification", html, StringComparison.Ordinal);
+        Assert.Contains("allowedValues", html, StringComparison.Ordinal);
+        Assert.Contains("Confidential", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms editing a custom field reloads its saved allowed values.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioCustomFieldEditReloadsAllowedValues()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer?context=field-security-classification&mode=edit");
+
+        Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
+        Assert.Contains("Public", html, StringComparison.Ordinal);
+        Assert.Contains("Private", html, StringComparison.Ordinal);
+        Assert.Contains("Confidential", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms mapping create persists because mappings are configured by the host.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

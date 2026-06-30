@@ -147,6 +147,7 @@ public sealed class SchemaDesignSessionTests
 
         Assert.True(result.Succeeded);
         Assert.Contains("\"allowedValues\":[\"Internal\",\"Public\"]", result.ValidationJson, StringComparison.Ordinal);
+        Assert.Contains("\"allowedValues\":[\"Internal\",\"Public\"]", result.Definition.ValidationJson, StringComparison.Ordinal);
         Assert.Contains("\"Schema\"", result.AppliesToJson, StringComparison.Ordinal);
     }
 
