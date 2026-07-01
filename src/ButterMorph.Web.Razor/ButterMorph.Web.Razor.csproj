@@ -28,3 +28,4 @@
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.js" />
   </ItemGroup>
 </Project>
+

@@ -11,3 +11,4 @@
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
   </ItemGroup>
 </Project>
+
