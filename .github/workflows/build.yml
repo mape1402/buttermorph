@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'samples/**'
+      - '.github/workflows/build.yml'
+      - '*.sln'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'samples/**'
+      - '.github/workflows/build.yml'
+      - '*.sln'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+
+jobs:
+  build-test-pack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore ButterMorph.sln
+
+      - name: Build
+        run: dotnet build ButterMorph.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test ButterMorph.sln --no-build --configuration Release --verbosity normal
+
+      - name: Pack
+        run: |
+          mkdir -p ./nupkgs
+          dotnet pack src/ButterMorph/ButterMorph.csproj --no-build --configuration Release --output ./nupkgs
+          dotnet pack src/ButterMorph.Json/ButterMorph.Json.csproj --no-build --configuration Release --output ./nupkgs
+          dotnet pack src/ButterMorph.Json.Schema/ButterMorph.Json.Schema.csproj --no-build --configuration Release --output ./nupkgs
+          dotnet pack src/ButterMorph.SchemaDesign/ButterMorph.SchemaDesign.csproj --no-build --configuration Release --output ./nupkgs
+          dotnet pack src/ButterMorph.Design/ButterMorph.Design.csproj --no-build --configuration Release --output ./nupkgs
+          dotnet pack src/ButterMorph.Web.Razor/ButterMorph.Web.Razor.csproj --no-build --configuration Release --output ./nupkgs
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./nupkgs/*.nupkg
