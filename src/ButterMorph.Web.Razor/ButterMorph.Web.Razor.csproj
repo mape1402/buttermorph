@@ -1,13 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
-
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>disable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Design\ButterMorph.Design.csproj" />
@@ -15,7 +10,6 @@
     <ProjectReference Include="..\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\buttermorph\designer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\designer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.designer.js" />
@@ -30,5 +24,4 @@
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\vendor\codemirror\show-hint.min.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.vendor.codemirror.show-hint.min.js" />
   </ItemGroup>
-
 </Project>

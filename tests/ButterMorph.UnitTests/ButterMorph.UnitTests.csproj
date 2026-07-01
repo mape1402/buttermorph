@@ -1,13 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.9" />
@@ -16,11 +11,9 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
-
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\src\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json\ButterMorph.Json.csproj" />
@@ -31,5 +24,4 @@
     <ProjectReference Include="..\..\samples\ButterMorph.Playground\ButterMorph.Playground.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.StudioPlayground\ButterMorph.StudioPlayground.csproj" />
   </ItemGroup>
-
 </Project>
