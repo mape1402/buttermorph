@@ -18,9 +18,12 @@ public static class ServiceCollectionExtensions
         services.AddButterMorphJsonSchema();
         services.AddSingleton<ISchemaDesignSessionStore, SchemaDesignSessionStore>();
         services.AddSingleton<ISchemaTypeSchemaBuilder, SchemaTypeSchemaBuilder>();
+        services.AddSingleton<ISchemaTypeDefinitionHydrator, SchemaTypeDefinitionHydrator>();
         services.AddSingleton<IFieldMetadataDefinitionBuilder, FieldMetadataDefinitionBuilder>();
+        services.AddSingleton<IFieldMetadataDefinitionHydrator, FieldMetadataDefinitionHydrator>();
         services.AddSingleton<IPayloadSchemaBuilder, PayloadSchemaBuilder>();
         services.AddSingleton<IPayloadSchemaDefinitionBuilder, PayloadSchemaDefinitionBuilder>();
+        services.AddSingleton<IPayloadSchemaDefinitionHydrator, PayloadSchemaDefinitionHydrator>();
 
         return services;
     }

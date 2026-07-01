@@ -48,6 +48,11 @@ public sealed class ButterMorphPayloadSchemaDesignerLoadResult
     public string JsonSchema { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the saved payload schema definition.
+    /// </summary>
+    public PayloadSchemaDefinition Definition { get; set; }
+
+    /// <summary>
     /// Gets or sets the available schema type catalog.
     /// </summary>
     public IReadOnlyCollection<SchemaTypeCatalogItem> SchemaTypes { get; set; } = [];

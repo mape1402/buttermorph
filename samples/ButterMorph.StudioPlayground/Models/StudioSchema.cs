@@ -46,14 +46,14 @@ internal sealed class StudioSchema
     public string ButterMorphResultJson { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the custom type ids available to this schema designer.
+    /// Gets or sets the custom type ids available to this schema designer.
     /// </summary>
-    public List<string> InjectedCustomTypeKeys { get; } = [];
+    public List<string> InjectedCustomTypeKeys { get; set; } = [];
 
     /// <summary>
-    /// Gets the custom field ids available to this schema designer.
+    /// Gets or sets the custom field ids available to this schema designer.
     /// </summary>
-    public List<string> InjectedCustomFieldKeys { get; } = [];
+    public List<string> InjectedCustomFieldKeys { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the last saved timestamp.

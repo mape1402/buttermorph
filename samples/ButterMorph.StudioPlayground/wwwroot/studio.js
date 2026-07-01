@@ -35,7 +35,7 @@
     if (persisted) {
       state = persisted;
       await syncStateToBackend();
-      renderAll();
+      await reloadStateFromBackend();
       return;
     }
 
@@ -488,6 +488,11 @@
       body: JSON.stringify({ sources })
     });
     const result = await response.json();
+    const mapping = state.mappings.find(item => item.id === id);
+    if (mapping) {
+      mapping.sourceSamples = sources;
+      persistState();
+    }
     document.getElementById("execution-output").value = result.outputJson || "";
     document.getElementById("execution-diagnostics").textContent = (result.diagnostics || []).join("\n") || (result.succeeded ? "Succeeded" : "No diagnostics");
   }

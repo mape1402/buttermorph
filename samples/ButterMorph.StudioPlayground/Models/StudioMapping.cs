@@ -1,5 +1,6 @@
-﻿namespace ButterMorph.StudioPlayground.Models;
+namespace ButterMorph.StudioPlayground.Models;
 
+using System.Text.Json.Serialization;
 using ButterMorph.Abstractions;
 
 /// <summary>
@@ -23,14 +24,14 @@ internal sealed class StudioMapping
     public string TargetSchemaId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the source schema host ids keyed by mapping alias.
+    /// Gets or sets the source schema host ids keyed by mapping alias.
     /// </summary>
-    public Dictionary<string, string> SourceSchemaIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SourceSchemaIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Gets the sample JSON payloads keyed by source alias.
+    /// Gets or sets the sample JSON payloads keyed by source alias.
     /// </summary>
-    public Dictionary<string, string> SourceSamples { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SourceSamples { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets or sets a value indicating whether ButterMorph can load schemas manually.
@@ -40,6 +41,7 @@ internal sealed class StudioMapping
     /// <summary>
     /// Gets or sets the transformation document.
     /// </summary>
+    [JsonIgnore]
     public ITransformationDocument Document { get; set; }
 
     /// <summary>

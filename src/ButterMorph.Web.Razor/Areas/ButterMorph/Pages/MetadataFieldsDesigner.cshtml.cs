@@ -14,6 +14,9 @@ public sealed class MetadataFieldsDesignerModel : PageModel
     // Builds metadata output.
     private readonly IFieldMetadataDefinitionBuilder metadataBuilder;
 
+    // Hydrates editable input from saved definitions.
+    private readonly IFieldMetadataDefinitionHydrator definitionHydrator;
+
     // Reads designer integration options.
     private readonly ButterMorphRazorDesignerOptions options;
 
@@ -24,14 +27,17 @@ public sealed class MetadataFieldsDesignerModel : PageModel
     /// Initializes a new instance of the <see cref="MetadataFieldsDesignerModel"/> class.
     /// </summary>
     /// <param name="metadataBuilder">The metadata builder.</param>
+    /// <param name="definitionHydrator">The definition hydrator.</param>
     /// <param name="options">The designer options.</param>
     /// <param name="hosts">The optional host integrations.</param>
     public MetadataFieldsDesignerModel(
         IFieldMetadataDefinitionBuilder metadataBuilder,
+        IFieldMetadataDefinitionHydrator definitionHydrator,
         IOptions<ButterMorphRazorDesignerOptions> options,
         IEnumerable<IButterMorphFieldMetadataDesignerHost> hosts)
     {
         this.metadataBuilder = metadataBuilder;
+        this.definitionHydrator = definitionHydrator;
         this.options = options.Value;
         this.hosts = hosts;
     }
@@ -175,7 +181,7 @@ public sealed class MetadataFieldsDesignerModel : PageModel
             {
                 ContextKey = ResolveContextKey()
             });
-            Input = result.Input;
+            Input = result.Definition == null ? result.Input : definitionHydrator.Hydrate(result.Definition);
             ShowManualActions = result.ShowManualActions;
             Message = result.Message;
             return;

@@ -133,6 +133,14 @@ internal static class StudioEndpoints
                 return Results.NotFound();
             }
 
+            foreach (KeyValuePair<string, string> source in body.Sources)
+            {
+                mapping.SourceSamples[source.Key] = source.Value;
+            }
+
+            mapping.Document = host.ResolveMappingDocument(mapping);
+            store.SaveMapping(mapping);
+
             return Results.Json(Execute(mapping, body, host, engine));
         });
     }

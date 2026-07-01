@@ -14,6 +14,9 @@ public sealed class SchemaTypesDesignerModel : PageModel
     // Builds schema type JSON Schema output.
     private readonly ISchemaTypeSchemaBuilder schemaTypeBuilder;
 
+    // Hydrates editable input from saved definitions.
+    private readonly ISchemaTypeDefinitionHydrator definitionHydrator;
+
     // Reads designer integration options.
     private readonly ButterMorphRazorDesignerOptions options;
 
@@ -24,14 +27,17 @@ public sealed class SchemaTypesDesignerModel : PageModel
     /// Initializes a new instance of the <see cref="SchemaTypesDesignerModel"/> class.
     /// </summary>
     /// <param name="schemaTypeBuilder">The schema type builder.</param>
+    /// <param name="definitionHydrator">The definition hydrator.</param>
     /// <param name="options">The designer options.</param>
     /// <param name="hosts">The optional host integrations.</param>
     public SchemaTypesDesignerModel(
         ISchemaTypeSchemaBuilder schemaTypeBuilder,
+        ISchemaTypeDefinitionHydrator definitionHydrator,
         IOptions<ButterMorphRazorDesignerOptions> options,
         IEnumerable<IButterMorphSchemaTypeDesignerHost> hosts)
     {
         this.schemaTypeBuilder = schemaTypeBuilder;
+        this.definitionHydrator = definitionHydrator;
         this.options = options.Value;
         this.hosts = hosts;
     }
@@ -182,7 +188,7 @@ public sealed class SchemaTypesDesignerModel : PageModel
             {
                 ContextKey = ResolveContextKey()
             });
-            Input = result.Input;
+            Input = result.Definition == null ? result.Input : definitionHydrator.Hydrate(result.Definition);
             SchemaTypes = result.SchemaTypes;
             ShowManualActions = result.ShowManualActions;
             Message = result.Message;

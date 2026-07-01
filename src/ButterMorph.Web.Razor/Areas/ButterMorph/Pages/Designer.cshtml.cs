@@ -611,6 +611,10 @@ public sealed class DesignerModel : PageModel
         {
             Session.LoadDocument(result.InitialDocument);
         }
+        else if (!string.IsNullOrWhiteSpace(result.InitialDslContent))
+        {
+            Session.ImportDsl(result.InitialDslContent);
+        }
 
         foreach (KeyValuePair<string, IStructureSchema> schema in result.SourceSchemas)
         {

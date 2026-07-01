@@ -13,6 +13,11 @@ public sealed class ButterMorphSchemaTypeDesignerLoadResult
     public SchemaTypeDesignInput Input { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the saved custom type definition.
+    /// </summary>
+    public SchemaTypeDefinition Definition { get; set; }
+
+    /// <summary>
     /// Gets or sets the available schema type catalog.
     /// </summary>
     public IReadOnlyCollection<SchemaTypeCatalogItem> SchemaTypes { get; set; } = [];

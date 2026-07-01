@@ -18,6 +18,9 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     // Builds schema output.
     private readonly IPayloadSchemaBuilder payloadBuilder;
 
+    // Hydrates editable input from saved definitions.
+    private readonly IPayloadSchemaDefinitionHydrator definitionHydrator;
+
     // Reads designer integration options.
     private readonly ButterMorphRazorDesignerOptions options;
 
@@ -28,14 +31,17 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// Initializes a new instance of the <see cref="PayloadSchemaDesignerModel"/> class.
     /// </summary>
     /// <param name="payloadBuilder">The schema builder.</param>
+    /// <param name="definitionHydrator">The definition hydrator.</param>
     /// <param name="options">The designer options.</param>
     /// <param name="hosts">The optional host integrations.</param>
     public PayloadSchemaDesignerModel(
         IPayloadSchemaBuilder payloadBuilder,
+        IPayloadSchemaDefinitionHydrator definitionHydrator,
         IOptions<ButterMorphRazorDesignerOptions> options,
         IEnumerable<IButterMorphPayloadSchemaDesignerHost> hosts)
     {
         this.payloadBuilder = payloadBuilder;
+        this.definitionHydrator = definitionHydrator;
         this.options = options.Value;
         this.hosts = hosts;
     }
@@ -264,13 +270,16 @@ public sealed class PayloadSchemaDesignerModel : PageModel
                 InjectedCustomTypeIds = ResolveInjectedIds("customTypes"),
                 InjectedCustomFieldIds = ResolveInjectedIds("customFields")
             });
-            PayloadSchemaJson = result.JsonSchema;
-            SchemaKey = result.Key;
-            SchemaName = result.Name;
-            SchemaDescription = result.Description;
-            SchemaVersion = result.Version;
-            SchemaVersionComment = result.VersionComment;
-            SchemaMetadataText = FormatMetadataText(result.Metadata);
+            PayloadSchemaDesignInput input = result.Definition == null
+                ? CreateInputFromLoadResult(result)
+                : definitionHydrator.Hydrate(result.Definition);
+            PayloadSchemaJson = input.JsonSchema;
+            SchemaKey = input.Key;
+            SchemaName = input.Name;
+            SchemaDescription = input.Description;
+            SchemaVersion = input.Version;
+            SchemaVersionComment = input.VersionComment;
+            SchemaMetadataText = FormatMetadataText(input.Metadata);
             MetadataDefinition = result.MetadataDefinition;
             SchemaTypes = result.SchemaTypes;
             MetadataFields = result.MetadataFields;
@@ -287,6 +296,20 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         SchemaMetadataText = string.Empty;
         MetadataDefinition = new SchemaMetadataDefinition();
         PayloadSchemaJson = "{\"type\":\"" + ("obj" + "ect") + "\",\"properties\":{}}";
+    }
+
+    private static PayloadSchemaDesignInput CreateInputFromLoadResult(ButterMorphPayloadSchemaDesignerLoadResult result)
+    {
+        return new PayloadSchemaDesignInput
+        {
+            Key = result.Key,
+            Name = result.Name,
+            Description = result.Description,
+            Version = result.Version,
+            VersionComment = result.VersionComment,
+            Metadata = result.Metadata,
+            JsonSchema = result.JsonSchema
+        };
     }
 
     // Applies only host catalogs during posts.

@@ -13,6 +13,11 @@ public sealed class ButterMorphFieldMetadataDesignerLoadResult
     public FieldMetadataDesignInput Input { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the saved custom field definition.
+    /// </summary>
+    public CustomFieldDefinition Definition { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether manual actions are shown.
     /// </summary>
     public bool ShowManualActions { get; set; } = true;

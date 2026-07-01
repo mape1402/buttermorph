@@ -201,6 +201,48 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
     }
 
     /// <summary>
+    /// Confirms editing a custom type reloads constraints through ButterMorph.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioCustomTypeEditReloadsScalarConstraints()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/schema-types/designer?context=3d56346a-934c-414c-8659-8bc203e021c4&mode=edit");
+
+        Assert.Contains("name=\"Input.MinLength\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"Input.MaxLength\"", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"26\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms Studio does not own schema designer rehydration logic.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioHostDoesNotContainSchemaDesignerHydrationHelpers()
+    {
+        string source = await File.ReadAllTextAsync(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "..",
+            "samples",
+            "ButterMorph.StudioPlayground",
+            "Services",
+            "StudioButterMorphHost.cs"));
+
+        Assert.DoesNotContain("ApplySchemaTypeConstraints", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadSchemaTypeSchemaElement", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadSchemaMetadata", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateSchemaTypeInput", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateFieldInput", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms mapping setup stays temporary until ButterMorph saves.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

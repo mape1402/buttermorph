@@ -157,6 +157,86 @@ public sealed class SchemaDesignSessionTests
     }
 
     /// <summary>
+    /// Confirms custom type definitions hydrate editable constraints.
+    /// </summary>
+    [Fact]
+    public void SchemaTypeDefinitionHydratorLoadsScalarConstraints()
+    {
+        SchemaTypeDefinitionHydrator hydrator = new();
+        using JsonDocument document = JsonDocument.Parse("{\"type\":\"string\",\"minLength\":5,\"maxLength\":10,\"pattern\":\"^[A-Z]+$\"}");
+
+        SchemaTypeDesignInput input = hydrator.Hydrate(new SchemaTypeDefinition
+        {
+            Key = "demo",
+            Name = "Demo",
+            Version = "1.0.0",
+            BaseType = "string",
+            Schema = document.RootElement.Clone()
+        });
+
+        Assert.Equal("5", input.MinLength);
+        Assert.Equal("10", input.MaxLength);
+        Assert.Equal("^[A-Z]+$", input.Pattern);
+    }
+
+    /// <summary>
+    /// Confirms custom field definitions hydrate allowed values and validation fields.
+    /// </summary>
+    [Fact]
+    public void FieldMetadataDefinitionHydratorLoadsAllowedValues()
+    {
+        FieldMetadataDefinitionHydrator hydrator = new();
+        using JsonDocument allowedValues = JsonDocument.Parse("[\"Public\",\"Private\"]");
+        using JsonDocument minLength = JsonDocument.Parse("3");
+
+        FieldMetadataDesignInput input = hydrator.Hydrate(new CustomFieldDefinition
+        {
+            Key = "classification",
+            Name = "Classification",
+            Version = "1.0.0",
+            DataType = "string",
+            AppliesTo = ["Schema", "Field"],
+            Validation = new Dictionary<string, JsonElement>
+            {
+                ["allowedValues"] = allowedValues.RootElement.Clone(),
+                ["minLength"] = minLength.RootElement.Clone()
+            }
+        });
+
+        Assert.Equal("Public" + Environment.NewLine + "Private", input.AllowedValues);
+        Assert.Equal("3", input.MinLength);
+        Assert.Contains("Schema", input.AppliesTo, StringComparison.Ordinal);
+        Assert.Contains("Field", input.AppliesTo, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms payload schema definitions hydrate identity and structured schema text.
+    /// </summary>
+    [Fact]
+    public void PayloadSchemaDefinitionHydratorLoadsSchemaJson()
+    {
+        PayloadSchemaDefinitionHydrator hydrator = new();
+        using JsonDocument property = JsonDocument.Parse("{\"type\":\"string\",\"required\":true}");
+
+        PayloadSchemaDesignInput input = hydrator.Hydrate(new PayloadSchemaDefinition
+        {
+            Key = "customer",
+            Name = "Customer",
+            Version = "1.0.0",
+            Type = "object",
+            Properties = new Dictionary<string, JsonElement>
+            {
+                ["Name"] = property.RootElement.Clone()
+            }
+        });
+
+        Assert.Equal("customer", input.Key);
+        Assert.Equal("Customer", input.Name);
+        Assert.Contains("\"properties\"", input.JsonSchema, StringComparison.Ordinal);
+        Assert.Contains("\"Name\"", input.JsonSchema, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that schema builder emits canonical schema identity and field-level required.
     /// </summary>
     [Fact]

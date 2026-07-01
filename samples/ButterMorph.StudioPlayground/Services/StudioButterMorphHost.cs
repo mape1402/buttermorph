@@ -19,6 +19,7 @@ internal sealed class StudioButterMorphHost :
 {
     private readonly StudioStore store;
     private readonly IJsonSchemaImporter schemaImporter;
+    private readonly IDslParser dslParser;
     private static readonly JsonSerializerOptions ResultJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -31,10 +32,12 @@ internal sealed class StudioButterMorphHost :
     /// </summary>
     /// <param name="store">The host-owned store.</param>
     /// <param name="schemaImporter">The JSON Schema importer.</param>
-    public StudioButterMorphHost(StudioStore store, IJsonSchemaImporter schemaImporter)
+    /// <param name="dslParser">The DSL parser.</param>
+    public StudioButterMorphHost(StudioStore store, IJsonSchemaImporter schemaImporter, IDslParser dslParser)
     {
         this.store = store;
         this.schemaImporter = schemaImporter;
+        this.dslParser = dslParser;
     }
 
     /// <inheritdoc />
@@ -63,7 +66,7 @@ internal sealed class StudioButterMorphHost :
         {
             SourceSchemas = sourceSchemas,
             TargetSchema = targetSchema,
-            InitialDocument = mapping.Document,
+            InitialDslContent = mapping.DslContent,
             ShowSchemaActions = mapping.ShowSchemaActions,
             Message = string.Empty
         });
@@ -91,21 +94,15 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphSchemaTypeDesignerLoadResult> IButterMorphSchemaTypeDesignerHost.Load(ButterMorphSchemaTypeDesignerLoadRequest request)
     {
-        SchemaTypeDesignInput input = new();
+        SchemaTypeDefinition definition = null;
         if (store.TryGetCustomType(request.ContextKey, out StudioCustomType item))
         {
-            input.Key = item.Key;
-            input.Name = item.Name;
-            input.Description = item.Description;
-            input.VersionNumber = item.Version;
-            input.BaseType = item.BaseType;
-            input.Comment = item.Comment;
-            input.PayloadSchemaJson = item.JsonSchema;
+            definition = ReadDefinition<SchemaTypeDefinition>(item.ButterMorphResultJson);
         }
 
         return Task.FromResult(new ButterMorphSchemaTypeDesignerLoadResult
         {
-            Input = input,
+            Definition = definition,
             SchemaTypes = CreateTypeCatalog(store.CustomTypes),
             ShowManualActions = false,
             Message = string.Empty
@@ -139,15 +136,15 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphFieldMetadataDesignerLoadResult> IButterMorphFieldMetadataDesignerHost.Load(ButterMorphFieldMetadataDesignerLoadRequest request)
     {
-        FieldMetadataDesignInput input = new();
+        CustomFieldDefinition definition = null;
         if (store.TryGetCustomField(request.ContextKey, out StudioCustomField item))
         {
-            input = CreateFieldInput(item);
+            definition = ReadDefinition<CustomFieldDefinition>(item.ButterMorphResultJson);
         }
 
         return Task.FromResult(new ButterMorphFieldMetadataDesignerLoadResult
         {
-            Input = input,
+            Definition = definition,
             ShowManualActions = false,
             Message = string.Empty
         });
@@ -202,12 +199,12 @@ internal sealed class StudioButterMorphHost :
 
         return Task.FromResult(new ButterMorphPayloadSchemaDesignerLoadResult
         {
+            Definition = ReadDefinition<PayloadSchemaDefinition>(schema.ButterMorphResultJson),
             Key = schema.Key,
             Name = schema.Name,
             Description = schema.Description,
             Version = schema.Version,
             VersionComment = schema.VersionComment,
-            Metadata = ReadSchemaMetadata(schemaJson),
             JsonSchema = schemaJson,
             SchemaTypes = CreateTypeCatalog(injectedTypes),
             MetadataFields = CreateFieldCatalog(injectedFields),
@@ -325,6 +322,34 @@ internal sealed class StudioButterMorphHost :
         return CreateMappingFromSetup(id);
     }
 
+    /// <summary>
+    /// Resolves the mapping document from the runtime document or the persisted DSL.
+    /// </summary>
+    /// <param name="mapping">The mapping.</param>
+    /// <returns>The resolved transformation document.</returns>
+    public ITransformationDocument ResolveMappingDocument(StudioMapping mapping)
+    {
+        if (mapping.Document != null)
+        {
+            return mapping.Document;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mapping.DslContent))
+        {
+            try
+            {
+                return dslParser.Parse(new DslDefinition { Content = mapping.DslContent }) as ITransformationDocument
+                    ?? new TransformationDocument();
+            }
+            catch (FormatException)
+            {
+                return new TransformationDocument();
+            }
+        }
+
+        return new TransformationDocument();
+    }
+
     private StudioMapping CreateMappingFromSetup(string id)
     {
         StudioMapping mapping = new()
@@ -366,62 +391,21 @@ internal sealed class StudioButterMorphHost :
         return storedIds.ToArray();
     }
 
-    private static FieldMetadataDesignInput CreateFieldInput(StudioCustomField item)
+    private static T ReadDefinition<T>(string json)
     {
-        CustomFieldDefinition definition = ReadFieldDefinition(item);
-        FieldMetadataDesignInput input = new()
+        if (string.IsNullOrWhiteSpace(json))
         {
-            Name = definition.Name,
-            Key = definition.Key,
-            Description = definition.Description,
-            Version = definition.Version,
-            VersionComment = definition.VersionComment,
-            DataType = definition.DataType,
-            AppliesTo = string.Join(Environment.NewLine, definition.AppliesTo),
-            IsRequired = definition.IsRequired,
-            IsActive = definition.IsActive,
-            ChildrenDefinitionJson = SerializeElement(definition.ChildrenDefinition),
-            ArrayItemDataType = definition.ArrayItemDataType,
-            ArrayItemDefinitionJson = SerializeElement(definition.ArrayItemDefinition)
-        };
-
-        ApplyValidation(input, SerializeElementMap(definition.Validation));
-        return input;
-    }
-
-    private static CustomFieldDefinition ReadFieldDefinition(StudioCustomField item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.ButterMorphResultJson))
-        {
-            try
-            {
-                CustomFieldDefinition definition = JsonSerializer.Deserialize<CustomFieldDefinition>(item.ButterMorphResultJson, ResultJsonOptions);
-                if (definition != null && !string.IsNullOrWhiteSpace(definition.Key))
-                {
-                    return definition;
-                }
-            }
-            catch (JsonException)
-            {
-            }
+            return default;
         }
 
-        return new CustomFieldDefinition
+        try
         {
-            Key = item.Key,
-            Name = item.Name,
-            Description = item.Description,
-            Version = item.Version,
-            VersionComment = item.VersionComment,
-            DataType = item.DataType,
-            AppliesTo = ReadStringArray(item.AppliesToJson),
-            IsRequired = item.IsRequired,
-            IsActive = item.IsActive,
-            Validation = ReadElementMap(item.ValidationJson),
-            ChildrenDefinition = ReadElement(item.ChildrenDefinitionJson),
-            ArrayItemDataType = item.ArrayItemDataType,
-            ArrayItemDefinition = ReadElement(item.ArrayItemDefinitionJson)
-        };
+            return JsonSerializer.Deserialize<T>(json, ResultJsonOptions);
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
     }
 
     private static string SerializeStringArray(IReadOnlyCollection<string> values)
@@ -447,197 +431,6 @@ internal sealed class StudioButterMorphHost :
         }
 
         return JsonSerializer.Serialize(values, ResultJsonOptions);
-    }
-
-    private static IReadOnlyCollection<string> ReadStringArray(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            List<string> values = [];
-            foreach (JsonElement element in document.RootElement.EnumerateArray())
-            {
-                if (element.ValueKind == JsonValueKind.String)
-                {
-                    values.Add(element.GetString());
-                }
-                else
-                {
-                    values.Add(element.ToString());
-                }
-            }
-
-            return values;
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
-
-    private static IReadOnlyDictionary<string, JsonElement> ReadElementMap(string json)
-    {
-        Dictionary<string, JsonElement> values = new(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return values;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return values;
-            }
-
-            foreach (JsonProperty property in document.RootElement.EnumerateObject())
-            {
-                values[property.Name] = property.Value.Clone();
-            }
-        }
-        catch (JsonException)
-        {
-            return values;
-        }
-
-        return values;
-    }
-
-    private static JsonElement ReadElement(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return default;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            return document.RootElement.Clone();
-        }
-        catch (JsonException)
-        {
-            return default;
-        }
-    }
-
-    private static string ConvertJsonArrayToLines(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            List<string> values = [];
-            foreach (JsonElement element in document.RootElement.EnumerateArray())
-            {
-                values.Add(element.ToString());
-            }
-
-            return string.Join(Environment.NewLine, values);
-        }
-        catch (JsonException)
-        {
-            return string.Empty;
-        }
-    }
-
-    private static void ApplyValidation(FieldMetadataDesignInput input, string validationJson)
-    {
-        if (string.IsNullOrWhiteSpace(validationJson))
-        {
-            return;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(validationJson);
-            JsonElement root = document.RootElement;
-            input.MinLength = ReadValidationValue(root, "minLength");
-            input.MaxLength = ReadValidationValue(root, "maxLength");
-            input.Pattern = ReadValidationValue(root, "pattern");
-            input.Minimum = ReadValidationValue(root, "minimum");
-            input.Maximum = ReadValidationValue(root, "maximum");
-            input.DateMinimum = ReadValidationValue(root, "dateMinimum");
-            input.DateMaximum = ReadValidationValue(root, "dateMaximum");
-            input.AllowedValues = ReadAllowedValues(root);
-        }
-        catch (JsonException)
-        {
-        }
-    }
-
-    private static string ReadValidationValue(JsonElement root, string propertyName)
-    {
-        if (root.TryGetProperty(propertyName, out JsonElement element))
-        {
-            return element.ToString();
-        }
-
-        return string.Empty;
-    }
-
-    private static string ReadAllowedValues(JsonElement root)
-    {
-        if (!root.TryGetProperty("allowedValues", out JsonElement values) ||
-            values.ValueKind != JsonValueKind.Array)
-        {
-            return string.Empty;
-        }
-
-        List<string> lines = [];
-        foreach (JsonElement value in values.EnumerateArray())
-        {
-            lines.Add(value.ToString());
-        }
-
-        return string.Join(Environment.NewLine, lines);
-    }
-
-    private static IReadOnlyDictionary<string, string> ReadSchemaMetadata(string json)
-    {
-        Dictionary<string, string> metadata = new(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return metadata;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            if (!document.RootElement.TryGetProperty("metadata", out JsonElement metadataElement) ||
-                metadataElement.ValueKind != JsonValueKind.Object)
-            {
-                return metadata;
-            }
-
-            foreach (JsonProperty property in metadataElement.EnumerateObject())
-            {
-                metadata[property.Name] = property.Value.ValueKind == JsonValueKind.String
-                    ? property.Value.GetString()
-                    : property.Value.GetRawText();
-            }
-        }
-        catch (JsonException)
-        {
-            return metadata;
-        }
-
-        return metadata;
     }
 
     private static string ResolveSchemaJson(StudioSchema schema)

@@ -23,6 +23,11 @@ public sealed class ButterMorphDesignerLoadResult
     public ITransformationDocument InitialDocument { get; set; }
 
     /// <summary>
+    /// Gets or sets initial DSL content used to hydrate the mapping document.
+    /// </summary>
+    public string InitialDslContent { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets a value indicating whether schema action buttons should be shown.
     /// </summary>
     public bool ShowSchemaActions { get; set; } = true;

@@ -21,9 +21,9 @@ internal sealed class StudioMappingSetup
     public string TargetSchemaId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets the source schema host ids keyed by mapping alias.
+    /// Gets or sets the source schema host ids keyed by mapping alias.
     /// </summary>
-    public Dictionary<string, string> SourceSchemaIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, string> SourceSchemaIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets or sets a value indicating whether ButterMorph can load schemas manually.
