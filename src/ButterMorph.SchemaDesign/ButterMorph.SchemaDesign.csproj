@@ -6,5 +6,8 @@
   </ItemGroup>
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.SchemaDesign</PackageId>
+    <Description>Reusable schema design services for ButterMorph custom types, custom fields, payload schemas, metadata, and schema definitions.</Description>
+    <PackageTags>buttermorph schema-design schemas metadata custom-types custom-fields</PackageTags>
   </PropertyGroup>
 </Project>

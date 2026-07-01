@@ -2,6 +2,9 @@
   <PropertyGroup>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Web.Razor</PackageId>
+    <Description>Reusable Razor Pages UI for ButterMorph mapping, schema, custom type, and custom field designers.</Description>
+    <PackageTags>buttermorph razor razor-pages designer mapping schema ui</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />

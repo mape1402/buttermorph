@@ -5,5 +5,8 @@
   </ItemGroup>
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Json.Schema</PackageId>
+    <Description>JSON Schema import and export compatibility layer for ButterMorph structure schemas.</Description>
+    <PackageTags>buttermorph json-schema schemas import export atlas</PackageTags>
   </PropertyGroup>
 </Project>

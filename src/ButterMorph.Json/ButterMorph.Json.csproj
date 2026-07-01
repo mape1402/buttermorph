@@ -4,5 +4,8 @@
   </ItemGroup>
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Json</PackageId>
+    <Description>JSON graph reader and writer adapters for ButterMorph typed structure graphs.</Description>
+    <PackageTags>buttermorph json adapter graph serialization</PackageTags>
   </PropertyGroup>
 </Project>

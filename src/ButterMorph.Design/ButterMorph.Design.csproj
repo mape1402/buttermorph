@@ -5,5 +5,8 @@
   </ItemGroup>
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Design</PackageId>
+    <Description>Headless design services for ButterMorph mapping sessions, schema exploration, capabilities, diagnostics, and DSL import/export.</Description>
+    <PackageTags>buttermorph design mapping designer schemas diagnostics</PackageTags>
   </PropertyGroup>
 </Project>
