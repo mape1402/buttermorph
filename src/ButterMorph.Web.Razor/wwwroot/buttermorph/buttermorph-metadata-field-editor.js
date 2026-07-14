@@ -46,7 +46,16 @@
         arrayObjectFields.appendChild(createDefinitionRow());
         syncDefinitions();
     });
-    document.querySelector("form")?.addEventListener("submit", syncDefinitions);
+    window.ButterMorphSchemaBeforeSave = validateMetadataFieldDesigner;
+
+    document.querySelector("form")?.addEventListener("submit", function (event) {
+        if (!validateMetadataFieldDesigner()) {
+            event.preventDefault();
+            return;
+        }
+
+        syncDefinitions();
+    });
     document.querySelectorAll("[data-modal-close]").forEach(function (button) {
         button.addEventListener("click", function () {
             closeModal(button.getAttribute("data-modal-close"));
@@ -575,6 +584,111 @@
         }
         if (arrayItemDefinitionHidden) {
             arrayItemDefinitionHidden.value = JSON.stringify(buildDefinition(arrayObjectFields));
+        }
+    }
+
+    function validateMetadataFieldDesigner() {
+        syncAppliesTo();
+        syncDefinitions();
+
+        const errors = [];
+        requireInput("Input_Key", "Key", errors);
+        requireInput("Input_Name", "Name", errors);
+        requireInput("Input_Version", "Version", errors);
+        validateScope(errors);
+        validateConstraintRanges(errors);
+
+        const type = dataTypeSelect.value;
+        if (type === "object" && !hasDefinitionRows(objectFields)) {
+            errors.push("Object custom field must define at least one nested field.");
+        }
+
+        if (type === "array") {
+            const itemType = arrayItemType?.value || "";
+            if (!itemType) {
+                errors.push("Array custom field must define an item type.");
+            }
+            if (itemType === "object" && !hasDefinitionRows(arrayObjectFields)) {
+                errors.push("Array object custom field must define at least one item field.");
+            }
+        }
+
+        if (errors.length > 0) {
+            showDesignerMessage("Custom field validation failed. Review the details and fix the highlighted configuration.", errors);
+            return false;
+        }
+
+        showDesignerMessage("");
+        return true;
+    }
+
+    function requireInput(id, label, errors) {
+        const input = document.getElementById(id);
+        if (!input || String(input.value || "").trim()) {
+            return;
+        }
+
+        errors.push(label + " is required.");
+    }
+
+    function validateScope(errors) {
+        const selected = Array.from(appliesToOptions).filter(function (option) {
+            return option.checked;
+        });
+        if (selected.length === 0) {
+            errors.push("Select at least one availability scope.");
+        }
+    }
+
+    function validateConstraintRanges(errors) {
+        const type = dataTypeSelect.value;
+        if (type === "string") {
+            validateNumberRange("Input_MinLength", "Input_MaxLength", "Min Length", "Max Length", errors);
+            return;
+        }
+        if (type === "number" || type === "integer") {
+            validateNumberRange("Input_Minimum", "Input_Maximum", "Minimum", "Maximum", errors);
+        }
+        if (type === "date" || type === "datetime") {
+            validateDateRange("Input_DateMinimum", "Input_DateMaximum", "Date Minimum", "Date Maximum", errors);
+        }
+    }
+
+    function validateNumberRange(minId, maxId, minLabel, maxLabel, errors) {
+        const minInput = document.getElementById(minId);
+        const maxInput = document.getElementById(maxId);
+        if (!minInput || !maxInput || minInput.value === "" || maxInput.value === "") {
+            return;
+        }
+
+        const minValue = Number(minInput.value);
+        const maxValue = Number(maxInput.value);
+        if (Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue) {
+            errors.push(minLabel + " cannot be greater than " + maxLabel + ".");
+        }
+    }
+
+    function validateDateRange(minId, maxId, minLabel, maxLabel, errors) {
+        const minInput = document.getElementById(minId);
+        const maxInput = document.getElementById(maxId);
+        if (!minInput || !maxInput || !minInput.value || !maxInput.value) {
+            return;
+        }
+        if (minInput.value > maxInput.value) {
+            errors.push(minLabel + " cannot be greater than " + maxLabel + ".");
+        }
+    }
+
+    function hasDefinitionRows(host) {
+        return !!host && Array.from(host.children).some(function (child) {
+            return child.classList && child.classList.contains("metadata-definition-row") &&
+                String(child.querySelector(".metadata-definition-name")?.value || "").trim();
+        });
+    }
+
+    function showDesignerMessage(message, details) {
+        if (window.ButterMorphShowSchemaMessage) {
+            window.ButterMorphShowSchemaMessage(message, details);
         }
     }
 
