@@ -7,6 +7,17 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.0.1] - 2026-07-13
+
+### Fixed
+- Improved Schema Designer validation feedback across payload schemas, custom types, and custom fields.
+- Replaced inline validation banners with a centered message box that shows a generic error and collapsible details.
+- Blocked silent saves when custom type, custom field, schema field, or metadata validation fails.
+- Kept custom type payload fields closed in payload schemas so validations and nested structure remain owned by the custom type definition.
+- Validated required field-level metadata consistently with schema-level metadata.
+
+---
+
 ## [v1.0.0] - 2026-06-30
 
 ### Added
