@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Schema Type Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=16" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=20" />
 </head>
 <body class="bm-schema-page bm-schema-type-designer"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
@@ -174,7 +174,7 @@
 
     @await Html.PartialAsync("_ButterMorphSchemaTemplate")
     <script id="schema-type-catalog" type="application/json">@Html.Raw(Model.SchemaTypeCatalogJson)</script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=14"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=17"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-type-version-editor.js?v=6"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
