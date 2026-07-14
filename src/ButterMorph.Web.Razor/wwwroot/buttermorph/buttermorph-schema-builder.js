@@ -24,11 +24,20 @@
 
     window.ButterMorphPayloadSchemaSync = syncPayloadSchemaInput;
 
-    form.addEventListener("submit", function () {
-        syncPayloadSchemaInput();
+    form.addEventListener("submit", function (event) {
+        if (!syncPayloadSchemaInput()) {
+            event.preventDefault();
+        }
     });
 
     function syncPayloadSchemaInput() {
+        const validation = validatePayloadDesigner();
+        if (!validation.succeeded) {
+            showSchemaMessage("Schema validation failed. Review the details and fix the highlighted configuration.", validation.errors);
+            return false;
+        }
+
+        showSchemaMessage("");
         const defs = {};
         const metadataDefs = collectSchemaMetadataDefinitions();
         const schema = buildRootSchema(rootList, defs, metadataDefs);
@@ -39,6 +48,7 @@
             schema.$metadataDefs = metadataDefs;
         }
         hiddenSchemaInput.value = JSON.stringify(schema);
+        return true;
     }
 
     document.querySelectorAll("[data-modal-close]").forEach(function (button) {
@@ -212,26 +222,33 @@
 
     function updateFieldUi(field) {
         const type = getSelectedBaseType(field.querySelector(".field-type-select"));
+        const isCustom = selectedIsCustomType(field);
         const objectBuilder = field.querySelector(".schema-object-builder");
         const arrayBuilder = field.querySelector(".schema-array-builder");
         const editObjectButton = field.querySelector(".edit-object-fields-btn");
         const editArrayButton = field.querySelector(".edit-array-object-fields-btn");
-        objectBuilder?.classList.toggle("d-none", type !== "object");
-        arrayBuilder?.classList.toggle("d-none", type !== "array");
-        editObjectButton?.classList.toggle("d-none", type !== "object");
+        objectBuilder?.classList.toggle("d-none", isCustom || type !== "object");
+        arrayBuilder?.classList.toggle("d-none", isCustom || type !== "array");
+        editObjectButton?.classList.toggle("d-none", isCustom || type !== "object");
         const itemType = getSelectedBaseType(field.querySelector(".array-item-type-select"));
+        const isCustomArrayItem = selectedArrayItemIsCustomType(field);
         const arrayObjectBuilder = field.querySelector(".schema-array-object-builder");
         const nestedArrayBuilder = field.querySelector(".schema-array-nested-builder");
         const validationButton = field.querySelector(".field-validation-btn");
-        arrayObjectBuilder?.classList.toggle("d-none", itemType !== "object");
-        nestedArrayBuilder?.classList.toggle("d-none", itemType !== "array");
-        editArrayButton?.classList.toggle("d-none", type !== "array" || itemType !== "object");
-        validationButton?.classList.toggle("d-none", selectedIsCustomType(field) || getValidationKeys(field).length === 0);
+        arrayObjectBuilder?.classList.toggle("d-none", isCustom || isCustomArrayItem || itemType !== "object");
+        nestedArrayBuilder?.classList.toggle("d-none", isCustom || isCustomArrayItem || itemType !== "array");
+        editArrayButton?.classList.toggle("d-none", isCustom || isCustomArrayItem || type !== "array" || itemType !== "object");
+        validationButton?.classList.toggle("d-none", isCustom || getValidationKeys(field).length === 0);
         updateSummaries();
     }
 
     function selectedIsCustomType(field) {
         const selected = field.querySelector(".field-type-select")?.selectedOptions?.[0];
+        return selected?.dataset?.isSystem === "false";
+    }
+
+    function selectedArrayItemIsCustomType(field) {
+        const selected = field.querySelector(".array-item-type-select")?.selectedOptions?.[0];
         return selected?.dataset?.isSystem === "false";
     }
 
@@ -400,6 +417,10 @@
             addMetadataDefinitions(metadataDefs, metadata, "Field");
             definition.metadata = metadata;
         }
+        if (definition.$ref) {
+            return { name: name, definition: definition, required: required };
+        }
+
         Object.assign(definition, safeJson(field.dataset.validation || "{}"));
         if (definition.type === "object") {
             const childSchema = buildRootSchema(field.querySelector(".child-fields-list"), defs, metadataDefs);
@@ -677,6 +698,7 @@
             return;
         }
 
+        clearFieldMetadataValidation();
         metadataHost.innerHTML = "";
         const metadata = safeJson(field.dataset.metadata || "{}");
         metadataCatalog.forEach(function (item) {
@@ -711,11 +733,19 @@
         wrapper.dataset.type = dataType;
         wrapper.dataset.version = readCatalogValue(item, "version", "Version") || "1.0.0";
         wrapper.dataset.versionComment = readCatalogValue(item, "versionComment", "VersionComment") || "";
+        wrapper.dataset.required = isMetadataRequired(item) ? "true" : "false";
+        wrapper.dataset.name = readCatalogValue(item, "name", "Name") || key;
 
         const header = document.createElement("div");
         header.className = "schema-metadata-field-header";
         const title = document.createElement("strong");
         title.textContent = readCatalogValue(item, "name", "Name") || key;
+        if (isMetadataRequired(item)) {
+            const mark = document.createElement("span");
+            mark.className = "schema-metadata-required";
+            mark.textContent = " required";
+            title.appendChild(mark);
+        }
         header.appendChild(title);
         wrapper.appendChild(header);
 
@@ -983,15 +1013,26 @@
             return;
         }
         const metadata = safeJson(activeMetadataField.dataset.metadata || "{}");
+        const errors = [];
         document.querySelectorAll("#field-metadata-fields > .schema-metadata-field").forEach(function (field) {
             const key = field.dataset.key;
             const value = collectMetadataValue(field);
-            if ((value === "" || value === null || value === undefined) && value !== false) {
+            if (isEmptyMetadataValue(value)) {
+                if (field.dataset.required === "true") {
+                    errors.push((field.dataset.name || key) + " is required.");
+                }
                 delete metadata[key];
                 return;
             }
             metadata[key] = wrapMetadataValue(field, value);
         });
+
+        if (errors.length > 0) {
+            showFieldMetadataValidation(errors);
+            return;
+        }
+
+        clearFieldMetadataValidation();
         activeMetadataField.dataset.metadata = JSON.stringify(metadata);
         closeModal("field-metadata-modal");
     }
@@ -1044,6 +1085,211 @@
             return input.value === "" ? "" : parseInt(input.value, 10);
         }
         return input.value || "";
+    }
+
+    function validatePayloadDesigner() {
+        const errors = [];
+        validateFieldList(rootList, "Schema", errors);
+        return {
+            succeeded: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    function validateFieldList(list, path, errors) {
+        if (!list) {
+            return;
+        }
+
+        Array.from(list.children).forEach(function (field) {
+            if (!field.classList || !field.classList.contains("schema-field")) {
+                return;
+            }
+
+            validateField(field, path, errors);
+        });
+    }
+
+    function validateField(field, parentPath, errors) {
+        const rawName = field.dataset.noName === "1" ? "" : (field.querySelector(".field-name-input")?.value || "").trim();
+        if (field.dataset.noName !== "1" && !rawName) {
+            return;
+        }
+
+        const name = rawName || getFieldDisplayName(field, "Field");
+        const path = parentPath + " / " + name;
+        validateRequiredFieldMetadata(field, path, errors);
+        if (selectedIsCustomType(field)) {
+            return;
+        }
+
+        const type = getSelectedBaseType(field.querySelector(".field-type-select"));
+        if (type === "object") {
+            const children = field.querySelector(".child-fields-list");
+            if (!hasSchemaFields(children)) {
+                errors.push(path + " must define at least one object field.");
+                return;
+            }
+
+            validateFieldList(children, path, errors);
+            return;
+        }
+
+        if (type !== "array") {
+            return;
+        }
+
+        const itemType = getSelectedBaseType(field.querySelector(".array-item-type-select"));
+        if (selectedArrayItemIsCustomType(field)) {
+            return;
+        }
+
+        if (itemType === "object") {
+            const itemChildren = field.querySelector(".array-object-fields-list");
+            if (!hasSchemaFields(itemChildren)) {
+                errors.push(path + " array item must define at least one object field.");
+                return;
+            }
+
+            validateFieldList(itemChildren, path + "[]", errors);
+            return;
+        }
+
+        if (itemType === "array") {
+            const nested = field.querySelector(".nested-array-item-list .schema-field");
+            if (!nested) {
+                errors.push(path + " nested array must define an item type.");
+                return;
+            }
+
+            validateField(nested, path + "[]", errors);
+        }
+    }
+
+    function hasSchemaFields(list) {
+        return !!list && Array.from(list.children).some(function (child) {
+            return child.classList && child.classList.contains("schema-field");
+        });
+    }
+
+    function validateRequiredFieldMetadata(field, path, errors) {
+        const metadata = safeJson(field.dataset.metadata || "{}");
+        getRequiredFieldMetadataItems().forEach(function (item) {
+            const key = readCatalogValue(item, "key", "Key");
+            if (!key) {
+                return;
+            }
+
+            const value = unwrapMetadataValue(metadata[key]);
+            if (isEmptyMetadataValue(value)) {
+                errors.push(path + " metadata " + (readCatalogValue(item, "name", "Name") || key) + " is required.");
+            }
+        });
+    }
+
+    function getRequiredFieldMetadataItems() {
+        return metadataCatalog.filter(function (item) {
+            return appliesToScope(readCatalogValue(item, "appliesToJson", "AppliesToJson"), "Field") &&
+                isMetadataRequired(item);
+        });
+    }
+
+    function isMetadataRequired(item) {
+        return item.isRequired === true ||
+            item.IsRequired === true ||
+            String(readCatalogValue(item, "isRequired", "IsRequired")).toLowerCase() === "true";
+    }
+
+    function isEmptyMetadataValue(value) {
+        if (value === false) {
+            return false;
+        }
+        if (value === "" || value === null || value === undefined) {
+            return true;
+        }
+        if (Array.isArray(value)) {
+            return value.length === 0;
+        }
+        if (typeof value === "object") {
+            return Object.keys(value).length === 0;
+        }
+        return false;
+    }
+
+    function showSchemaMessage(message, details) {
+        let alert = document.querySelector(".bm-schema-alert");
+        if (!message) {
+            if (alert) {
+                alert.remove();
+            }
+            return;
+        }
+
+        if (!alert) {
+            alert = document.createElement("div");
+            alert.className = "bm-schema-alert";
+            alert.innerHTML = "<div class='bm-schema-alert-dialog' role='alertdialog' aria-modal='true' aria-labelledby='bm-schema-alert-title'>" +
+                "<div id='bm-schema-alert-title' class='bm-schema-alert-title'>Message</div>" +
+                "<div class='bm-schema-alert-message'></div>" +
+                "<details class='bm-schema-alert-details'><summary>Details</summary><div class='bm-schema-alert-detail-list'></div></details>" +
+                "<div class='bm-schema-alert-actions'><button type='button' class='btn btn-primary bm-schema-alert-close'>OK</button></div>" +
+                "</div>";
+            alert.querySelector(".bm-schema-alert-close")?.addEventListener("click", function () {
+                alert.remove();
+            });
+            if (form && form.parentElement) {
+                form.parentElement.insertBefore(alert, form);
+            }
+        }
+        const messageNode = alert.querySelector(".bm-schema-alert-message");
+        if (messageNode) {
+            messageNode.textContent = message;
+        }
+        setMessageDetails(alert, details);
+    }
+
+    function setMessageDetails(alert, details) {
+        const detailsNode = alert.querySelector(".bm-schema-alert-details");
+        const listNode = alert.querySelector(".bm-schema-alert-detail-list");
+        if (!detailsNode || !listNode) {
+            return;
+        }
+
+        const values = Array.isArray(details) ? details.filter(Boolean) : [];
+        if (values.length === 0) {
+            detailsNode.classList.add("d-none");
+            detailsNode.removeAttribute("open");
+            listNode.textContent = "";
+            return;
+        }
+
+        detailsNode.classList.remove("d-none");
+        detailsNode.removeAttribute("open");
+        listNode.replaceChildren();
+        values.forEach(function (value) {
+            const item = document.createElement("div");
+            item.className = "bm-schema-alert-detail-item";
+            item.textContent = String(value);
+            listNode.appendChild(item);
+        });
+    }
+
+    function showFieldMetadataValidation(errors) {
+        const validation = document.getElementById("field-metadata-validation");
+        if (!validation) {
+            return;
+        }
+        validation.classList.remove("d-none");
+        validation.innerHTML = errors.map(escapeHtml).join("<br>");
+    }
+
+    function clearFieldMetadataValidation() {
+        const validation = document.getElementById("field-metadata-validation");
+        if (!validation) {
+            return;
+        }
+        validation.classList.add("d-none");
+        validation.textContent = "";
     }
 
     function openModal(modal) {

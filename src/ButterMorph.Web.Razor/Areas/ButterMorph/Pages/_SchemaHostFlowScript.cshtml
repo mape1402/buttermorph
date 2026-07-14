@@ -77,7 +77,10 @@
             }
 
             if (window.ButterMorphPayloadSchemaSync) {
-                window.ButterMorphPayloadSchemaSync();
+                var schemaSyncResult = window.ButterMorphPayloadSchemaSync();
+                if (schemaSyncResult === false) {
+                    return false;
+                }
             }
 
             return true;
@@ -107,7 +110,7 @@
 
             if (!completed) {
                 if (response) {
-                    showHostFlowMessage(readValue(response, "message") || "Save failed.");
+                    showHostFlowMessage("Save failed. Review the details and try again.", readValue(response, "message") || "Save failed.");
                 }
                 return;
             }
@@ -146,17 +149,49 @@
             }
         }
 
-        function showHostFlowMessage(message) {
+        function showHostFlowMessage(message, detail) {
             var alert = document.querySelector(".bm-schema-alert");
             if (!alert) {
                 alert = document.createElement("div");
                 alert.className = "bm-schema-alert";
+                alert.innerHTML = "<div class='bm-schema-alert-dialog' role='alertdialog' aria-modal='true' aria-labelledby='bm-schema-alert-title'>" +
+                    "<div id='bm-schema-alert-title' class='bm-schema-alert-title'>Message</div>" +
+                    "<div class='bm-schema-alert-message'></div>" +
+                    "<details class='bm-schema-alert-details'><summary>Details</summary><div class='bm-schema-alert-detail-list'></div></details>" +
+                    "<div class='bm-schema-alert-actions'><button type='button' class='btn btn-primary bm-schema-alert-close'>OK</button></div>" +
+                    "</div>";
+                var closeButton = alert.querySelector(".bm-schema-alert-close");
+                if (closeButton) {
+                    closeButton.addEventListener("click", function () {
+                        alert.remove();
+                    });
+                }
                 var form = document.querySelector("[data-schema-host-form='true']");
                 if (form && form.parentElement) {
                     form.parentElement.insertBefore(alert, form);
                 }
             }
-            alert.textContent = message || "Save failed.";
+            var messageNode = alert.querySelector(".bm-schema-alert-message");
+            if (messageNode) {
+                messageNode.textContent = message || "Save failed.";
+            }
+            var detailsNode = alert.querySelector(".bm-schema-alert-details");
+            var listNode = alert.querySelector(".bm-schema-alert-detail-list");
+            if (detailsNode && listNode) {
+                if (detail) {
+                    detailsNode.classList.remove("d-none");
+                    detailsNode.removeAttribute("open");
+                    listNode.textContent = "";
+                    var item = document.createElement("div");
+                    item.className = "bm-schema-alert-detail-item";
+                    item.textContent = detail;
+                    listNode.appendChild(item);
+                } else {
+                    detailsNode.classList.add("d-none");
+                    detailsNode.removeAttribute("open");
+                    listNode.textContent = "";
+                }
+            }
         }
 
         function readValue(source, camelName) {
