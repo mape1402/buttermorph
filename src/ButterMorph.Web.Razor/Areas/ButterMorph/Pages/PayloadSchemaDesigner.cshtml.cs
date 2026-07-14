@@ -129,6 +129,11 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     public string Message { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets detailed user-facing messages.
+    /// </summary>
+    public IReadOnlyCollection<string> MessageDetails { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets a value indicating whether host save completed.
     /// </summary>
     public bool HostSaveCompleted { get; set; }
@@ -206,7 +211,8 @@ public sealed class PayloadSchemaDesignerModel : PageModel
 
         if (!result.Succeeded)
         {
-            Message = string.Join(" ", result.Diagnostics.Select(diagnostic => diagnostic.Message));
+            MessageDetails = result.Diagnostics.Select(diagnostic => diagnostic.Message).ToArray();
+            Message = "Schema validation failed.";
             if (IsPopupRequest())
             {
                 return new JsonResult(CreateHostSaveResponse("ButterMorphPayloadSchemaDesignerSaved"));
@@ -247,6 +253,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
         if (IsPopupRequest())
         {
             Message = saveResult.Message;
+            MessageDetails = saveResult.Diagnostics.Select(diagnostic => diagnostic.Message).ToArray();
             return new JsonResult(CreateHostSaveResponse("ButterMorphPayloadSchemaDesignerSaved"));
         }
 
@@ -689,6 +696,7 @@ public sealed class PayloadSchemaDesignerModel : PageModel
             SavedContextKey = ResolveContextKey(),
             MessageType = messageType,
             Message = Message,
+            Details = MessageDetails,
             SafeReturnUrl = ResolveSafeReturnUrl()
         };
     }

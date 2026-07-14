@@ -20,7 +20,14 @@
         syncArrayItemInputs();
         refresh();
     });
-    form.addEventListener("submit", function () {
+    window.ButterMorphSchemaBeforeSave = validateTypeDesigner;
+
+    form.addEventListener("submit", function (event) {
+        if (!validateTypeDesigner()) {
+            event.preventDefault();
+            return;
+        }
+
         syncArrayItemInputs();
         syncAllowedValuesInput();
     });
@@ -194,6 +201,84 @@
         }
         arrayItemTypeInput.value = selected.dataset.baseType || "";
         arrayItemTypeVersionInput.value = selected.dataset.typeVersionId || selected.value;
+    }
+
+    function validateTypeDesigner() {
+        const errors = [];
+        requireInput("Input_Key", "Key", errors);
+        requireInput("Input_Name", "Name", errors);
+        requireInput("Input_VersionNumber", "Version", errors);
+        validateConstraintRanges(errors);
+
+        const baseType = baseSelect.value;
+        if (baseType === "object" && !hasSchemaFields(document.getElementById("schema-root-fields"))) {
+            errors.push("Object custom type must define at least one field.");
+        }
+
+        const selectedItemType = arrayItemSelect?.selectedOptions?.[0]?.dataset?.baseType || arrayItemSelect?.value || "";
+        if (baseType === "array" && !selectedItemType) {
+            errors.push("Array custom type must define an item type.");
+        }
+
+        if (baseType === "array" && selectedItemType === "object" && !hasSchemaFields(document.getElementById("schema-root-fields"))) {
+            errors.push("Array object custom type must define at least one item field.");
+        }
+
+        if (errors.length > 0) {
+            showDesignerMessage("Custom type validation failed. Review the details and fix the highlighted configuration.", errors);
+            return false;
+        }
+
+        showDesignerMessage("");
+        return true;
+    }
+
+    function requireInput(id, label, errors) {
+        const input = document.getElementById(id);
+        if (!input || String(input.value || "").trim()) {
+            return;
+        }
+
+        errors.push(label + " is required.");
+    }
+
+    function validateConstraintRanges(errors) {
+        const baseType = baseSelect.value;
+        if (baseType === "string") {
+            validateNumberRange("Input_MinLength", "Input_MaxLength", "Min Length", "Max Length", errors);
+            return;
+        }
+
+        if (baseType === "number" || baseType === "integer") {
+            validateNumberRange("Input_Minimum", "Input_Maximum", "Minimum", "Maximum", errors);
+        }
+    }
+
+    function validateNumberRange(minId, maxId, minLabel, maxLabel, errors) {
+        const minInput = document.getElementById(minId);
+        const maxInput = document.getElementById(maxId);
+        if (!minInput || !maxInput || minInput.value === "" || maxInput.value === "") {
+            return;
+        }
+
+        const minValue = Number(minInput.value);
+        const maxValue = Number(maxInput.value);
+        if (Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue) {
+            errors.push(minLabel + " cannot be greater than " + maxLabel + ".");
+        }
+    }
+
+    function hasSchemaFields(list) {
+        return !!list && Array.from(list.children).some(function (child) {
+            return child.classList && child.classList.contains("schema-field") &&
+                String(child.querySelector(".field-name-input")?.value || "").trim();
+        });
+    }
+
+    function showDesignerMessage(message, details) {
+        if (window.ButterMorphShowSchemaMessage) {
+            window.ButterMorphShowSchemaMessage(message, details);
+        }
     }
 
     function normalizeCatalogItem(item) {

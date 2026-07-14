@@ -1,5 +1,9 @@
 <script>
     (function () {
+        window.ButterMorphShowSchemaMessage = function (message, details) {
+            showHostFlowMessage(message, details);
+        };
+
         completeHostFlow();
 
         var parameters = new URLSearchParams(window.location.search);
@@ -72,6 +76,10 @@
         }
 
         function syncHostForm(form) {
+            if (window.ButterMorphSchemaBeforeSave && !window.ButterMorphSchemaBeforeSave()) {
+                return false;
+            }
+
             if (window.ButterMorphPayloadMetadataSync && !window.ButterMorphPayloadMetadataSync()) {
                 return false;
             }
@@ -110,7 +118,9 @@
 
             if (!completed) {
                 if (response) {
-                    showHostFlowMessage("Save failed. Review the details and try again.", readValue(response, "message") || "Save failed.");
+                    showHostFlowMessage(
+                        "Save failed. Review the details and try again.",
+                        readDetails(response) || readValue(response, "message") || "Save failed.");
                 }
                 return;
             }
@@ -178,14 +188,17 @@
             var detailsNode = alert.querySelector(".bm-schema-alert-details");
             var listNode = alert.querySelector(".bm-schema-alert-detail-list");
             if (detailsNode && listNode) {
-                if (detail) {
+                var details = Array.isArray(detail) ? detail.filter(Boolean) : detail ? [detail] : [];
+                if (details.length > 0) {
                     detailsNode.classList.remove("d-none");
                     detailsNode.removeAttribute("open");
-                    listNode.textContent = "";
-                    var item = document.createElement("div");
-                    item.className = "bm-schema-alert-detail-item";
-                    item.textContent = detail;
-                    listNode.appendChild(item);
+                    listNode.replaceChildren();
+                    details.forEach(function (value) {
+                        var item = document.createElement("div");
+                        item.className = "bm-schema-alert-detail-item";
+                        item.textContent = String(value);
+                        listNode.appendChild(item);
+                    });
                 } else {
                     detailsNode.classList.add("d-none");
                     detailsNode.removeAttribute("open");
@@ -209,6 +222,22 @@
             }
 
             return "";
+        }
+
+        function readDetails(source) {
+            if (!source) {
+                return [];
+            }
+
+            if (Array.isArray(source.details)) {
+                return source.details;
+            }
+
+            if (Array.isArray(source.Details)) {
+                return source.Details;
+            }
+
+            return [];
         }
     }());
 </script>
