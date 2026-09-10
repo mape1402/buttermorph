@@ -3,10 +3,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>ButterMorph</PackageId>
     <Description>Core ButterMorph runtime for typed transformation documents, expressions, functions, validation, semantics, DSL, and dependency injection.</Description>
     <PackageTags>buttermorph mapping transformations dsl validation semantics functions</PackageTags>
   </PropertyGroup>
 </Project>
-

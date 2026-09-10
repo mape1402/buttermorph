@@ -1,5 +1,7 @@
 # ButterMorph
 
+[![Build and Release](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
+
 ButterMorph is a modular .NET toolkit for designing, storing, and executing shape-neutral data transformations.
 
 It provides the core transformation model, schema definition services, JSON adapters, a textual DSL, and reusable Razor designers that can be embedded into any host application. The host owns persistence and business rules; ButterMorph owns the modeling, schema/mapping designers, rehydration, DSL import/export, and runtime execution.
@@ -55,20 +57,20 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="1.0.0" />
-<PackageReference Include="ButterMorph.Json" Version="1.0.0" />
+<PackageReference Include="ButterMorph" Version="1.0.2" />
+<PackageReference Include="ButterMorph.Json" Version="1.0.2" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="1.0.0" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="1.0.2" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="1.0.0" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="1.0.2" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -436,16 +438,13 @@ dotnet build ButterMorph.sln
 dotnet test ButterMorph.sln --no-build
 ```
 
-Create packages locally:
+Create all packages locally:
 
 ```bash
-dotnet pack src/ButterMorph/ButterMorph.csproj --configuration Release --output ./nupkgs
-dotnet pack src/ButterMorph.Json/ButterMorph.Json.csproj --configuration Release --output ./nupkgs
-dotnet pack src/ButterMorph.Json.Schema/ButterMorph.Json.Schema.csproj --configuration Release --output ./nupkgs
-dotnet pack src/ButterMorph.SchemaDesign/ButterMorph.SchemaDesign.csproj --configuration Release --output ./nupkgs
-dotnet pack src/ButterMorph.Design/ButterMorph.Design.csproj --configuration Release --output ./nupkgs
-dotnet pack src/ButterMorph.Web.Razor/ButterMorph.Web.Razor.csproj --configuration Release --output ./nupkgs
+dotnet pack ButterMorph.sln --configuration Release --output ./nupkgs
 ```
+
+The GitHub Actions flow uses `.github/workflows/build-and-release.yml`. Pull requests build and test the solution; production releases use release branches named `releases/vX.Y.Z` or a `.release` marker containing `vX.Y.Z`, then publish packages through NuGet Trusted Publishing.
 
 ## Design Principles
 

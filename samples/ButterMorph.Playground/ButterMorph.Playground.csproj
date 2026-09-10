@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
@@ -11,4 +12,3 @@
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
   </ItemGroup>
 </Project>
-
