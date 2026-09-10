@@ -3,10 +3,10 @@
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
   </ItemGroup>
   <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>ButterMorph.Json</PackageId>
     <Description>JSON graph reader and writer adapters for ButterMorph typed structure graphs.</Description>
     <PackageTags>buttermorph json adapter graph serialization</PackageTags>
   </PropertyGroup>
 </Project>
-

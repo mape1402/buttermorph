@@ -7,6 +7,15 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.0.2] - 2026-09-09
+
+### Changed
+- Multi-targeted NuGet projects for `net9.0` and `net10.0`.
+- Replaced separate build, changelog, release, and publish workflows with the Mule-style unified Build and Release workflow.
+- Updated README CI badge to point at the new workflow.
+
+---
+
 ## [v1.0.1] - 2026-07-13
 
 ### Fixed
