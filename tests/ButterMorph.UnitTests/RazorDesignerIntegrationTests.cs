@@ -56,6 +56,67 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that host-configured designer theme colors render on designer pages.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRoutesRenderConfiguredTheme()
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.Theme.PrimaryColor = "#123456";
+                    options.Theme.BackgroundColor = "#abcdef";
+                    options.Theme.SidebarBackgroundColor = "#234567";
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
+        string payloadDesignerHtml = await client.GetStringAsync("/buttermorph/payload-schema/designer");
+
+        Assert.Contains("--bm-primary:#123456", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-content-bg:#abcdef", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-sidebar-bg:#234567", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-bm-theme-mode=\"light\"", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-schema-primary:#123456", payloadDesignerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-schema-bg:#abcdef", payloadDesignerHtml, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-theme.js", payloadDesignerHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that host-configured dark mode renders on designer pages.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRoutesRenderConfiguredDarkMode()
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.Theme.UseDarkMode();
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
+        string payloadDesignerHtml = await client.GetStringAsync("/buttermorph/payload-schema/designer");
+
+        Assert.Contains("data-bm-theme-mode=\"dark\"", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("color-scheme:dark", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-content-bg:#0f172a", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-schema-bg:#0f172a", payloadDesignerHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that reusable designer static assets respond successfully.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -66,17 +127,20 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         HttpResponseMessage cssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.css");
         HttpResponseMessage scriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.js");
+        HttpResponseMessage themeScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js");
         HttpResponseMessage codeMirrorCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css");
         HttpResponseMessage codeMirrorScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js");
         HttpResponseMessage codeMirrorHintCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css");
         HttpResponseMessage codeMirrorHintScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js");
         string css = await cssResponse.Content.ReadAsStringAsync();
         string script = await scriptResponse.Content.ReadAsStringAsync();
+        string themeScript = await themeScriptResponse.Content.ReadAsStringAsync();
         string schemaMetadataScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js");
         string schemaBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js");
 
         Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, themeScriptResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, codeMirrorCssResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, codeMirrorScriptResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, codeMirrorHintCssResponse.StatusCode);
@@ -117,6 +181,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorphDesignerSaved", script, StringComparison.Ordinal);
         Assert.Contains("window.opener.postMessage", script, StringComparison.Ordinal);
         Assert.Contains("window.close()", script, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphThemeChanged", themeScript, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphApplyThemeMode", themeScript, StringComparison.Ordinal);
+        Assert.Contains("data-bm-theme-mode", themeScript, StringComparison.Ordinal);
         Assert.Contains("getDslValue", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);
@@ -267,6 +334,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("openFrame", hostScript, StringComparison.Ordinal);
         Assert.Contains("buttermorph-host-frame-overlay", hostScript, StringComparison.Ordinal);
         Assert.Contains("popup.moveTo", hostScript, StringComparison.Ordinal);
+        Assert.Contains("setThemeMode", hostScript, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphThemeChanged", hostScript, StringComparison.Ordinal);
         string schemaScript = await client.GetStringAsync("/playground-schema.js");
         Assert.Contains("/playground/schema-items/", schemaScript, StringComparison.Ordinal);
         Assert.Contains("window.ButterMorphHost.openFrame", schemaScript, StringComparison.Ordinal);

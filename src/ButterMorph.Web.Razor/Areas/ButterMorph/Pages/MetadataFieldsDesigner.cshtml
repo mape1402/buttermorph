@@ -10,8 +10,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Field Metadata Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=20" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
 </head>
 <body class="bm-schema-page bm-metadata-field-designer"
+      style="@Model.ThemeStyle"
+      data-bm-theme-mode="@Model.ThemeMode"
       data-schema-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
       data-schema-host-context-key="@Model.SavedContextKey"
       data-schema-host-message-type="ButterMorphFieldMetadataDesignerSaved">

@@ -10,8 +10,9 @@
     <meta charset="utf-8" />
     <title>ButterMorph Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
 </head>
-<body>
+<body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-shell">
         <section class="bm-hero">
             <p class="bm-kicker">Reusable Razor Pages UI</p>
