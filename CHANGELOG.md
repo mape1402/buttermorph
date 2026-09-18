@@ -7,6 +7,14 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.1.1] - 2026-09-18
+
+### Changed
+- Changed designer theming to configure separate `Light` and `Dark` palettes once during service registration.
+- Updated live theme synchronization so hosts switch modes with `ButterMorphHost.setThemeMode(...)` without resending palette colors.
+
+---
+
 ## [v1.1.0] - 2026-09-18
 
 ### Added
