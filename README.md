@@ -1,6 +1,8 @@
 # ButterMorph
 
 [![Build and Release](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
+[![NuGet Package](https://img.shields.io/nuget/v/ButterMorph.svg?label=NuGet)](https://www.nuget.org/packages/ButterMorph)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ButterMorph.svg?label=Downloads)](https://www.nuget.org/packages/ButterMorph)
 
 ButterMorph is a modular .NET toolkit for designing, storing, and executing shape-neutral data transformations.
 
@@ -57,20 +59,20 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="1.1.0" />
-<PackageReference Include="ButterMorph.Json" Version="1.1.0" />
+<PackageReference Include="ButterMorph" Version="1.1.1" />
+<PackageReference Include="ButterMorph.Json" Version="1.1.1" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="1.1.0" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="1.1.1" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="1.1.0" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="1.1.1" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -114,48 +116,59 @@ The host interfaces are the persistence boundary. ButterMorph calls `Load(...)` 
 
 ### Designer Theme
 
-Hosts can configure the colors used by the reusable Razor designers during service registration. The same theme is applied to mapping, custom type, custom field, and payload schema designers.
+Hosts can configure both light and dark palettes once during service registration. The same palettes are applied to mapping, custom type, custom field, and payload schema designers.
 
 ```csharp
 builder.Services.AddButterMorphRazorDesigner(options =>
 {
-    options.Theme.Mode = ButterMorphDesignerThemeMode.Dark;
-    options.Theme.PrimaryColor = "#2563eb";
-    options.Theme.PrimaryHoverColor = "#1d4ed8";
-    options.Theme.PrimaryDarkColor = "#1e40af";
-    options.Theme.BackgroundColor = "#f8fafc";
-    options.Theme.SurfaceColor = "#ffffff";
-    options.Theme.SurfaceSoftColor = "#f1f5f9";
-    options.Theme.TextColor = "#0f172a";
-    options.Theme.MutedTextColor = "#64748b";
-    options.Theme.BorderColor = "#e2e8f0";
-    options.Theme.StrongBorderColor = "#cbd5e1";
-    options.Theme.DangerColor = "#dc2626";
-    options.Theme.SidebarBackgroundColor = "#0f172a";
-    options.Theme.SidebarBrandBackgroundColor = "#020617";
-    options.Theme.SidebarBorderColor = "#1e293b";
-    options.Theme.SidebarTextColor = "#cbd5e1";
-    options.Theme.SidebarMutedTextColor = "#94a3b8";
-    options.Theme.SidebarActiveTextColor = "#bfdbfe";
+    options.Theme.DefaultMode = ButterMorphDesignerThemeMode.Light;
+
+    options.Theme.Light.PrimaryColor = "#2563eb";
+    options.Theme.Light.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.Light.PrimaryDarkColor = "#1e40af";
+    options.Theme.Light.BackgroundColor = "#f8fafc";
+    options.Theme.Light.SurfaceColor = "#ffffff";
+    options.Theme.Light.SurfaceSoftColor = "#f1f5f9";
+    options.Theme.Light.TextColor = "#0f172a";
+    options.Theme.Light.MutedTextColor = "#64748b";
+    options.Theme.Light.BorderColor = "#e2e8f0";
+    options.Theme.Light.StrongBorderColor = "#cbd5e1";
+    options.Theme.Light.DangerColor = "#dc2626";
+    options.Theme.Light.SidebarBackgroundColor = "#0f172a";
+    options.Theme.Light.SidebarBrandBackgroundColor = "#020617";
+    options.Theme.Light.SidebarBorderColor = "#1e293b";
+    options.Theme.Light.SidebarTextColor = "#cbd5e1";
+    options.Theme.Light.SidebarMutedTextColor = "#94a3b8";
+    options.Theme.Light.SidebarActiveTextColor = "#bfdbfe";
+
+    options.Theme.Dark.PrimaryColor = "#38bdf8";
+    options.Theme.Dark.PrimaryHoverColor = "#0ea5e9";
+    options.Theme.Dark.PrimaryDarkColor = "#7dd3fc";
+    options.Theme.Dark.BackgroundColor = "#020617";
+    options.Theme.Dark.SurfaceColor = "#0f172a";
+    options.Theme.Dark.SurfaceSoftColor = "#1e293b";
+    options.Theme.Dark.TextColor = "#f8fafc";
+    options.Theme.Dark.MutedTextColor = "#cbd5e1";
+    options.Theme.Dark.BorderColor = "#334155";
+    options.Theme.Dark.StrongBorderColor = "#475569";
+    options.Theme.Dark.DangerColor = "#f87171";
+    options.Theme.Dark.SidebarBackgroundColor = "#020617";
+    options.Theme.Dark.SidebarBrandBackgroundColor = "#020617";
+    options.Theme.Dark.SidebarBorderColor = "#1e293b";
+    options.Theme.Dark.SidebarTextColor = "#e2e8f0";
+    options.Theme.Dark.SidebarMutedTextColor = "#94a3b8";
+    options.Theme.Dark.SidebarActiveTextColor = "#bae6fd";
 });
 ```
 
-If the host changes theme mode while a ButterMorph iframe or popup is open, notify ButterMorph from the host page:
+If the host changes theme mode while a ButterMorph iframe or popup is open, notify ButterMorph with only the mode name:
 
 ```javascript
 window.ButterMorphHost.setThemeMode("dark");
 window.ButterMorphHost.setThemeMode("light");
 ```
 
-The helper posts a `ButterMorphThemeChanged` message to the active iframe/popup, and the designer updates without reloading. Hosts that use their own palette can pass color overrides with the mode:
-
-```javascript
-window.ButterMorphHost.setThemeMode("dark", {
-  primaryColor: "#38bdf8",
-  backgroundColor: "#020617",
-  surfaceColor: "#0f172a"
-});
-```
+The helper posts a `ButterMorphThemeChanged` message to the active iframe/popup, and the designer applies the already-configured palette without reloading or requiring the host to resend colors.
 
 ## Designer Routes
 

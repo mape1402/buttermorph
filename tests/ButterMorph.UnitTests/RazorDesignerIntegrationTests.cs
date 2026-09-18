@@ -68,9 +68,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             {
                 services.Configure<ButterMorphRazorDesignerOptions>(options =>
                 {
-                    options.Theme.PrimaryColor = "#123456";
-                    options.Theme.BackgroundColor = "#abcdef";
-                    options.Theme.SidebarBackgroundColor = "#234567";
+                    options.Theme.Light.PrimaryColor = "#123456";
+                    options.Theme.Light.BackgroundColor = "#abcdef";
+                    options.Theme.Light.SidebarBackgroundColor = "#234567";
+                    options.Theme.Dark.PrimaryColor = "#654321";
+                    options.Theme.Dark.BackgroundColor = "#fedcba";
+                    options.Theme.Dark.SidebarBackgroundColor = "#765432";
                 });
             });
         });
@@ -82,6 +85,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("--bm-primary:#123456", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-content-bg:#abcdef", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-sidebar-bg:#234567", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-light-primary-color:#123456", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-dark-primary-color:#654321", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-dark-background-color:#fedcba", designerHtml, StringComparison.Ordinal);
         Assert.Contains("data-bm-theme-mode=\"light\"", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-schema-primary:#123456", payloadDesignerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-schema-bg:#abcdef", payloadDesignerHtml, StringComparison.Ordinal);
@@ -113,6 +119,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-bm-theme-mode=\"dark\"", designerHtml, StringComparison.Ordinal);
         Assert.Contains("color-scheme:dark", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-content-bg:#0f172a", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-light-background-color:#f4f5fb", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-dark-background-color:#0f172a", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-schema-bg:#0f172a", payloadDesignerHtml, StringComparison.Ordinal);
     }
 
@@ -184,6 +192,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorphThemeChanged", themeScript, StringComparison.Ordinal);
         Assert.Contains("ButterMorphApplyThemeMode", themeScript, StringComparison.Ordinal);
         Assert.Contains("data-bm-theme-mode", themeScript, StringComparison.Ordinal);
+        Assert.Contains("readPalette", themeScript, StringComparison.Ordinal);
+        Assert.Contains("--bm-theme-", themeScript, StringComparison.Ordinal);
         Assert.Contains("getDslValue", script, StringComparison.Ordinal);
         Assert.Contains("addEventListener(\"dblclick\"", script, StringComparison.Ordinal);
         Assert.Contains("replaceExpressionInput", script, StringComparison.Ordinal);

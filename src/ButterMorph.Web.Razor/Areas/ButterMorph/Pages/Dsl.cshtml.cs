@@ -35,7 +35,7 @@ public sealed class DslModel : PageModel
     /// <summary>
     /// Gets the host-configured designer theme mode.
     /// </summary>
-    public string ThemeMode => options.Theme.Mode.ToString().ToLowerInvariant();
+    public string ThemeMode => options.Theme.DefaultMode.ToString().ToLowerInvariant();
 
     /// <summary>
     /// Gets or sets the DSL content.
