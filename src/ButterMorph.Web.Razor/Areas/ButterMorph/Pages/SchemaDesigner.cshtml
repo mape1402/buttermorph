@@ -13,8 +13,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Schema Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=schema-designer-bm-1" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
 </head>
-<body class="bm-page">
+<body class="bm-page" style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <div class="bm-schema-shell bm-schema-legacy-shell">
         <header class="bm-schema-topbar bm-schema-legacy-topbar">
             <div>

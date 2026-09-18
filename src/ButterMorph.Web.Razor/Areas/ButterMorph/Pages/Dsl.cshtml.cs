@@ -3,6 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Design;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 /// <summary>
 /// Imports and exports ButterMorph DSL content.
@@ -12,14 +13,29 @@ public sealed class DslModel : PageModel
     // Stores design sessions for the web designer.
     private readonly IMappingDesignSessionStore _sessionStore;
 
+    // Reads designer integration options.
+    private readonly ButterMorphRazorDesignerOptions options;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="DslModel"/> class.
     /// </summary>
     /// <param name="sessionStore">The session store.</param>
-    public DslModel(IMappingDesignSessionStore sessionStore)
+    /// <param name="options">The Razor designer options.</param>
+    public DslModel(IMappingDesignSessionStore sessionStore, IOptions<ButterMorphRazorDesignerOptions> options)
     {
         _sessionStore = sessionStore;
+        this.options = options.Value;
     }
+
+    /// <summary>
+    /// Gets the host-configured designer theme style.
+    /// </summary>
+    public string ThemeStyle => ButterMorphDesignerThemeStyle.Build(options);
+
+    /// <summary>
+    /// Gets the host-configured designer theme mode.
+    /// </summary>
+    public string ThemeMode => options.Theme.Mode.ToString().ToLowerInvariant();
 
     /// <summary>
     /// Gets or sets the DSL content.

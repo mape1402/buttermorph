@@ -3,6 +3,10 @@
     const frameId = "buttermorph-host-frame";
     const overlayId = "buttermorph-host-frame-overlay";
     const previousOverflowAttribute = "data-buttermorph-previous-overflow";
+    const themeMessageType = "ButterMorphThemeChanged";
+    const trackedPopups = [];
+    let currentThemeMode = resolveInitialThemeMode();
+    let currentTheme = null;
 
     function resolveCenteredPopup(width, height) {
         const hostLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX || 0;
@@ -37,6 +41,7 @@
             } catch (error) {
                 popup.focus();
             }
+            trackPopup(popup);
         }
 
         return popup;
@@ -52,6 +57,11 @@
         overlay.className = "buttermorph-host-frame-overlay";
         overlay.setAttribute("role", "dialog");
         overlay.setAttribute("aria-modal", "true");
+        if (settings.themeMode) {
+            currentThemeMode = normalizeThemeMode(settings.themeMode);
+            currentTheme = settings.theme || null;
+        }
+        overlay.setAttribute("data-theme-mode", currentThemeMode);
 
         const shell = document.createElement("div");
         shell.className = "buttermorph-host-frame-shell";
@@ -77,6 +87,9 @@
         iframe.className = "buttermorph-host-frame";
         iframe.src = withEmbeddedParameters(url);
         iframe.title = settings.title || "ButterMorph";
+        iframe.addEventListener("load", function () {
+            syncFrameTheme(iframe);
+        });
 
         header.appendChild(title);
         header.appendChild(closeButton);
@@ -86,6 +99,7 @@
         document.body.appendChild(overlay);
         lockBodyScroll();
         iframe.focus();
+        syncFrameTheme(iframe);
 
         return iframe;
     }
@@ -138,9 +152,111 @@
             ".buttermorph-host-frame-close{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:5px;background:transparent;color:#5b617c;font:400 20px/1 system-ui,-apple-system,Segoe UI,sans-serif;cursor:pointer;transition:background .12s ease,border-color .12s ease,color .12s ease;}",
             ".buttermorph-host-frame-close:hover{background:#f1f3fb;border-color:#d8def4;color:#111827;}",
             ".buttermorph-host-frame-close:focus-visible{outline:2px solid #635bff;outline-offset:1px;}",
+            ".buttermorph-host-frame-overlay[data-theme-mode='dark']{background:rgba(2,6,23,.72);}",
+            ".buttermorph-host-frame-overlay[data-theme-mode='dark'] .buttermorph-host-frame-shell{background:#111827;border-color:#334155;box-shadow:0 26px 80px rgba(0,0,0,.54);}",
+            ".buttermorph-host-frame-overlay[data-theme-mode='dark'] .buttermorph-host-frame-header{background:#0f172a;border-bottom-color:#334155;color:#f8fafc;}",
+            ".buttermorph-host-frame-overlay[data-theme-mode='dark'] .buttermorph-host-frame-close{color:#cbd5e1;}",
+            ".buttermorph-host-frame-overlay[data-theme-mode='dark'] .buttermorph-host-frame-close:hover{background:#1f2937;border-color:#475569;color:#ffffff;}",
             ".buttermorph-host-frame{width:100%;height:100%;min-height:0;border:0;display:block;}"
         ].join("");
         document.head.appendChild(style);
+    }
+
+    function normalizeThemeMode(mode) {
+        return String(mode || "").toLowerCase() === "dark" ? "dark" : "light";
+    }
+
+    function resolveInitialThemeMode() {
+        const candidates = [
+            document.documentElement && document.documentElement.getAttribute("data-bm-theme-mode"),
+            document.body && document.body.getAttribute("data-bm-theme-mode"),
+            document.documentElement && document.documentElement.getAttribute("data-theme"),
+            document.body && document.body.getAttribute("data-theme"),
+            document.documentElement && document.documentElement.getAttribute("data-bs-theme"),
+            document.body && document.body.getAttribute("data-bs-theme"),
+            document.documentElement && document.documentElement.getAttribute("data-color-mode"),
+            document.body && document.body.getAttribute("data-color-mode")
+        ];
+
+        for (let index = 0; index < candidates.length; index += 1) {
+            const candidate = String(candidates[index] || "").toLowerCase();
+            if (candidate === "dark" || candidate === "light") {
+                return candidate;
+            }
+        }
+
+        if (document.documentElement && document.documentElement.classList.contains("dark")) {
+            return "dark";
+        }
+
+        if (document.body && document.body.classList.contains("dark")) {
+            return "dark";
+        }
+
+        return "light";
+    }
+
+    function createThemeMessage(mode, theme) {
+        return {
+            type: themeMessageType,
+            mode: normalizeThemeMode(mode),
+            theme: theme || null
+        };
+    }
+
+    function postThemeMode(targetWindow, mode, theme) {
+        if (!targetWindow) {
+            return;
+        }
+
+        try {
+            targetWindow.postMessage(createThemeMessage(mode, theme), window.location.origin);
+        } catch (error) {
+            // The target can be closing or cross-origin. Ignore and let the host continue.
+        }
+    }
+
+    function syncFrameTheme(iframe) {
+        if (!iframe || !iframe.contentWindow) {
+            return;
+        }
+
+        postThemeMode(iframe.contentWindow, currentThemeMode, currentTheme);
+    }
+
+    function trackPopup(popup) {
+        trackedPopups.push(popup);
+        postThemeMode(popup, currentThemeMode, currentTheme);
+        window.setTimeout(function () { postThemeMode(popup, currentThemeMode, currentTheme); }, 250);
+        window.setTimeout(function () { postThemeMode(popup, currentThemeMode, currentTheme); }, 1000);
+    }
+
+    function broadcastThemeMode() {
+        const overlay = document.getElementById(overlayId);
+        if (overlay) {
+            overlay.setAttribute("data-theme-mode", currentThemeMode);
+        }
+
+        const iframe = document.getElementById(frameId);
+        if (iframe) {
+            syncFrameTheme(iframe);
+        }
+
+        for (let index = trackedPopups.length - 1; index >= 0; index -= 1) {
+            const popup = trackedPopups[index];
+            if (!popup || popup.closed) {
+                trackedPopups.splice(index, 1);
+                continue;
+            }
+
+            postThemeMode(popup, currentThemeMode, currentTheme);
+        }
+    }
+
+    function setThemeMode(mode, theme) {
+        currentThemeMode = normalizeThemeMode(mode);
+        currentTheme = theme || null;
+        broadcastThemeMode();
     }
 
     window.addEventListener("message", function (event) {
@@ -163,4 +279,7 @@
     window.ButterMorphHost.openPopup = openPopup;
     window.ButterMorphHost.openFrame = openFrame;
     window.ButterMorphHost.closeFrame = closeFrame;
+    window.ButterMorphHost.setThemeMode = setThemeMode;
+    window.ButterMorphHost.notifyThemeMode = postThemeMode;
+    window.ButterMorphHost.getThemeMode = function () { return currentThemeMode; };
 }());

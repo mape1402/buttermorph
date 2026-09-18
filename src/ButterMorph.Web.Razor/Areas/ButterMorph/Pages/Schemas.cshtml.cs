@@ -4,6 +4,7 @@ using ButterMorph.Design;
 using ButterMorph.Json.Schema;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 /// <summary>
 /// Loads source and target schemas into the designer session.
@@ -16,16 +17,34 @@ public sealed class SchemasModel : PageModel
     // Imports pasted JSON Schema text.
     private readonly IJsonSchemaImporter _schemaImporter;
 
+    // Reads designer integration options.
+    private readonly ButterMorphRazorDesignerOptions options;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SchemasModel"/> class.
     /// </summary>
     /// <param name="sessionStore">The session store.</param>
     /// <param name="schemaImporter">The JSON Schema importer.</param>
-    public SchemasModel(IMappingDesignSessionStore sessionStore, IJsonSchemaImporter schemaImporter)
+    /// <param name="options">The Razor designer options.</param>
+    public SchemasModel(
+        IMappingDesignSessionStore sessionStore,
+        IJsonSchemaImporter schemaImporter,
+        IOptions<ButterMorphRazorDesignerOptions> options)
     {
         _sessionStore = sessionStore;
         _schemaImporter = schemaImporter;
+        this.options = options.Value;
     }
+
+    /// <summary>
+    /// Gets the host-configured designer theme style.
+    /// </summary>
+    public string ThemeStyle => ButterMorphDesignerThemeStyle.Build(options);
+
+    /// <summary>
+    /// Gets the host-configured designer theme mode.
+    /// </summary>
+    public string ThemeMode => options.Theme.Mode.ToString().ToLowerInvariant();
 
     /// <summary>
     /// Gets or sets the source key.

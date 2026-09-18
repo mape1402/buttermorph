@@ -7,6 +7,16 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.1.0] - 2026-09-18
+
+### Added
+- Added host-configurable designer themes for `ButterMorph.Web.Razor`.
+- Added built-in light and dark designer modes.
+- Added live theme synchronization for embedded iframes and popups through `ButterMorphHost.setThemeMode(...)` and the `ButterMorphThemeChanged` message.
+- Added theme documentation and integration tests for configured colors and dark mode rendering.
+
+---
+
 ## [v1.0.2] - 2026-09-09
 
 ### Changed

@@ -6,6 +6,11 @@ namespace ButterMorph.Web.Razor;
 public sealed class ButterMorphRazorDesignerOptions
 {
     /// <summary>
+    /// Gets the visual theme used by ButterMorph designer pages.
+    /// </summary>
+    public ButterMorphDesignerThemeOptions Theme { get; } = new();
+
+    /// <summary>
     /// Gets or sets a value indicating whether schema action buttons are shown by default.
     /// </summary>
     public bool ShowSchemaActions { get; set; } = true;

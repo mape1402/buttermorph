@@ -119,7 +119,7 @@ button,
 
 button,
 .bm-button {
-  background-color: #f4f4fb;
+  background-color: var(--bm-content-bg);
   color: var(--bm-text);
   box-shadow: 0 1px 0 rgba(26, 26, 46, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
@@ -156,7 +156,7 @@ button:hover,
 
 .bm-message-box {
   align-items: center;
-  background: #ffffff;
+  background: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-left: 3px solid var(--bm-primary);
   border-radius: var(--bm-radius);
@@ -452,7 +452,7 @@ button:hover,
 }
 
 .bm-modal {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
   box-shadow: 0 18px 42px rgba(26, 26, 46, 0.28);
@@ -468,7 +468,7 @@ button:hover,
 
 .bm-modal-header {
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border-bottom: 1px solid var(--bm-border);
   color: var(--bm-text);
   display: flex;
@@ -505,7 +505,7 @@ label {
 
 input,
 textarea {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius-sm);
   box-shadow: inset 0 1px 2px rgba(26, 26, 46, 0.06);
@@ -911,7 +911,7 @@ textarea,
 
 .bm-target-form,
 .bm-dsl-form {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
   box-shadow: var(--bm-shadow);
@@ -934,7 +934,7 @@ textarea,
 
 .bm-canvas-header {
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border-bottom: 1px solid var(--bm-border);
   display: flex;
   justify-content: space-between;
@@ -965,7 +965,7 @@ textarea,
 }
 
 .bm-target-node > summary {
-  background-color: #fafafe;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius-sm);
   min-height: 28px;
@@ -973,7 +973,7 @@ textarea,
 }
 
 .bm-target-node > summary:hover {
-  background-color: #f4f4fb;
+  background-color: var(--bm-content-bg);
 }
 
 .bm-array-mapping {
@@ -1008,17 +1008,17 @@ textarea,
 }
 
 .bm-array-template {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border-left-color: rgba(79, 70, 229, 0.28);
   margin-left: 0.85rem;
 }
 
 .bm-array-template-field {
-  background-color: #fcfcff;
+  background-color: var(--bm-surface);
 }
 
 .bm-clear-array-mapping {
-  background-color: #f4f4fb;
+  background-color: var(--bm-content-bg);
   border-color: rgba(26, 26, 46, 0.12);
   box-shadow: none;
   color: var(--bm-muted);
@@ -1046,7 +1046,7 @@ textarea,
 
 .bm-target-field {
   align-items: center;
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid transparent;
   border-bottom-color: var(--bm-border);
   display: grid;
@@ -1058,7 +1058,7 @@ textarea,
 }
 
 .bm-target-field:hover {
-  background-color: #fafafe;
+  background-color: var(--bm-surface);
 }
 
 .bm-target-field.bm-drop-hover {
@@ -1088,7 +1088,7 @@ textarea,
 }
 
 .bm-clear-mapping {
-  background-color: #f4f4fb;
+  background-color: var(--bm-content-bg);
   border-color: rgba(26, 26, 46, 0.12);
   box-shadow: none;
   color: var(--bm-muted);
@@ -1424,7 +1424,7 @@ li.CodeMirror-hint-active {
 
 .bm-nav a,
 .bm-button {
-  background-color: #f4f4fb;
+  background-color: var(--bm-content-bg);
   border: 1px solid rgba(26, 26, 46, 0.12);
   border-radius: var(--bm-radius);
   color: var(--bm-text);
@@ -1433,7 +1433,7 @@ li.CodeMirror-hint-active {
 
 .bm-page-title,
 .bm-hero {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
   box-shadow: var(--bm-shadow);
@@ -1449,7 +1449,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-card {
-  background-color: #ffffff;
+  background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
   box-shadow: var(--bm-shadow);
@@ -1537,7 +1537,7 @@ li.CodeMirror-hint-active {
 
 .bm-schema-tree-panel,
 .bm-schema-properties-panel {
-  background: #ffffff;
+  background: var(--bm-surface);
   border: 1px solid #c7d0df;
   border-radius: 6px;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
@@ -1562,7 +1562,7 @@ li.CodeMirror-hint-active {
 
 .bm-schema-tree {
   flex: 1 1 auto;
-  background: #fbfdff;
+  background: var(--bm-surface);
   min-height: 0;
   overflow: auto;
   padding: 10px;
@@ -1574,7 +1574,7 @@ li.CodeMirror-hint-active {
 
 .bm-schema-node button {
   align-items: center;
-  background: #ffffff;
+  background: var(--bm-surface);
   border: 1px solid transparent;
   border-radius: 4px;
   color: #172033;
@@ -1609,7 +1609,7 @@ li.CodeMirror-hint-active {
   background: #eef2ff;
   border: 1px solid #dbe4ff;
   border-radius: 999px;
-  color: #4f46e5;
+  color: var(--bm-primary);
   font-size: 11px;
   font-style: normal;
   padding: 1px 7px;
@@ -1625,7 +1625,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-card {
-  background: #fbfdff;
+  background: var(--bm-surface);
   border: 1px solid #d8e0ed;
   border-radius: 6px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
@@ -1685,7 +1685,7 @@ li.CodeMirror-hint-active {
 .bm-schema-form select,
 .bm-schema-import textarea,
 .bm-schema-json-panel textarea {
-  background: #ffffff;
+  background: var(--bm-surface);
   border: 1px solid #c8d2e2;
   border-radius: 4px;
   font: 12px Consolas, "Cascadia Mono", monospace;
@@ -1769,19 +1769,19 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-topbar {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e3ef;
+  background: var(--bm-surface);
+  border-bottom: 1px solid var(--bm-border);
   box-shadow: 0 6px 18px rgba(26, 26, 46, 0.08);
-  color: #1a1a2e;
+  color: var(--bm-text);
 }
 
 .bm-schema-legacy-topbar .bm-brand-kicker {
-  color: #4f46e5;
+  color: var(--bm-primary);
 }
 
 .bm-schema-legacy-topbar .bm-button-primary {
-  background: #4f46e5;
-  border-color: #4f46e5;
+  background: var(--bm-primary);
+  border-color: var(--bm-primary);
   border-radius: 999px;
   box-shadow: 0 8px 28px rgba(26, 26, 46, 0.16);
   color: #ffffff;
@@ -1820,7 +1820,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-help {
-  color: #686d91;
+  color: var(--bm-muted);
   font-size: 0.8rem;
   margin: 0.15rem 0 0;
 }
@@ -1857,7 +1857,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-field .form-label {
-  color: #4b4f74;
+  color: var(--bm-muted);
   display: block;
   font-size: 0.64rem;
   font-weight: 700;
@@ -1869,10 +1869,10 @@ li.CodeMirror-hint-active {
 .bm-schema-legacy-add-root .form-control,
 .bm-schema-legacy-nested-add .form-control,
 .bm-schema-legacy-side-card textarea {
-  background: #ffffff;
+  background: var(--bm-surface);
   border: 1px solid #d9dbeb;
   border-radius: 5px;
-  color: #1a1a2e;
+  color: var(--bm-text);
   font-size: 0.72rem;
   min-height: 1.5rem;
   padding: 0.12rem 0.35rem;
@@ -1882,14 +1882,14 @@ li.CodeMirror-hint-active {
 .bm-schema-legacy-add-root .form-control:focus,
 .bm-schema-legacy-nested-add .form-control:focus,
 .bm-schema-legacy-side-card textarea:focus {
-  border-color: #4f46e5;
+  border-color: var(--bm-primary);
   box-shadow: 0 0 0 0.15rem rgba(79, 70, 229, 0.12);
   outline: none;
 }
 
 .bm-schema-legacy-check {
   align-items: center;
-  color: #4b4f74;
+  color: var(--bm-muted);
   display: inline-flex;
   font-size: 0.72rem;
   gap: 0.25rem;
@@ -1918,7 +1918,7 @@ li.CodeMirror-hint-active {
 .bm-schema-legacy-shell .btn-secondary {
   background: #eef0fb;
   border-color: #d9dbeb;
-  color: #4b4f74;
+  color: var(--bm-muted);
 }
 
 .bm-schema-legacy-shell .btn-secondary:hover {
@@ -1926,7 +1926,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-shell .btn-outline-danger {
-  background: #ffffff;
+  background: var(--bm-surface);
   border-color: #fecaca;
   color: #991b1b;
 }
@@ -1951,7 +1951,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-nested-builder .schema-nested-summary {
-  color: #686d91;
+  color: var(--bm-muted);
   font-size: 0.68rem;
 }
 
@@ -1975,8 +1975,8 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-side-card {
-  background: #ffffff;
-  border: 1px solid #e2e3ef;
+  background: var(--bm-surface);
+  border: 1px solid var(--bm-border);
   border-radius: 8px;
   box-shadow: 0 8px 22px rgba(26, 26, 46, 0.07);
   display: flex;
@@ -1987,7 +1987,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-schema-legacy-side-card-title {
-  color: #4b4f74;
+  color: var(--bm-muted);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -2023,4 +2023,54 @@ li.CodeMirror-hint-active {
   .bm-schema-legacy-nested-add {
     grid-template-columns: 1fr;
   }
+}
+
+body[data-bm-theme-mode="dark"] {
+  background-color: var(--bm-content-bg);
+  color: var(--bm-text);
+}
+
+body[data-bm-theme-mode="dark"] .bm-shell,
+body[data-bm-theme-mode="dark"] .bm-card,
+body[data-bm-theme-mode="dark"] .bm-page-title,
+body[data-bm-theme-mode="dark"] .bm-modal-content,
+body[data-bm-theme-mode="dark"] .bm-designer-surface,
+body[data-bm-theme-mode="dark"] .bm-canvas,
+body[data-bm-theme-mode="dark"] .bm-panel,
+body[data-bm-theme-mode="dark"] .bm-json-panel,
+body[data-bm-theme-mode="dark"] .bm-output-panel,
+body[data-bm-theme-mode="dark"] .bm-message-box {
+  background-color: var(--bm-surface);
+  border-color: var(--bm-border);
+  color: var(--bm-text);
+}
+
+body[data-bm-theme-mode="dark"] button,
+body[data-bm-theme-mode="dark"] .bm-button,
+body[data-bm-theme-mode="dark"] input,
+body[data-bm-theme-mode="dark"] select,
+body[data-bm-theme-mode="dark"] textarea {
+  background-color: var(--bm-schema-panel-soft, var(--bm-surface));
+  border-color: var(--bm-border-strong);
+  color: var(--bm-text);
+}
+
+body[data-bm-theme-mode="dark"] button:hover,
+body[data-bm-theme-mode="dark"] .bm-button:hover {
+  background-color: var(--bm-surface);
+  border-color: var(--bm-primary);
+}
+
+body[data-bm-theme-mode="dark"] .bm-button-primary,
+body[data-bm-theme-mode="dark"] button[type="submit"] {
+  background-color: var(--bm-primary);
+  border-color: var(--bm-primary);
+  color: #ffffff;
+}
+
+body[data-bm-theme-mode="dark"] .bm-empty,
+body[data-bm-theme-mode="dark"] .bm-muted,
+body[data-bm-theme-mode="dark"] .bm-help,
+body[data-bm-theme-mode="dark"] .bm-schema-legacy-help {
+  color: var(--bm-muted);
 }

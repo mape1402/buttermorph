@@ -57,20 +57,20 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="1.0.2" />
-<PackageReference Include="ButterMorph.Json" Version="1.0.2" />
+<PackageReference Include="ButterMorph" Version="1.1.0" />
+<PackageReference Include="ButterMorph.Json" Version="1.1.0" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="1.0.2" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="1.1.0" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="1.0.2" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="1.1.0" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -111,6 +111,51 @@ Then implement the host interfaces you need:
 - `IButterMorphDesignerHost` for mappings.
 
 The host interfaces are the persistence boundary. ButterMorph calls `Load(...)` when a designer opens and `Save(...)` when the user saves.
+
+### Designer Theme
+
+Hosts can configure the colors used by the reusable Razor designers during service registration. The same theme is applied to mapping, custom type, custom field, and payload schema designers.
+
+```csharp
+builder.Services.AddButterMorphRazorDesigner(options =>
+{
+    options.Theme.Mode = ButterMorphDesignerThemeMode.Dark;
+    options.Theme.PrimaryColor = "#2563eb";
+    options.Theme.PrimaryHoverColor = "#1d4ed8";
+    options.Theme.PrimaryDarkColor = "#1e40af";
+    options.Theme.BackgroundColor = "#f8fafc";
+    options.Theme.SurfaceColor = "#ffffff";
+    options.Theme.SurfaceSoftColor = "#f1f5f9";
+    options.Theme.TextColor = "#0f172a";
+    options.Theme.MutedTextColor = "#64748b";
+    options.Theme.BorderColor = "#e2e8f0";
+    options.Theme.StrongBorderColor = "#cbd5e1";
+    options.Theme.DangerColor = "#dc2626";
+    options.Theme.SidebarBackgroundColor = "#0f172a";
+    options.Theme.SidebarBrandBackgroundColor = "#020617";
+    options.Theme.SidebarBorderColor = "#1e293b";
+    options.Theme.SidebarTextColor = "#cbd5e1";
+    options.Theme.SidebarMutedTextColor = "#94a3b8";
+    options.Theme.SidebarActiveTextColor = "#bfdbfe";
+});
+```
+
+If the host changes theme mode while a ButterMorph iframe or popup is open, notify ButterMorph from the host page:
+
+```javascript
+window.ButterMorphHost.setThemeMode("dark");
+window.ButterMorphHost.setThemeMode("light");
+```
+
+The helper posts a `ButterMorphThemeChanged` message to the active iframe/popup, and the designer updates without reloading. Hosts that use their own palette can pass color overrides with the mode:
+
+```javascript
+window.ButterMorphHost.setThemeMode("dark", {
+  primaryColor: "#38bdf8",
+  backgroundColor: "#020617",
+  surfaceColor: "#0f172a"
+});
+```
 
 ## Designer Routes
 

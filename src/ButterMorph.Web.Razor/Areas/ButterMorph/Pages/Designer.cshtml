@@ -14,9 +14,10 @@
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=designer-scroll-1" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=frame-flow-1"></script>
 </head>
-<body>
+<body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-workbench"
           data-active-view="@Model.ActiveView"
           data-left-dock-mode="pinned"
