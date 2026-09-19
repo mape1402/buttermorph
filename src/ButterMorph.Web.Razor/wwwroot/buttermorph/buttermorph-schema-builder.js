@@ -761,7 +761,7 @@
             input = createMetadataArrayInput(definition, value);
         } else if (allowedValues.length > 0) {
             input = document.createElement("select");
-            input.className = "form-control";
+            input.className = "form-control schema-metadata-value";
             const empty = document.createElement("option");
             empty.value = "";
             empty.textContent = "";
@@ -775,7 +775,7 @@
             });
         } else {
             input = document.createElement("input");
-            input.className = "form-control";
+            input.className = "form-control schema-metadata-value";
             input.value = value;
             if (dataType === "number") {
                 input.type = "number";
@@ -785,7 +785,7 @@
                 input.step = "1";
             } else if (dataType === "boolean") {
                 input.type = "checkbox";
-                input.className = "form-check-input";
+                input.className = "form-check-input schema-metadata-value";
                 input.checked = value === true || value === "true";
             } else if (dataType === "date") {
                 input.type = "date";
@@ -871,6 +871,7 @@
     }
 
     function createMetadataObjectInput(definition, value) {
+        value = unwrapMetadataValue(value);
         const container = document.createElement("div");
         container.className = "schema-metadata-object";
         const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -881,6 +882,7 @@
     }
 
     function createMetadataArrayInput(definition, value) {
+        value = unwrapMetadataValue(value);
         const container = document.createElement("div");
         container.className = "schema-metadata-array";
         container.dataset.array = "true";
@@ -904,6 +906,7 @@
     }
 
     function createMetadataArrayItem(definition, value) {
+        value = unwrapMetadataValue(value);
         const row = document.createElement("div");
         row.className = "schema-metadata-array-item";
         row.dataset.arrayItem = "true";
@@ -918,6 +921,7 @@
     }
 
     function createNestedMetadataInput(definition, value) {
+        value = unwrapMetadataValue(value);
         const wrapper = document.createElement("div");
         wrapper.className = "schema-metadata-field";
         wrapper.dataset.key = definition.key;
@@ -935,7 +939,7 @@
             const allowedValues = Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
             if (allowedValues.length > 0) {
                 input = document.createElement("select");
-                input.className = "form-control";
+                input.className = "form-control schema-metadata-value";
                 const empty = document.createElement("option");
                 empty.value = "";
                 empty.textContent = "";
@@ -949,7 +953,7 @@
                 });
             } else {
                 input = document.createElement("input");
-                input.className = "form-control";
+                input.className = "form-control schema-metadata-value";
                 input.value = value === undefined || value === null ? "" : String(value);
                 input.type = wrapper.dataset.type === "number" || wrapper.dataset.type === "integer" ? "number" :
                     wrapper.dataset.type === "boolean" ? "checkbox" :
@@ -962,7 +966,7 @@
                     input.step = "any";
                 }
                 if (wrapper.dataset.type === "boolean") {
-                    input.className = "form-check-input";
+                    input.className = "form-check-input schema-metadata-value";
                     input.checked = value === true || value === "true";
                 }
             }
@@ -1038,14 +1042,18 @@
     }
 
     function unwrapMetadataValue(value) {
-        if (value && typeof value === "object" && value.$ref && value.value !== undefined) {
-            return value.value;
-        }
-        if (value && typeof value === "object" && value.type !== undefined && value.value !== undefined) {
-            return value.value;
+        let current = value;
+        let guard = 0;
+        while (current && typeof current === "object" && current.value !== undefined && guard < 8) {
+            if (!current.$ref && current.type === undefined) {
+                break;
+            }
+
+            current = current.value;
+            guard += 1;
         }
 
-        return value === undefined || value === null ? "" : value;
+        return current === undefined || current === null ? "" : current;
     }
 
     function collectMetadataValue(field) {
@@ -1054,7 +1062,7 @@
             const value = {};
             field.querySelectorAll(":scope > .schema-metadata-object > .schema-metadata-field").forEach(function (child) {
                 const childValue = collectMetadataValue(child);
-                if ((childValue === "" || childValue === null || childValue === undefined) && childValue !== false) {
+                if (isEmptyMetadataValue(childValue)) {
                     return;
                 }
                 value[child.dataset.key] = childValue;
@@ -1066,12 +1074,15 @@
             field.querySelectorAll(":scope > .schema-metadata-array > .schema-metadata-array-list > .schema-metadata-array-item").forEach(function (item) {
                 const child = item.querySelector(":scope > .schema-metadata-field");
                 if (child) {
-                    values.push(collectMetadataValue(child));
+                    const childValue = collectMetadataValue(child);
+                    if (!isEmptyMetadataValue(childValue)) {
+                        values.push(childValue);
+                    }
                 }
             });
             return values;
         }
-        const input = field.querySelector(":scope > input, :scope > select");
+        const input = field.querySelector(":scope > .schema-metadata-value, :scope > input, :scope > select");
         if (!input) {
             return "";
         }
@@ -1084,7 +1095,7 @@
         if (type === "integer") {
             return input.value === "" ? "" : parseInt(input.value, 10);
         }
-        return input.value || "";
+        return typeof input.value === "string" ? input.value.trim() : input.value || "";
     }
 
     function validatePayloadDesigner() {
@@ -1201,6 +1212,7 @@
     }
 
     function isEmptyMetadataValue(value) {
+        value = unwrapMetadataValue(value);
         if (value === false) {
             return false;
         }
@@ -1208,10 +1220,13 @@
             return true;
         }
         if (Array.isArray(value)) {
-            return value.length === 0;
+            return value.length === 0 || value.every(isEmptyMetadataValue);
         }
         if (typeof value === "object") {
-            return Object.keys(value).length === 0;
+            const keys = Object.keys(value);
+            return keys.length === 0 || keys.every(function (key) {
+                return isEmptyMetadataValue(value[key]);
+            });
         }
         return false;
     }
