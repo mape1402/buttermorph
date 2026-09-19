@@ -7,6 +7,14 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.1.2] - 2026-09-19
+
+### Fixed
+- Fixed Custom Fields Allowed Values styling in dark mode.
+- Fixed required field metadata validation when saved values are wrapped or nested.
+
+---
+
 ## [v1.1.1] - 2026-09-18
 
 ### Changed
