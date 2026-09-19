@@ -134,6 +134,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpClient client = _factory.CreateClient();
 
         HttpResponseMessage cssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.css");
+        HttpResponseMessage schemaCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css");
         HttpResponseMessage scriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/designer.js");
         HttpResponseMessage themeScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js");
         HttpResponseMessage codeMirrorCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css");
@@ -141,12 +142,14 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage codeMirrorHintCssResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css");
         HttpResponseMessage codeMirrorHintScriptResponse = await client.GetAsync("/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js");
         string css = await cssResponse.Content.ReadAsStringAsync();
+        string schemaCss = await schemaCssResponse.Content.ReadAsStringAsync();
         string script = await scriptResponse.Content.ReadAsStringAsync();
         string themeScript = await themeScriptResponse.Content.ReadAsStringAsync();
         string schemaMetadataScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js");
         string schemaBuilderScript = await client.GetStringAsync("/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js");
 
         Assert.Equal(HttpStatusCode.OK, cssResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, schemaCssResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, scriptResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, themeScriptResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, codeMirrorCssResponse.StatusCode);
@@ -219,6 +222,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("allowedValues: readAllowedValues", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("const metadata = safeJson(activeMetadataField.dataset.metadata || \"{}\")", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("function unwrapMetadataValue", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains(".metadata-validation-allowed-values #allowed-values-chips .badge", schemaCss, StringComparison.Ordinal);
+        Assert.Contains("background: var(--bm-schema-panel-soft)", schemaCss, StringComparison.Ordinal);
+        Assert.Contains("color: var(--bm-schema-text)", schemaCss, StringComparison.Ordinal);
+        Assert.DoesNotContain(".metadata-validation-allowed-values #allowed-values-chips .badge { align-items: center; background: #eef2ff", schemaCss, StringComparison.Ordinal);
+        Assert.DoesNotContain(".metadata-validation-allowed-values #allowed-values-chips .badge { align-items: center; background: var(--bm-schema-panel-soft); border: 1px solid #bfc9ff", schemaCss, StringComparison.Ordinal);
+        Assert.DoesNotContain("color: #27306b", schemaCss, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -918,6 +927,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-new-test&popup=true");
 
         Assert.Contains("New Custom Field", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema.css?v=21", html, StringComparison.Ordinal);
         Assert.Contains("context=metadata-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
@@ -952,6 +962,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
 
+        Assert.Contains("buttermorph-schema.css?v=21", html, StringComparison.Ordinal);
         Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
