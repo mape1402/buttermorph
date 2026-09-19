@@ -221,6 +221,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("const metadata = Object.assign({}, readCurrentMetadata())", schemaMetadataScript, StringComparison.Ordinal);
         Assert.Contains("allowedValues: readAllowedValues", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("const metadata = safeJson(activeMetadataField.dataset.metadata || \"{}\")", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("function syncActiveFieldMetadataModal", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("function collectFieldMetadataModal", schemaBuilderScript, StringComparison.Ordinal);
+        Assert.Contains("if (!syncActiveFieldMetadataModal(true))", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("function unwrapMetadataValue", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("while (current && typeof current === \"object\" && current.value !== undefined", schemaBuilderScript, StringComparison.Ordinal);
         Assert.Contains("schema-metadata-value", schemaBuilderScript, StringComparison.Ordinal);
@@ -966,7 +969,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
 
         Assert.Contains("buttermorph-schema.css?v=21", html, StringComparison.Ordinal);
-        Assert.Contains("buttermorph-schema-builder.js?v=18", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-builder.js?v=19", html, StringComparison.Ordinal);
         Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);

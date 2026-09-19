@@ -31,6 +31,10 @@
     });
 
     function syncPayloadSchemaInput() {
+        if (!syncActiveFieldMetadataModal(true)) {
+            return false;
+        }
+
         const validation = validatePayloadDesigner();
         if (!validation.succeeded) {
             showSchemaMessage("Schema validation failed. Review the details and fix the highlighted configuration.", validation.errors);
@@ -1016,6 +1020,33 @@
         if (!activeMetadataField) {
             return;
         }
+        if (!syncActiveFieldMetadataModal(true)) {
+            return;
+        }
+
+        closeModal("field-metadata-modal");
+    }
+
+    function syncActiveFieldMetadataModal(showErrors) {
+        const modal = document.getElementById("field-metadata-modal");
+        if (!activeMetadataField || !modal || !modal.classList.contains("show")) {
+            return true;
+        }
+
+        const result = collectFieldMetadataModal();
+        if (!result.succeeded) {
+            if (showErrors) {
+                showFieldMetadataValidation(result.errors);
+            }
+            return false;
+        }
+
+        clearFieldMetadataValidation();
+        activeMetadataField.dataset.metadata = JSON.stringify(result.metadata);
+        return true;
+    }
+
+    function collectFieldMetadataModal() {
         const metadata = safeJson(activeMetadataField.dataset.metadata || "{}");
         const errors = [];
         document.querySelectorAll("#field-metadata-fields > .schema-metadata-field").forEach(function (field) {
@@ -1031,14 +1062,11 @@
             metadata[key] = wrapMetadataValue(field, value);
         });
 
-        if (errors.length > 0) {
-            showFieldMetadataValidation(errors);
-            return;
-        }
-
-        clearFieldMetadataValidation();
-        activeMetadataField.dataset.metadata = JSON.stringify(metadata);
-        closeModal("field-metadata-modal");
+        return {
+            succeeded: errors.length === 0,
+            metadata: metadata,
+            errors: errors
+        };
     }
 
     function unwrapMetadataValue(value) {
