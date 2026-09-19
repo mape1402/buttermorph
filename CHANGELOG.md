@@ -7,6 +7,14 @@ and this project follows semantic versioning.
 
 ---
 
+## [v1.1.3] - 2026-09-19
+
+### Fixed
+- Fixed required field-level metadata validation so applied values and values still open in the Field Metadata modal are synchronized before schema save.
+- Added regression coverage for the payload schema metadata sync flow and refreshed schema builder asset cache-busting.
+
+---
+
 ## [v1.1.2] - 2026-09-19
 
 ### Fixed
