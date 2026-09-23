@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ButterMorph.Abstractions;
+using ButterMorph.Core;
 
 /// <summary>
 /// Validates structure graphs against ButterMorph schemas and schema metadata constraints.
@@ -33,28 +34,45 @@ public sealed class SchemaValidator : ISchemaValidator
             return CreateResult(diagnostics);
         }
 
-        ValidateNode(request.Schema.Root, graph.Root, "$root", diagnostics);
+        Dictionary<string, ISchemaNode> definitions = CreateDefinitions(request.Schema);
+        ValidateNode(request.Schema.Root, graph.Root, "$root", diagnostics, definitions);
         return CreateResult(diagnostics);
     }
 
-    private static void ValidateNode(ISchemaNode schemaNode, IStructureNode payloadNode, string path, List<DiagnosticEntry> diagnostics)
+    private static void ValidateNode(
+        ISchemaNode schemaNode,
+        IStructureNode payloadNode,
+        string path,
+        List<DiagnosticEntry> diagnostics,
+        IReadOnlyDictionary<string, ISchemaNode> definitions)
     {
+        if (TryResolveReference(schemaNode, definitions, out ISchemaNode resolvedNode))
+        {
+            ValidateNode(resolvedNode, payloadNode, path, diagnostics, definitions);
+            return;
+        }
+
         if (schemaNode.Kind == SchemaNodeKind.Object)
         {
-            ValidateObject(schemaNode, payloadNode, path, diagnostics);
+            ValidateObject(schemaNode, payloadNode, path, diagnostics, definitions);
             return;
         }
 
         if (schemaNode.Kind == SchemaNodeKind.Array)
         {
-            ValidateArray(schemaNode, payloadNode, path, diagnostics);
+            ValidateArray(schemaNode, payloadNode, path, diagnostics, definitions);
             return;
         }
 
         ValidateScalar(schemaNode, payloadNode, path, diagnostics);
     }
 
-    private static void ValidateObject(ISchemaNode schemaNode, IStructureNode payloadNode, string path, List<DiagnosticEntry> diagnostics)
+    private static void ValidateObject(
+        ISchemaNode schemaNode,
+        IStructureNode payloadNode,
+        string path,
+        List<DiagnosticEntry> diagnostics,
+        IReadOnlyDictionary<string, ISchemaNode> definitions)
     {
         if (payloadNode.Kind != StructureNodeKind.Object)
         {
@@ -77,11 +95,16 @@ public sealed class SchemaValidator : ISchemaValidator
                 continue;
             }
 
-            ValidateNode(childSchema, childPayload, childPath, diagnostics);
+            ValidateNode(childSchema, childPayload, childPath, diagnostics, definitions);
         }
     }
 
-    private static void ValidateArray(ISchemaNode schemaNode, IStructureNode payloadNode, string path, List<DiagnosticEntry> diagnostics)
+    private static void ValidateArray(
+        ISchemaNode schemaNode,
+        IStructureNode payloadNode,
+        string path,
+        List<DiagnosticEntry> diagnostics,
+        IReadOnlyDictionary<string, ISchemaNode> definitions)
     {
         if (payloadNode.Kind != StructureNodeKind.Array)
         {
@@ -101,7 +124,7 @@ public sealed class SchemaValidator : ISchemaValidator
 
         foreach (IStructureNode child in payloadNode.Children)
         {
-            ValidateNode(itemSchema, child, path + "[" + index.ToString(CultureInfo.InvariantCulture) + "]", diagnostics);
+            ValidateNode(itemSchema, child, path + "[" + index.ToString(CultureInfo.InvariantCulture) + "]", diagnostics, definitions);
             index++;
         }
     }
@@ -254,6 +277,225 @@ public sealed class SchemaValidator : ISchemaValidator
         }
 
         return string.Equals(value.RawValue, item.GetRawText(), StringComparison.Ordinal);
+    }
+
+    private static Dictionary<string, ISchemaNode> CreateDefinitions(IStructureSchema schema)
+    {
+        Dictionary<string, ISchemaNode> definitions = new(StringComparer.Ordinal);
+
+        if (!schema.Metadata.TryGetValue("json:$defs", out string definitionsJson) || string.IsNullOrWhiteSpace(definitionsJson))
+        {
+            return definitions;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(definitionsJson);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return definitions;
+            }
+
+            foreach (JsonProperty definition in document.RootElement.EnumerateObject())
+            {
+                definitions[definition.Name] = ImportDefinitionNode(definition.Name, definition.Value);
+            }
+        }
+        catch (JsonException)
+        {
+            return definitions;
+        }
+
+        return definitions;
+    }
+
+    private static ISchemaNode ImportDefinitionNode(string name, JsonElement element)
+    {
+        string dataType = ReadDefinitionType(element);
+        Dictionary<string, string> metadata = ReadDefinitionMetadata(element);
+
+        if (string.Equals(dataType, "object", StringComparison.OrdinalIgnoreCase))
+        {
+            List<ISchemaNode> children = [];
+
+            if (element.TryGetProperty("properties", out JsonElement properties) && properties.ValueKind == JsonValueKind.Object)
+            {
+                foreach (JsonProperty property in properties.EnumerateObject())
+                {
+                    children.Add(ImportDefinitionNode(property.Name, property.Value));
+                }
+            }
+
+            return new SchemaNode
+            {
+                Name = name,
+                Kind = SchemaNodeKind.Object,
+                DataType = dataType,
+                Children = children,
+                Metadata = metadata
+            };
+        }
+
+        if (string.Equals(dataType, "array", StringComparison.OrdinalIgnoreCase))
+        {
+            List<ISchemaNode> children = [];
+
+            if (element.TryGetProperty("items", out JsonElement items))
+            {
+                children.Add(ImportDefinitionNode("$item", items));
+            }
+
+            return new SchemaNode
+            {
+                Name = name,
+                Kind = SchemaNodeKind.Array,
+                DataType = dataType,
+                Children = children,
+                Metadata = metadata
+            };
+        }
+
+        return new SchemaNode
+        {
+            Name = name,
+            Kind = SchemaNodeKind.Scalar,
+            DataType = dataType,
+            Children = [],
+            Metadata = metadata
+        };
+    }
+
+    private static bool TryResolveReference(ISchemaNode schemaNode, IReadOnlyDictionary<string, ISchemaNode> definitions, out ISchemaNode resolvedNode)
+    {
+        resolvedNode = null;
+
+        if (!schemaNode.Metadata.TryGetValue("$ref", out string reference) || string.IsNullOrWhiteSpace(reference))
+        {
+            return false;
+        }
+
+        string definitionKey = ReadDefinitionKey(reference);
+
+        if (!definitions.TryGetValue(definitionKey, out ISchemaNode definitionNode))
+        {
+            return false;
+        }
+
+        resolvedNode = new SchemaNode
+        {
+            Name = schemaNode.Name,
+            Kind = definitionNode.Kind,
+            DataType = definitionNode.DataType,
+            IsRequired = schemaNode.IsRequired,
+            Children = definitionNode.Children,
+            Metadata = MergeReferenceMetadata(definitionNode.Metadata, schemaNode.Metadata)
+        };
+        return true;
+    }
+
+    private static Dictionary<string, string> MergeReferenceMetadata(
+        IReadOnlyDictionary<string, string> definitionMetadata,
+        IReadOnlyDictionary<string, string> nodeMetadata)
+    {
+        Dictionary<string, string> metadata = new(definitionMetadata, StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, string> item in nodeMetadata)
+        {
+            if (string.Equals(item.Key, "$ref", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            metadata[item.Key] = item.Value;
+        }
+
+        return metadata;
+    }
+
+    private static string ReadDefinitionKey(string reference)
+    {
+        const string prefix = "#/$defs/";
+
+        if (reference.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return reference[prefix.Length..];
+        }
+
+        int separator = reference.LastIndexOf("/", StringComparison.Ordinal);
+
+        if (separator >= 0 && separator + 1 < reference.Length)
+        {
+            return reference[(separator + 1)..];
+        }
+
+        return reference;
+    }
+
+    private static string ReadDefinitionType(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object &&
+            element.TryGetProperty("type", out JsonElement typeElement) &&
+            typeElement.ValueKind == JsonValueKind.String)
+        {
+            string value = typeElement.GetString();
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return "string";
+    }
+
+    private static Dictionary<string, string> ReadDefinitionMetadata(JsonElement element)
+    {
+        Dictionary<string, string> metadata = new(StringComparer.Ordinal);
+
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return metadata;
+        }
+
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (IsDefinitionStructuralKeyword(property.Name))
+            {
+                continue;
+            }
+
+            metadata[property.Name] = ReadDefinitionMetadataValue(property.Value);
+        }
+
+        return metadata;
+    }
+
+    private static bool IsDefinitionStructuralKeyword(string key)
+    {
+        return string.Equals(key, "type", StringComparison.Ordinal) ||
+            string.Equals(key, "properties", StringComparison.Ordinal) ||
+            string.Equals(key, "items", StringComparison.Ordinal);
+    }
+
+    private static string ReadDefinitionMetadataValue(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return element.GetString();
+        }
+
+        if (element.ValueKind == JsonValueKind.True)
+        {
+            return "true";
+        }
+
+        if (element.ValueKind == JsonValueKind.False)
+        {
+            return "false";
+        }
+
+        return element.GetRawText();
     }
 
     private static bool IsScalarTypeCompatible(string schemaType, IScalarValue value)

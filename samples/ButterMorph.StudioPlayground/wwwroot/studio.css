@@ -252,6 +252,10 @@ textarea {
   margin-bottom: .75rem;
 }
 
+.execution-actions {
+  margin-bottom: 0;
+}
+
 .primary-button,
 .ghost-button,
 .danger-button {

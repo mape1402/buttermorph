@@ -143,6 +143,29 @@ internal static class StudioEndpoints
 
             return Results.Json(Execute(mapping, body, host, engine));
         });
+        app.MapPost("/api/mappings/{id}/validate", async (
+            string id,
+            StudioStore store,
+            StudioButterMorphHost host,
+            IButterMorphEngine engine,
+            HttpRequest request) =>
+        {
+            StudioExecutionRequest body = await JsonSerializer.DeserializeAsync<StudioExecutionRequest>(request.Body, JsonOptions) ?? new StudioExecutionRequest();
+            if (!store.TryGetMapping(id, out StudioMapping mapping))
+            {
+                return Results.NotFound();
+            }
+
+            foreach (KeyValuePair<string, string> source in body.Sources)
+            {
+                mapping.SourceSamples[source.Key] = source.Value;
+            }
+
+            mapping.Document = host.ResolveMappingDocument(mapping);
+            store.SaveMapping(mapping);
+
+            return Results.Json(Validate(mapping, body, store, host, engine));
+        });
     }
 
     private static IResult CreateState(StudioStore store)
@@ -223,6 +246,119 @@ internal static class StudioEndpoints
         };
     }
 
+    private static StudioExecutionView Validate(StudioMapping mapping, StudioExecutionRequest request, StudioStore store, StudioButterMorphHost host, IButterMorphEngine engine)
+    {
+        Dictionary<string, IStructureGraph> graphs = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, IStructureSchema> sourceSchemas = new(StringComparer.OrdinalIgnoreCase);
+        List<DiagnosticEntry> diagnostics = [];
+        JsonReader reader = new();
+
+        foreach (KeyValuePair<string, string> source in mapping.SourceSchemaIds)
+        {
+            string json = request.Sources.TryGetValue(source.Key, out string postedJson)
+                ? postedJson
+                : mapping.SourceSamples.GetValueOrDefault(source.Key, "{}");
+
+            try
+            {
+                graphs[source.Key] = reader.Read(new StructureInput { Content = json, Format = "json" });
+            }
+            catch (JsonException exception)
+            {
+                diagnostics.Add(CreateDiagnostic("BMSP001", exception.Message, source.Key));
+            }
+
+            if (store.TryGetSchema(source.Value, out StudioSchema schema) && host.TryImportSchema(schema, out IStructureSchema importedSchema))
+            {
+                sourceSchemas[source.Key] = importedSchema;
+            }
+        }
+
+        Dictionary<string, IStructureSchema> schemaLookup = CreateSchemaLookup(sourceSchemas);
+        string assertionAlias = ResolveValidationPayloadAlias(mapping.Document);
+        bool hasAssertions = mapping.Document.ValidationAssertions.Count > 0;
+
+        foreach (KeyValuePair<string, IStructureGraph> graph in graphs)
+        {
+            if (hasAssertions && string.Equals(graph.Key, assertionAlias, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (sourceSchemas.TryGetValue(graph.Key, out IStructureSchema schema))
+            {
+                ValidationResult result = engine.Validate(new ValidationRequest
+                {
+                    SourceGraph = graph.Value,
+                    PayloadAlias = graph.Key,
+                    Sources = graphs,
+                    Schema = schema,
+                    Schemas = schemaLookup
+                });
+                diagnostics.AddRange(result.Diagnostics);
+            }
+        }
+
+        if (hasAssertions)
+        {
+            if (graphs.TryGetValue(assertionAlias, out IStructureGraph graph))
+            {
+                ValidationResult result = engine.Validate(new ValidationRequest
+                {
+                    SourceGraph = graph,
+                    PayloadAlias = assertionAlias,
+                    Sources = graphs,
+                    Schemas = schemaLookup,
+                    Definition = mapping.Document
+                });
+                diagnostics.AddRange(result.Diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(CreateDiagnostic("BMSP002", "Validation payload '" + assertionAlias + "' was not found.", assertionAlias));
+            }
+        }
+
+        return new StudioExecutionView
+        {
+            Succeeded = diagnostics.Count == 0,
+            OutputJson = string.Empty,
+            Diagnostics = diagnostics.Select(item => item.Code + ": " + item.Message).ToArray()
+        };
+    }
+
+    private static Dictionary<string, IStructureSchema> CreateSchemaLookup(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas)
+    {
+        Dictionary<string, IStructureSchema> schemas = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (KeyValuePair<string, IStructureSchema> sourceSchema in sourceSchemas)
+        {
+            schemas[sourceSchema.Key] = sourceSchema.Value;
+
+            if (!string.IsNullOrWhiteSpace(sourceSchema.Value.Key))
+            {
+                schemas[sourceSchema.Value.Key] = sourceSchema.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceSchema.Value.Name))
+            {
+                schemas[sourceSchema.Value.Name] = sourceSchema.Value;
+            }
+        }
+
+        return schemas;
+    }
+
+    private static string ResolveValidationPayloadAlias(ITransformationDocument document)
+    {
+        if (string.IsNullOrWhiteSpace(document.ValidationPayloadAlias))
+        {
+            return "source";
+        }
+
+        return document.ValidationPayloadAlias.TrimStart('$');
+    }
+
     private static string CreateId(string kind)
     {
         return kind.TrimEnd('s') + "-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -250,5 +386,15 @@ internal static class StudioEndpoints
         using JsonDocument document = JsonDocument.Parse(json);
         return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = true });
     }
-}
 
+    private static DiagnosticEntry CreateDiagnostic(string code, string message, string path)
+    {
+        return new DiagnosticEntry
+        {
+            Code = code,
+            Message = message,
+            Path = path,
+            Severity = "Error"
+        };
+    }
+}

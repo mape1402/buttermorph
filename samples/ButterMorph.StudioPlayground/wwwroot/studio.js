@@ -16,6 +16,7 @@
     button.addEventListener("click", () => showSection(button.dataset.section));
   });
   document.getElementById("refresh-state").addEventListener("click", loadState);
+  document.getElementById("validate-mapping").addEventListener("click", validateSelectedMapping);
   document.getElementById("execute-mapping").addEventListener("click", executeSelectedMapping);
   window.addEventListener("message", event => {
     if (event.origin !== window.location.origin || !event.data) {
@@ -495,6 +496,27 @@
     }
     document.getElementById("execution-output").value = result.outputJson || "";
     document.getElementById("execution-diagnostics").textContent = (result.diagnostics || []).join("\n") || (result.succeeded ? "Succeeded" : "No diagnostics");
+  }
+
+  async function validateSelectedMapping() {
+    const id = document.getElementById("execution-mapping").value;
+    const sources = {};
+    document.querySelectorAll("[data-source-json]").forEach(textarea => {
+      sources[textarea.dataset.sourceJson] = textarea.value;
+    });
+    const response = await fetch(`/api/mappings/${encodeURIComponent(id)}/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sources })
+    });
+    const result = await response.json();
+    const mapping = state.mappings.find(item => item.id === id);
+    if (mapping) {
+      mapping.sourceSamples = sources;
+      persistState();
+    }
+    document.getElementById("execution-output").value = "";
+    document.getElementById("execution-diagnostics").textContent = (result.diagnostics || []).join("\n") || (result.succeeded ? "Validation passed" : "No diagnostics");
   }
 
   function showSection(sectionName) {

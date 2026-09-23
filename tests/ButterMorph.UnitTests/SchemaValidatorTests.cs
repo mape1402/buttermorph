@@ -83,6 +83,51 @@ public sealed class SchemaValidatorTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV001" && diagnostic.Path == "name");
     }
 
+    /// <summary>
+    /// Confirms that schema references resolve custom type restrictions from definitions.
+    /// </summary>
+    [Fact]
+    public void ValidateResolvesDefinitionReferences()
+    {
+        SchemaValidator validator = new();
+        ValidationRequest request = new()
+        {
+            SourceGraph = ReadJson("{\"id\":\"ABC\"}"),
+            Schema = new StructureSchema
+            {
+                Key = "Contract",
+                Metadata = new Dictionary<string, string>
+                {
+                    ["json:$defs"] = "{\"CustomId\":{\"type\":\"string\",\"minLength\":5}}"
+                },
+                Root = new SchemaNode
+                {
+                    Name = "$root",
+                    Kind = SchemaNodeKind.Object,
+                    DataType = "object",
+                    Children =
+                    [
+                        new SchemaNode
+                        {
+                            Name = "id",
+                            Kind = SchemaNodeKind.Object,
+                            DataType = "object",
+                            Metadata = new Dictionary<string, string>
+                            {
+                                ["$ref"] = "#/$defs/CustomId"
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+
+        ValidationResult result = validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV003" && diagnostic.Path == "id");
+    }
+
     private static IStructureSchema CreateOrderSchema()
     {
         return new StructureSchema

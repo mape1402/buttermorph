@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     window.CodeMirror.defineMode("buttermorphDsl", function () {
-      const keywords = /^(metadata|target|validate|project|as|when|true|false|null)\b/;
+      const keywords = /^(metadata|target|validate|against|assert|project|as|when|true|false|null)\b/;
       return {
         token: function (stream) {
           if (stream.eatSpace()) {
@@ -297,6 +297,8 @@ document.addEventListener("DOMContentLoaded", function () {
     return [
       { text: "target {\n  \n}", displayText: "target block", description: "Creates target mappings." },
       { text: "validate {\n  \n}", displayText: "validate block", description: "Creates validation rules." },
+      { text: "validate $source against Schema {\n  assert gt($source.value, 0): \"Value must be greater than 0\"\n}", displayText: "validate payload", description: "Creates explicit payload validation assertions." },
+      { text: "assert gt($source.value, 0): \"Value must be greater than 0\"", displayText: "assert", description: "Creates a validation assertion." },
       { text: "metadata {\n  key: \"value\"\n}", displayText: "metadata block", description: "Creates document metadata." },
       { text: "when(condition, thenExpression, elseExpression)", displayText: "when", description: "Creates a conditional expression.", isFunction: true },
       { text: "true", displayText: "true", description: "Boolean literal." },
@@ -329,6 +331,9 @@ document.addEventListener("DOMContentLoaded", function () {
       return "projection-body";
     }
     if (validateIndex > metadataIndex && validateIndex > targetIndex) {
+      if (beforeCursor.indexOf("assert") >= 0) {
+        return "validation-expression";
+      }
       return beforeCursor.indexOf(":") >= 0 ? "validation-expression" : "target-path";
     }
     if (metadataIndex > targetIndex && metadataIndex > validateIndex) {
