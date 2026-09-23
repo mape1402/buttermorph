@@ -8,4 +8,7 @@ internal sealed class DesignerContextState
 
     // Controls whether manual schema action buttons are rendered.
     internal bool ShowSchemaActions { get; set; } = true;
+
+    // Stores source metadata for the current designer context.
+    internal Dictionary<string, ButterMorphDesignerSourceMetadata> SourceMetadata { get; } = new(StringComparer.Ordinal);
 }

@@ -13,6 +13,11 @@ public sealed class ButterMorphDesignerLoadResult
     public IReadOnlyDictionary<string, IStructureSchema> SourceSchemas { get; set; } = new Dictionary<string, IStructureSchema>();
 
     /// <summary>
+    /// Gets or sets source metadata keyed by source name.
+    /// </summary>
+    public IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> SourceMetadata { get; set; } = new Dictionary<string, ButterMorphDesignerSourceMetadata>();
+
+    /// <summary>
     /// Gets or sets the target schema.
     /// </summary>
     public IStructureSchema TargetSchema { get; set; }

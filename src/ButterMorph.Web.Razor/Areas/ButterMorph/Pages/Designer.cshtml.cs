@@ -143,10 +143,28 @@ public sealed class DesignerModel : PageModel
     public List<string> ProjectionFieldExpressions { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the source display name.
+    /// Gets or sets the source technical id.
     /// </summary>
     [BindProperty]
     public string SourceName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the source display name.
+    /// </summary>
+    [BindProperty]
+    public string SourceDisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the source description.
+    /// </summary>
+    [BindProperty]
+    public string SourceDescription { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets comma-separated source tags.
+    /// </summary>
+    [BindProperty]
+    public string SourceTags { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the pasted source schema text.
@@ -268,9 +286,18 @@ public sealed class DesignerModel : PageModel
     {
         string schemaText = await ReadSchemaContent("SourceSchemaFile", SourceSchemaText);
 
-        if (string.IsNullOrWhiteSpace(SourceName))
+        string sourceId = SourceName.Trim();
+
+        if (string.IsNullOrWhiteSpace(sourceId))
         {
-            Message = "Source name is required.";
+            Message = "Source id is required.";
+            LoadViewState();
+            return Page();
+        }
+
+        if (!IsValidSourceId(sourceId))
+        {
+            Message = "Source id can only use letters, numbers, and underscores, and must start with a letter or underscore.";
             LoadViewState();
             return Page();
         }
@@ -284,17 +311,29 @@ public sealed class DesignerModel : PageModel
 
         JsonSchemaConversionResult result = _schemaImporter.Import(new JsonSchemaImportRequest
         {
-            Name = SourceName,
+            Name = sourceId,
             JsonSchema = schemaText
         });
 
         if (result.Succeeded)
         {
-            Session.LoadSourceSchema(SourceName, result.Schema);
-            Message = "Source '" + SourceName + "' loaded.";
+            IMappingOperationResult loadResult = Session.LoadSourceSchema(sourceId, result.Schema);
+            ContextState.SourceMetadata[sourceId] = CreateSourceMetadata(sourceId, result.Schema, SourceDisplayName, SourceDescription, SourceTags);
+            Message = CreateMessage(loadResult, "Source '" + ResolveSourceDisplayName(ContextState.SourceMetadata[sourceId], result.Schema, sourceId) + "' loaded.");
             SourceName = string.Empty;
+            SourceDisplayName = string.Empty;
+            SourceDescription = string.Empty;
+            SourceTags = string.Empty;
             SourceSchemaText = string.Empty;
-            RunSemanticDiagnostics();
+
+            if (loadResult.Succeeded)
+            {
+                RunSemanticDiagnostics();
+            }
+            else
+            {
+                Diagnostics = loadResult.Diagnostics;
+            }
         }
         else
         {
@@ -558,6 +597,7 @@ public sealed class DesignerModel : PageModel
         {
             ContextKey = ContextKey,
             Document = Session.Document,
+            SourceMetadata = CreateSourceMetadataSnapshot(Session.Document.SourceSchemas, ContextState.SourceMetadata),
             DslContent = Session.ExportDsl()
         });
 
@@ -631,6 +671,19 @@ public sealed class DesignerModel : PageModel
             Session.LoadSourceSchema(schema.Key, schema.Value);
         }
 
+        if (result.SourceMetadata != null)
+        {
+            foreach (KeyValuePair<string, ButterMorphDesignerSourceMetadata> metadata in result.SourceMetadata)
+            {
+                if (string.IsNullOrWhiteSpace(metadata.Key) || metadata.Value == null)
+                {
+                    continue;
+                }
+
+                ContextState.SourceMetadata[metadata.Key] = CloneSourceMetadata(metadata.Value);
+            }
+        }
+
         if (result.TargetSchema != null)
         {
             Session.LoadTargetSchema(result.TargetSchema);
@@ -679,11 +732,15 @@ public sealed class DesignerModel : PageModel
 
         foreach (KeyValuePair<string, IStructureSchema> schemaPair in document.SourceSchemas)
         {
+            ButterMorphDesignerSourceMetadata sourceMetadata = ResolveSourceMetadata(schemaPair.Key, schemaPair.Value);
             ISchemaTreeNode explored = _schemaExplorer.Explore(schemaPair.Value);
             SchemaTreeDisplayNode sourceTree = SchemaTreeDisplayBuilder.BuildSource(schemaPair.Key, explored);
             sourceSchemas.Add(new SourceSchemaDisplayModel
             {
                 Key = schemaPair.Key,
+                DisplayName = ResolveSourceDisplayName(sourceMetadata, schemaPair.Value, schemaPair.Key),
+                Description = ResolveSourceDescription(sourceMetadata, schemaPair.Value),
+                Tags = ResolveSourceTags(sourceMetadata, schemaPair.Value),
                 SchemaKey = schemaPair.Value.Key,
                 SchemaName = schemaPair.Value.Name,
                 Version = schemaPair.Value.Version,
@@ -842,6 +899,191 @@ public sealed class DesignerModel : PageModel
         }
 
         return fallback;
+    }
+
+    // Creates source metadata from posted toolbox fields.
+    private static ButterMorphDesignerSourceMetadata CreateSourceMetadata(
+        string sourceId,
+        IStructureSchema schema,
+        string displayName,
+        string description,
+        string tags)
+    {
+        return new ButterMorphDesignerSourceMetadata
+        {
+            DisplayName = ResolveSourceDisplayName(displayName, schema, sourceId),
+            Description = ResolveSourceDescription(description, schema),
+            Tags = ResolveSourceTags(tags, schema)
+        };
+    }
+
+    // Gets source metadata for a loaded source, falling back to schema identity.
+    private ButterMorphDesignerSourceMetadata ResolveSourceMetadata(string sourceId, IStructureSchema schema)
+    {
+        if (ContextState.SourceMetadata.TryGetValue(sourceId, out ButterMorphDesignerSourceMetadata metadata) && metadata != null)
+        {
+            return metadata;
+        }
+
+        return CreateSourceMetadata(sourceId, schema, string.Empty, string.Empty, string.Empty);
+    }
+
+    // Creates a stable metadata snapshot for host saves.
+    private static IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> CreateSourceMetadataSnapshot(
+        IReadOnlyDictionary<string, IStructureSchema> sourceSchemas,
+        IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> sourceMetadata)
+    {
+        Dictionary<string, ButterMorphDesignerSourceMetadata> snapshot = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, IStructureSchema> source in sourceSchemas)
+        {
+            if (sourceMetadata.TryGetValue(source.Key, out ButterMorphDesignerSourceMetadata metadata) && metadata != null)
+            {
+                snapshot[source.Key] = CloneSourceMetadata(metadata);
+                continue;
+            }
+
+            snapshot[source.Key] = CreateSourceMetadata(source.Key, source.Value, string.Empty, string.Empty, string.Empty);
+        }
+
+        return snapshot;
+    }
+
+    // Clones source metadata so host-owned values are not mutated by the designer.
+    private static ButterMorphDesignerSourceMetadata CloneSourceMetadata(ButterMorphDesignerSourceMetadata metadata)
+    {
+        return new ButterMorphDesignerSourceMetadata
+        {
+            DisplayName = metadata.DisplayName,
+            Description = metadata.Description,
+            Tags = metadata.Tags == null ? [] : [.. metadata.Tags]
+        };
+    }
+
+    // Resolves the visible source display name.
+    private static string ResolveSourceDisplayName(ButterMorphDesignerSourceMetadata metadata, IStructureSchema schema, string sourceId)
+    {
+        return ResolveSourceDisplayName(metadata.DisplayName, schema, sourceId);
+    }
+
+    // Resolves the visible source display name.
+    private static string ResolveSourceDisplayName(string displayName, IStructureSchema schema, string sourceId)
+    {
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            return displayName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(schema.Name))
+        {
+            return schema.Name;
+        }
+
+        return sourceId;
+    }
+
+    // Resolves source description text.
+    private static string ResolveSourceDescription(ButterMorphDesignerSourceMetadata metadata, IStructureSchema schema)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.Description))
+        {
+            return metadata.Description;
+        }
+
+        return schema.Description;
+    }
+
+    // Resolves source description text.
+    private static string ResolveSourceDescription(string description, IStructureSchema schema)
+    {
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            return description.Trim();
+        }
+
+        return schema.Description;
+    }
+
+    // Resolves source tags from metadata or schema metadata.
+    private static IReadOnlyCollection<string> ResolveSourceTags(ButterMorphDesignerSourceMetadata metadata, IStructureSchema schema)
+    {
+        if (metadata.Tags != null && metadata.Tags.Count > 0)
+        {
+            return metadata.Tags;
+        }
+
+        if (schema.Metadata != null && schema.Metadata.TryGetValue("tags", out string tags))
+        {
+            return ParseTags(tags);
+        }
+
+        return [];
+    }
+
+    // Resolves source tags from posted text or schema metadata.
+    private static IReadOnlyCollection<string> ResolveSourceTags(string tags, IStructureSchema schema)
+    {
+        IReadOnlyCollection<string> parsedTags = ParseTags(tags);
+
+        if (parsedTags.Count > 0)
+        {
+            return parsedTags;
+        }
+
+        if (schema.Metadata != null && schema.Metadata.TryGetValue("tags", out string schemaTags))
+        {
+            return ParseTags(schemaTags);
+        }
+
+        return [];
+    }
+
+    // Parses comma-separated source tags.
+    private static IReadOnlyCollection<string> ParseTags(string tags)
+    {
+        if (string.IsNullOrWhiteSpace(tags))
+        {
+            return [];
+        }
+
+        List<string> result = [];
+        string[] parts = tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string part in parts)
+        {
+            string tag = part.Trim();
+
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                result.Add(tag);
+            }
+        }
+
+        return result;
+    }
+
+    // Validates the source id used in DSL aliases.
+    private static bool IsValidSourceId(string sourceId)
+    {
+        if (string.IsNullOrWhiteSpace(sourceId))
+        {
+            return false;
+        }
+
+        if (!char.IsLetter(sourceId[0]) && sourceId[0] != '_')
+        {
+            return false;
+        }
+
+        foreach (char character in sourceId)
+        {
+            if (!char.IsLetterOrDigit(character) && character != '_')
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Creates display rows for mappings.

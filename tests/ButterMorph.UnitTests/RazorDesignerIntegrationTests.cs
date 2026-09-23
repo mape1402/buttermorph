@@ -310,7 +310,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("<details class=\"bm-function-group\" open>", html, StringComparison.Ordinal);
         Assert.Contains("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.Contains("data-modal=\"output\"", html, StringComparison.Ordinal);
-        Assert.Contains("Source name", html, StringComparison.Ordinal);
+        Assert.Contains("Source id", html, StringComparison.Ordinal);
+        Assert.Contains("Display name", html, StringComparison.Ordinal);
         Assert.Contains("bm-message-hidden", html, StringComparison.Ordinal);
         Assert.True(
             html.IndexOf("data-modal=\"source\"", StringComparison.Ordinal) > html.IndexOf("</section>", html.IndexOf("bm-dock-panel bm-toolbox", StringComparison.Ordinal), StringComparison.Ordinal));
@@ -1544,12 +1545,18 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             [
                 new KeyValuePair<string, string>("__RequestVerificationToken", token),
                 new KeyValuePair<string, string>("SourceName", "atlasCustomer"),
+                new KeyValuePair<string, string>("SourceDisplayName", "Atlas customer"),
+                new KeyValuePair<string, string>("SourceDescription", "Primary customer profile."),
+                new KeyValuePair<string, string>("SourceTags", "crm, primary"),
                 new KeyValuePair<string, string>("SourceSchemaText", SimpleSchema())
             ]));
         string loadedHtml = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Atlas customer", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("atlasCustomer", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("Primary customer profile.", loadedHtml, StringComparison.Ordinal);
+        Assert.Contains("crm, primary", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("<article class=\"bm-source-card\">", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("<details class=\"bm-source-group\">", loadedHtml, StringComparison.Ordinal);
         Assert.Contains("name=\"SourceName\" value=\"\"", loadedHtml, StringComparison.Ordinal);
@@ -1557,6 +1564,31 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("draggable=\"true\"", loadedHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("<details class=\"bm-tree-node bm-source-node\" open>", loadedHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("\"title\"", loadedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that source ids reject hyphenated values because DSL aliases use identifier syntax.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRejectsHyphenatedSourceIds()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("SourceName", "atlas-customer"),
+                new KeyValuePair<string, string>("SourceSchemaText", SimpleSchema())
+            ]));
+        string loadedHtml = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Source id can only use letters, numbers, and underscores", loadedHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-path=\"$atlas-customer", loadedHtml, StringComparison.Ordinal);
     }
 
     /// <summary>
