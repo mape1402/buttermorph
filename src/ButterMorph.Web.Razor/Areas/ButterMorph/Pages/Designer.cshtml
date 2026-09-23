@@ -96,12 +96,25 @@
                                     <article class="bm-source-card">
                                         <details class="bm-source-group">
                                             <summary class="bm-source-group-header">
-                                                <span class="bm-node-name">@source.Key</span>
-                                                <span class="bm-source-meta">@source.SchemaKey · v@source.Version</span>
-                                                @if (!string.IsNullOrWhiteSpace(source.Topic))
-                                                {
-                                                    <span class="bm-source-meta">topic: @source.Topic</span>
-                                                }
+                                                <span class="bm-source-title-wrap">
+                                                    <span class="bm-node-name bm-source-title" tabindex="0">@source.DisplayName</span>
+                                                    <span class="bm-source-tooltip" role="tooltip">
+                                                        <span><strong>Id</strong><span>@source.Key</span></span>
+                                                        @if (!string.IsNullOrWhiteSpace(source.Description))
+                                                        {
+                                                            <span><strong>Description</strong><span>@source.Description</span></span>
+                                                        }
+                                                        @if (source.Tags.Count > 0)
+                                                        {
+                                                            <span><strong>Tags</strong><span>@string.Join(", ", source.Tags)</span></span>
+                                                        }
+                                                        <span><strong>Schema</strong><span>@source.SchemaKey · v@source.Version</span></span>
+                                                        @if (!string.IsNullOrWhiteSpace(source.Topic))
+                                                        {
+                                                            <span><strong>Topic</strong><span>@source.Topic</span></span>
+                                                        }
+                                                    </span>
+                                                </span>
                                                 <span class="bm-source-badge">Source</span>
                                             </summary>
                                             <div class="bm-source-tree">
@@ -219,8 +232,20 @@
                 </div>
                 <form method="post" asp-page-handler="LoadSourceSchema" enctype="multipart/form-data" class="bm-stack-form">
                     <label>
-                        Source name
+                        Source id
                         <input name="SourceName" value="@Model.SourceName" />
+                    </label>
+                    <label>
+                        Display name
+                        <input name="SourceDisplayName" value="@Model.SourceDisplayName" />
+                    </label>
+                    <label>
+                        Description
+                        <textarea name="SourceDescription" rows="3">@Model.SourceDescription</textarea>
+                    </label>
+                    <label>
+                        Tags
+                        <input name="SourceTags" value="@Model.SourceTags" />
                     </label>
                     <label>
                         Choose file

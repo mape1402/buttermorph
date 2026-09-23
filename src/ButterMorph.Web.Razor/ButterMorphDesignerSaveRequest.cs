@@ -18,6 +18,11 @@ public sealed class ButterMorphDesignerSaveRequest
     public ITransformationDocument Document { get; set; }
 
     /// <summary>
+    /// Gets or sets source metadata keyed by source name.
+    /// </summary>
+    public IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> SourceMetadata { get; set; } = new Dictionary<string, ButterMorphDesignerSourceMetadata>();
+
+    /// <summary>
     /// Gets or sets the exported DSL content.
     /// </summary>
     public string DslContent { get; set; } = string.Empty;

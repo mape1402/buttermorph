@@ -11,6 +11,21 @@ public sealed class SourceSchemaDisplayModel
     public string Key { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the source display name.
+    /// </summary>
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the source description.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets source tags.
+    /// </summary>
+    public IReadOnlyCollection<string> Tags { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the canonical schema key.
     /// </summary>
     public string SchemaKey { get; set; } = string.Empty;
