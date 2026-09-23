@@ -1091,6 +1091,47 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that validation rejects edited source JSON missing required schema sections.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundValidateEndpointRejectsMissingRequiredSourceSection()
+    {
+        HttpClient client = _factory.CreateClient();
+        string invoiceJson = """
+{
+  "BillTo": {
+    "CustomerCode": "CUSTOM-EDIT",
+    "LegalName": "Edited Customer",
+    "TaxId": "EDIT010101AA1"
+  },
+  "Lines": [
+    {
+      "Sku": "EDIT-001",
+      "Description": "Edited line",
+      "Quantity": 1,
+      "Amount": 12
+    }
+  ]
+}
+""";
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/playground/validate/invoice",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("SourceKeys", "invoice"),
+                new KeyValuePair<string, string>("SourceJsonValues", invoiceJson)
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.Contains("BMSV001", json, StringComparison.Ordinal);
+        Assert.Contains("Header", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that edited playground source JSON is used during execution.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

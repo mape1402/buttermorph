@@ -1067,6 +1067,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
             Name = name,
             Kind = kind,
             DataType = dataType,
+            IsRequired = !string.Equals(name, "$root", StringComparison.Ordinal),
             Children = children
         };
     }
