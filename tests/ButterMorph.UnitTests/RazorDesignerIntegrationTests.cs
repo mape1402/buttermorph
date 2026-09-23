@@ -163,10 +163,13 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-dock-panel", css, StringComparison.Ordinal);
         Assert.Contains("bm-dock-titlebar", css, StringComparison.Ordinal);
         Assert.Contains("bm-dock-flyout-open", css, StringComparison.Ordinal);
+        Assert.Contains("bm-validation-scope", css, StringComparison.Ordinal);
+        Assert.Contains("bm-validation-row", css, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.LeftDockMode", script, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.LeftDockPanel", script, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesigner.ToolboxMode", script, StringComparison.Ordinal);
         Assert.Contains("data-dock-tab", script, StringComparison.Ordinal);
+        Assert.Contains("bm-validation-expression-input", script, StringComparison.Ordinal);
         Assert.Contains("URLSearchParams(window.location.search)", script, StringComparison.Ordinal);
         Assert.Contains("parameters.set(\"handler\", handler)", script, StringComparison.Ordinal);
         Assert.Contains("Sync request failed with status", script, StringComparison.Ordinal);
@@ -313,6 +316,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("bm-dock-tab", html, StringComparison.Ordinal);
         Assert.Contains("bm-dock-panel-host", html, StringComparison.Ordinal);
         Assert.Contains("bm-designer-surface", html, StringComparison.Ordinal);
+        Assert.Contains("data-view=\"Validations\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-view-panel=\"Validations\"", html, StringComparison.Ordinal);
+        Assert.Contains("Validation assertions", html, StringComparison.Ordinal);
+        Assert.Contains("ValidationFunctions", html, StringComparison.Ordinal);
+        Assert.Contains("value=\"gt\"", html, StringComparison.Ordinal);
         Assert.Contains("data-view=\"Dsl\"", html, StringComparison.Ordinal);
         Assert.Contains("vendor/codemirror/codemirror.min.css", html, StringComparison.Ordinal);
         Assert.Contains("vendor/codemirror/codemirror.min.js", html, StringComparison.Ordinal);
@@ -351,7 +359,6 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("Export DSL", html, StringComparison.Ordinal);
         Assert.DoesNotContain("bm-status", html, StringComparison.Ordinal);
         Assert.DoesNotContain("&quot;properties&quot;", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("value=\"source\"", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1285,6 +1292,50 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that visual validation assertions are saved into host documents.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostReceivesSavedValidationAssertions()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["invoice"] = CreateValidationDesignerSchema()
+                },
+                TargetSchema = CreateValidationDesignerSchema(),
+                ShowSchemaActions = false
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=validation-save");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=validation-save&handler=SaveValidationAssertions",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ValidationPayloadAlias", "invoice"),
+                new KeyValuePair<string, string>("ValidationSchemaKey", "invoice"),
+                new KeyValuePair<string, string>("ValidationFunctions", "gt"),
+                new KeyValuePair<string, string>("ValidationLeftExpressions", "$invoice.Header.Total"),
+                new KeyValuePair<string, string>("ValidationRightExpressions", "10"),
+                new KeyValuePair<string, string>("ValidationMessages", "Total must be greater than 10")
+            ]));
+        string savedHtml = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, host.SaveCalls);
+        Assert.Single(host.LastSaveRequest.Document.ValidationAssertions);
+        Assert.Contains("Validations saved.", savedHtml, StringComparison.Ordinal);
+        Assert.Contains("validate $invoice against invoice", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+        Assert.Contains("assert gt($invoice.Header.Total, 10): \"Total must be greater than 10\"", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that popup saves render host completion metadata.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -1983,6 +2034,40 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                         Name = "Name",
                         Kind = SchemaNodeKind.Scalar,
                         DataType = "string"
+                    }
+                ]
+            }
+        };
+    }
+
+    // Creates a schema with a numeric invoice total for validation designer tests.
+    private static IStructureSchema CreateValidationDesignerSchema()
+    {
+        return new StructureSchema
+        {
+            Key = "invoice",
+            Name = "Invoice",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object,
+                Children =
+                [
+                    new SchemaNode
+                    {
+                        Name = "Header",
+                        Kind = SchemaNodeKind.Object,
+                        IsRequired = true,
+                        Children =
+                        [
+                            new SchemaNode
+                            {
+                                Name = "Total",
+                                Kind = SchemaNodeKind.Scalar,
+                                DataType = "number",
+                                IsRequired = true
+                            }
+                        ]
                     }
                 ]
             }
