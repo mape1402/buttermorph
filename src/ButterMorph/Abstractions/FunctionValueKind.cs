@@ -23,5 +23,10 @@ public enum FunctionValueKind
     /// <summary>
     /// Represents a collection of structure node function values.
     /// </summary>
-    StructureNodeCollection
+    StructureNodeCollection,
+
+    /// <summary>
+    /// Represents any function value shape.
+    /// </summary>
+    Any
 }

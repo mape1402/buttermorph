@@ -205,6 +205,16 @@ internal sealed class FunctionTools
             return [CloneScalar(scalarArgument.Value)];
         }
 
+        if (argument is IStructureNodeFunctionArgument nodeArgument && nodeArgument.Node is IScalarStructureNode scalarNode)
+        {
+            return [CloneScalar(scalarNode.Value)];
+        }
+
+        if (argument is IStructureNodeCollectionFunctionArgument nodeCollectionArgument)
+        {
+            return nodeCollectionArgument.Nodes.Select(ReadScalarNode).ToList();
+        }
+
         throw new InvalidOperationException("Function argument is not a scalar collection.");
     }
 
@@ -352,6 +362,17 @@ internal sealed class FunctionTools
         {
             Values = values.Select(CloneScalar).ToList()
         };
+    }
+
+    // Reads a scalar value from a node collection item.
+    private IScalarValue ReadScalarNode(IStructureNode node)
+    {
+        if (node is IScalarStructureNode scalarNode)
+        {
+            return CloneScalar(scalarNode.Value);
+        }
+
+        throw new InvalidOperationException("Function argument collection contains a non-scalar node.");
     }
 
     internal IFunctionResult NodeCollectionResult(IReadOnlyCollection<IStructureNode> nodes)
