@@ -134,6 +134,49 @@ app.MapPost("/playground/execute/{contextKey}", async (
     PlaygroundExecutionResult executionResult = ExecuteScenario(contextKey, sourceJson, document, mappingCount, engine);
     return Results.Json(executionResult);
 });
+app.MapPost("/playground/validate/{contextKey}", async (
+    string contextKey,
+    PlaygroundDesignerHost host,
+    PlaygroundMappingStore store,
+    IButterMorphEngine engine,
+    HttpRequest request) =>
+{
+    if (!host.TryCreateLoadResult(contextKey, out ButterMorphDesignerLoadResult loadResult))
+    {
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Unknown playground scenario '" + contextKey + "'."]
+        });
+    }
+
+    if (!host.TryGetSourceJson(contextKey, out IReadOnlyDictionary<string, string> sourceJson))
+    {
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Source data is not available for '" + contextKey + "'."]
+        });
+    }
+
+    sourceJson = await ResolvePostedSources(request, sourceJson);
+
+    ITransformationDocument document = loadResult.InitialDocument;
+    int mappingCount = document.Mappings.Count;
+
+    if (store.TryGet(contextKey, out PlaygroundMappingSave save))
+    {
+        document = save.Document;
+        mappingCount = save.MappingCount;
+    }
+
+    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, document, mappingCount, engine);
+    return Results.Json(validationResult);
+});
 app.MapButterMorphDesigner("/buttermorph");
 
 app.Run();
@@ -218,6 +261,7 @@ public partial class Program
     <section data-execution-panel hidden>
       <h2>Execution</h2>
       <div class="execution-actions">
+        <button type="button" class="secondary" data-validate disabled>Validate</button>
         <button type="button" data-execute disabled>Execute</button>
       </div>
       <div class="meta">
@@ -351,6 +395,7 @@ public partial class Program
       document.querySelector("[data-result-count]").textContent = (mapping.mappingCount || 0) + " mappings";
       document.querySelector("[data-result-dsl]").value = mapping.dslContent || "";
       document.querySelector("[data-edit]").disabled = false;
+      document.querySelector("[data-validate]").disabled = false;
       document.querySelector("[data-execute]").disabled = false;
       document.querySelector("[data-execution-panel]").hidden = false;
       document.querySelector("[data-execution-context]").textContent = mapping.displayName || contextKey;
@@ -395,6 +440,29 @@ public partial class Program
       renderSources(result.sources || {});
       document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n");
     }
+    async function validateMapping() {
+      if (!selectedContext) {
+        return;
+      }
+      const formData = new FormData();
+      document.querySelectorAll("[data-source-json]").forEach(sourceBox => {
+        formData.append("SourceKeys", sourceBox.getAttribute("data-source-key") || "");
+        formData.append("SourceJsonValues", sourceBox.value || "");
+      });
+      const response = await fetch("/playground/validate/" + encodeURIComponent(selectedContext), {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData
+      });
+      const result = await response.json();
+      document.querySelector("[data-execution-panel]").hidden = false;
+      document.querySelector("[data-execution-context]").textContent = result.contextKey || selectedContext;
+      document.querySelector("[data-execution-time]").textContent = result.executedAt || "Not validated";
+      document.querySelector("[data-execution-status]").textContent = result.succeeded ? "Validation passed" : "Validation failed";
+      document.querySelector("[data-output-json]").value = "";
+      renderSources(result.sources || {});
+      document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n") || (result.succeeded ? "Validation passed" : "");
+    }
     function renderSources(sources) {
       const sourceContainer = document.querySelector("[data-source-output]");
       sourceContainer.innerHTML = "";
@@ -414,6 +482,7 @@ public partial class Program
       }
     }
     document.querySelector("[data-edit]").addEventListener("click", () => openDesigner(selectedContext));
+    document.querySelector("[data-validate]").addEventListener("click", validateMapping);
     document.querySelector("[data-execute]").addEventListener("click", executeMapping);
     window.addEventListener("message", event => {
       if (event.origin !== window.location.origin || !event.data) {
@@ -527,6 +596,92 @@ public partial class Program
         };
     }
 
+    // Validates playground source payloads without executing a transformation.
+    private static PlaygroundExecutionResult ValidateScenario(
+        string contextKey,
+        IReadOnlyDictionary<string, string> sourceJson,
+        IReadOnlyDictionary<string, IStructureSchema> sourceSchemas,
+        ITransformationDocument document,
+        int mappingCount,
+        IButterMorphEngine engine)
+    {
+        JsonReader reader = new();
+        Dictionary<string, IStructureGraph> sources = new(StringComparer.Ordinal);
+        List<DiagnosticEntry> diagnostics = [];
+
+        foreach (KeyValuePair<string, string> source in sourceJson)
+        {
+            try
+            {
+                sources[source.Key] = reader.Read(new StructureInput
+                {
+                    Format = "json",
+                    Content = source.Value
+                });
+            }
+            catch (JsonException exception)
+            {
+                diagnostics.Add(CreateDiagnostic("BMPG001", exception.Message, source.Key));
+            }
+        }
+
+        Dictionary<string, IStructureSchema> schemas = CreateSchemaLookup(sourceSchemas);
+        string assertionAlias = ResolveValidationPayloadAlias(document);
+        bool hasAssertions = document.ValidationAssertions.Count > 0;
+
+        foreach (KeyValuePair<string, IStructureGraph> source in sources)
+        {
+            if (hasAssertions && string.Equals(source.Key, assertionAlias, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (sourceSchemas.TryGetValue(source.Key, out IStructureSchema schema))
+            {
+                ValidationResult result = engine.Validate(new ValidationRequest
+                {
+                    SourceGraph = source.Value,
+                    PayloadAlias = source.Key,
+                    Sources = sources,
+                    Schema = schema,
+                    Schemas = schemas
+                });
+                diagnostics.AddRange(result.Diagnostics);
+            }
+        }
+
+        if (hasAssertions)
+        {
+            if (sources.TryGetValue(assertionAlias, out IStructureGraph graph))
+            {
+                ValidationResult result = engine.Validate(new ValidationRequest
+                {
+                    SourceGraph = graph,
+                    PayloadAlias = assertionAlias,
+                    Sources = sources,
+                    Schemas = schemas,
+                    Definition = document
+                });
+                diagnostics.AddRange(result.Diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(CreateDiagnostic("BMPG002", "Validation payload '" + assertionAlias + "' was not found.", assertionAlias));
+            }
+        }
+
+        return new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = diagnostics.Count == 0,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            MappingCount = mappingCount,
+            Sources = sourceJson,
+            OutputJson = string.Empty,
+            Diagnostics = CreateDiagnosticMessages(diagnostics)
+        };
+    }
+
     // Resolves source JSON values posted from the playground source editors.
     private static async Task<IReadOnlyDictionary<string, string>> ResolvePostedSources(
         HttpRequest request,
@@ -582,6 +737,52 @@ public partial class Program
         }
 
         return messages;
+    }
+
+    // Creates a schema lookup that supports source aliases and canonical schema names.
+    private static Dictionary<string, IStructureSchema> CreateSchemaLookup(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas)
+    {
+        Dictionary<string, IStructureSchema> schemas = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, IStructureSchema> sourceSchema in sourceSchemas)
+        {
+            schemas[sourceSchema.Key] = sourceSchema.Value;
+
+            if (!string.IsNullOrWhiteSpace(sourceSchema.Value.Key))
+            {
+                schemas[sourceSchema.Value.Key] = sourceSchema.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceSchema.Value.Name))
+            {
+                schemas[sourceSchema.Value.Name] = sourceSchema.Value;
+            }
+        }
+
+        return schemas;
+    }
+
+    // Resolves the payload alias used by validation assertions.
+    private static string ResolveValidationPayloadAlias(ITransformationDocument document)
+    {
+        if (string.IsNullOrWhiteSpace(document.ValidationPayloadAlias))
+        {
+            return "source";
+        }
+
+        return document.ValidationPayloadAlias.TrimStart('$');
+    }
+
+    // Creates a host diagnostic entry.
+    private static DiagnosticEntry CreateDiagnostic(string code, string message, string path)
+    {
+        return new DiagnosticEntry
+        {
+            Code = code,
+            Message = message,
+            Path = path,
+            Severity = "Error"
+        };
     }
 
     // Creates the query separator without using forbidden nullable syntax characters.

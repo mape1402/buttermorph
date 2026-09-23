@@ -369,9 +369,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("/playground/scenarios", html, StringComparison.Ordinal);
         Assert.Contains("/playground/mappings/", html, StringComparison.Ordinal);
         Assert.Contains("/playground/execute/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/validate/", html, StringComparison.Ordinal);
         Assert.Contains("/playground/schema-scenarios", html, StringComparison.Ordinal);
         Assert.Contains("/playground/schemas/", html, StringComparison.Ordinal);
         Assert.Contains("data-edit", html, StringComparison.Ordinal);
+        Assert.Contains("data-validate", html, StringComparison.Ordinal);
         Assert.Contains("data-execute", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-tab=\"type\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-tab=\"field\"", html, StringComparison.Ordinal);
@@ -1067,6 +1069,28 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that prepared playground payloads validate without executing mappings.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Theory]
+    [InlineData("complex")]
+    [InlineData("invoice")]
+    [InlineData("support")]
+    public async Task PlaygroundValidateEndpointRunsPreparedScenario(string contextKey)
+    {
+        HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync("/playground/validate/" + contextKey, new StringContent(string.Empty));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(contextKey, ReadString(json, "contextKey"));
+        Assert.Equal(string.Empty, ReadString(json, "outputJson"));
+        Assert.True(ReadPropertyCount(json, "sources") > 0);
+    }
+
+    /// <summary>
     /// Confirms that edited playground source JSON is used during execution.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -1125,6 +1149,24 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpClient client = _factory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsync("/playground/execute/missing", new StringContent(string.Empty));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.Equal("missing", ReadString(json, "contextKey"));
+        Assert.True(ReadArrayCount(json, "diagnostics") > 0);
+    }
+
+    /// <summary>
+    /// Confirms that unknown validation contexts fail with a controlled response.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundValidateEndpointRejectsUnknownContext()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync("/playground/validate/missing", new StringContent(string.Empty));
         string json = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

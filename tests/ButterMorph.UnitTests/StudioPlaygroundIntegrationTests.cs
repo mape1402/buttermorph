@@ -38,6 +38,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Schemas", html, StringComparison.Ordinal);
         Assert.Contains("Mappings", html, StringComparison.Ordinal);
         Assert.Contains("Execution", html, StringComparison.Ordinal);
+        Assert.Contains("Validate", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-host.js", html, StringComparison.Ordinal);
     }
 
@@ -102,6 +103,25 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("Northwind Trading", json, StringComparison.Ordinal);
         Assert.Contains("NTR990101ABC", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms seeded mapping payloads validate without producing output.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededMappingValidates()
+    {
+        HttpClient client = factory.CreateClient();
+        string body = "{\"sources\":{}}";
+        using StringContent content = new(body, Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.PostAsync("/api/mappings/mapping-customer-profile-to-summary/validate", content);
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"outputJson\":\"\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

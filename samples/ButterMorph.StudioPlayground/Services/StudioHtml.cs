@@ -65,7 +65,10 @@ internal static class StudioHtml
                     <div class="work-card">
                       <div class="card-header">
                         <strong>Mapping execution</strong>
-                        <button id="execute-mapping" class="primary-button">Execute</button>
+                        <div class="action-row execution-actions">
+                          <button id="validate-mapping" class="ghost-button">Validate</button>
+                          <button id="execute-mapping" class="primary-button">Execute</button>
+                        </div>
                       </div>
                       <div class="execution-layout">
                         <div>
