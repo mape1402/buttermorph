@@ -28,7 +28,7 @@ internal sealed class SyntaxAnalyzer
 
             if (MatchIdentifier("validate"))
             {
-                ParseValidationBlock(document);
+                ParseValidation(document);
                 continue;
             }
 
@@ -79,6 +79,17 @@ internal sealed class SyntaxAnalyzer
         }
     }
 
+    private void ParseValidation(DocumentNode document)
+    {
+        if (Check(TokenKind.LeftBrace))
+        {
+            ParseValidationBlock(document);
+            return;
+        }
+
+        ParseAssertionValidationBlock(document);
+    }
+
     private void ParseValidationBlock(DocumentNode document)
     {
         Consume(TokenKind.LeftBrace, "Expected validate block start.");
@@ -101,6 +112,41 @@ internal sealed class SyntaxAnalyzer
             }
 
             document.Validations.Add(node);
+            Match(TokenKind.Comma);
+        }
+
+        Consume(TokenKind.RightBrace, "Expected validate block end.");
+    }
+
+    private void ParseAssertionValidationBlock(DocumentNode document)
+    {
+        Token payload = ConsumePathLike("Expected validation payload alias.");
+        ConsumeIdentifier("against", "Expected 'against' in validation declaration.");
+        Token schema = ConsumePathLike("Expected validation schema key.");
+
+        document.ValidationPayloadAlias = NormalizePayloadAlias(payload.Value);
+        document.ValidationSchemaKey = schema.Value;
+
+        Consume(TokenKind.LeftBrace, "Expected validate block start.");
+
+        while (!Check(TokenKind.RightBrace) && !IsAtEnd())
+        {
+            ConsumeIdentifier("assert", "Expected validation assertion.");
+            AstNode expression = ParseExpression();
+            string message = "Validation assertion failed.";
+
+            if (Match(TokenKind.Colon))
+            {
+                Token messageToken = Consume(TokenKind.StringLiteral, "Expected validation assertion message.");
+                message = messageToken.Value;
+            }
+
+            document.ValidationAssertions.Add(new ValidationAssertionNode
+            {
+                Expression = expression,
+                Message = message,
+                Path = FindFirstPath(expression)
+            });
             Match(TokenKind.Comma);
         }
 
@@ -436,6 +482,93 @@ internal sealed class SyntaxAnalyzer
         }
 
         return $"{prefix}.{name}";
+    }
+
+    private static string NormalizePayloadAlias(string value)
+    {
+        if (value.StartsWith("$", StringComparison.Ordinal))
+        {
+            return value[1..];
+        }
+
+        return value;
+    }
+
+    private static string FindFirstPath(AstNode node)
+    {
+        if (node is PathNode path)
+        {
+            return path.Path;
+        }
+
+        if (node is FunctionCallNode function)
+        {
+            foreach (AstNode argument in function.Arguments)
+            {
+                string foundPath = FindFirstPath(argument);
+
+                if (!string.IsNullOrWhiteSpace(foundPath))
+                {
+                    return foundPath;
+                }
+            }
+        }
+
+        if (node is ConditionNode condition)
+        {
+            string foundPath = FindFirstPath(condition.Condition);
+            if (!string.IsNullOrWhiteSpace(foundPath))
+            {
+                return foundPath;
+            }
+
+            foundPath = FindFirstPath(condition.ThenExpression);
+            if (!string.IsNullOrWhiteSpace(foundPath))
+            {
+                return foundPath;
+            }
+
+            return FindFirstPath(condition.ElseExpression);
+        }
+
+        if (node is ProjectionNode projection)
+        {
+            string foundPath = FindFirstPath(projection.SourceExpression);
+            if (!string.IsNullOrWhiteSpace(foundPath))
+            {
+                return foundPath;
+            }
+
+            return FindFirstPath(projection.BodyExpression);
+        }
+
+        if (node is MapExpressionNode map)
+        {
+            foreach (PropertyExpressionNode property in map.Properties)
+            {
+                string foundPath = FindFirstPath(property.Expression);
+
+                if (!string.IsNullOrWhiteSpace(foundPath))
+                {
+                    return foundPath;
+                }
+            }
+        }
+
+        if (node is OrderedExpressionNode ordered)
+        {
+            foreach (AstNode item in ordered.Items)
+            {
+                string foundPath = FindFirstPath(item);
+
+                if (!string.IsNullOrWhiteSpace(foundPath))
+                {
+                    return foundPath;
+                }
+            }
+        }
+
+        return string.Empty;
     }
 
     private static FormatException Error(Token token, string message)

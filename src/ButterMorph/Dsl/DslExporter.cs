@@ -102,28 +102,65 @@ public sealed class DslExporter : IDslExporter
     // Writes validation rules preserving document order.
     private static void WriteValidations(StringBuilder builder, ITransformationDocument document)
     {
-        if (document.Validations.Count == 0)
+        if (document.Validations.Count == 0 && document.ValidationAssertions.Count == 0)
         {
             return;
         }
 
-        builder.AppendLine("validate {");
-
-        foreach (IValidationRule rule in document.Validations)
+        if (document.Validations.Count > 0)
         {
-            WriteIndent(builder, 1);
-            builder.Append(rule.Path);
-            builder.Append(": ");
-            builder.Append(rule.RuleKey);
+            builder.AppendLine("validate {");
 
-            if (rule.Arguments.Count > 0)
+            foreach (IValidationRule rule in document.Validations)
             {
-                builder.Append('(');
-                builder.Append(string.Join(", ", rule.Arguments.Select(WriteExpression)));
-                builder.Append(')');
+                WriteIndent(builder, 1);
+                builder.Append(rule.Path);
+                builder.Append(": ");
+                builder.Append(rule.RuleKey);
+
+                if (rule.Arguments.Count > 0)
+                {
+                    builder.Append('(');
+                    builder.Append(string.Join(", ", rule.Arguments.Select(WriteExpression)));
+                    builder.Append(')');
+                }
+
+                builder.AppendLine();
             }
 
+            builder.AppendLine("}");
+        }
+
+        if (document.ValidationAssertions.Count == 0)
+        {
+            return;
+        }
+
+        if (document.Validations.Count > 0)
+        {
             builder.AppendLine();
+        }
+
+        string payloadAlias = string.IsNullOrWhiteSpace(document.ValidationPayloadAlias)
+            ? "source"
+            : document.ValidationPayloadAlias;
+        string schemaKey = string.IsNullOrWhiteSpace(document.ValidationSchemaKey)
+            ? "Schema"
+            : document.ValidationSchemaKey;
+
+        builder.Append("validate $");
+        builder.Append(payloadAlias);
+        builder.Append(" against ");
+        builder.Append(schemaKey);
+        builder.AppendLine(" {");
+
+        foreach (IValidationAssertion assertion in document.ValidationAssertions)
+        {
+            WriteIndent(builder, 1);
+            builder.Append("assert ");
+            builder.Append(WriteExpression(assertion.Expression));
+            builder.Append(": ");
+            builder.AppendLine(WriteString(assertion.Message));
         }
 
         builder.AppendLine("}");

@@ -15,12 +15,39 @@ public sealed class ValidationEngine : IValidationEngine
     // Provides rule behavior registered by consumers or higher layers.
     private readonly IValidationRuleRegistry _ruleRegistry;
 
+    // Validates payloads against schemas when requested.
+    private readonly ISchemaValidator _schemaValidator;
+
+    // Evaluates boolean validation assertions.
+    private readonly ITransformationExpressionEvaluator _expressionEvaluator;
+
+    // Creates execution contexts for assertion evaluation.
+    private readonly IExecutionContextFactory _executionContextFactory;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ValidationEngine"/> class.
     /// </summary>
     /// <param name="pathResolver">The path resolver.</param>
     /// <param name="ruleRegistry">The validation rule registry.</param>
     public ValidationEngine(IPathResolver pathResolver, IValidationRuleRegistry ruleRegistry)
+        : this(pathResolver, ruleRegistry, null, null, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ValidationEngine"/> class.
+    /// </summary>
+    /// <param name="pathResolver">The path resolver.</param>
+    /// <param name="ruleRegistry">The validation rule registry.</param>
+    /// <param name="schemaValidator">The schema validator.</param>
+    /// <param name="expressionEvaluator">The expression evaluator.</param>
+    /// <param name="executionContextFactory">The execution context factory.</param>
+    public ValidationEngine(
+        IPathResolver pathResolver,
+        IValidationRuleRegistry ruleRegistry,
+        ISchemaValidator schemaValidator,
+        ITransformationExpressionEvaluator expressionEvaluator,
+        IExecutionContextFactory executionContextFactory)
     {
         if (pathResolver is null)
         {
@@ -34,6 +61,9 @@ public sealed class ValidationEngine : IValidationEngine
 
         _pathResolver = pathResolver;
         _ruleRegistry = ruleRegistry;
+        _schemaValidator = schemaValidator;
+        _expressionEvaluator = expressionEvaluator;
+        _executionContextFactory = executionContextFactory;
     }
 
     /// <summary>
@@ -44,19 +74,71 @@ public sealed class ValidationEngine : IValidationEngine
     public ValidationResult Validate(ValidationRequest request)
     {
         List<DiagnosticEntry> diagnostics = [];
+        ValidationScope scope = ResolveScope(request);
 
-        if (request.Definition is not IValidationDocument document)
+        if (!scope.HasValidationDocument && request.Schema == null)
         {
             diagnostics.Add(CreateDiagnostic("BMVL001", "Validation request definition must implement IValidationDocument.", string.Empty));
             return CreateResult(diagnostics);
         }
 
-        foreach (IValidationRule rule in document.Rules)
+        IStructureGraph graph = ResolveGraph(request, scope.PayloadAlias);
+        IStructureSchema schema = ResolveSchema(request, scope.SchemaKey);
+
+        if (schema != null)
         {
-            ValidateRule(request.SourceGraph.Root, rule, diagnostics);
+            ValidateSchema(request, graph, schema, scope.PayloadAlias, diagnostics);
+        }
+        else if (!string.IsNullOrWhiteSpace(scope.SchemaKey))
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL007", $"Validation schema '{scope.SchemaKey}' was not found.", scope.SchemaKey));
         }
 
+        if (!scope.HasValidationDocument)
+        {
+            return CreateResult(diagnostics);
+        }
+
+        if (graph == null && (scope.Rules.Count > 0 || scope.Assertions.Count > 0))
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL006", "Validation payload graph is required.", string.Empty));
+            return CreateResult(diagnostics);
+        }
+
+        foreach (IValidationRule rule in scope.Rules)
+        {
+            ValidateRule(graph.Root, rule, diagnostics);
+        }
+
+        ValidateAssertions(graph, scope, request, diagnostics);
+
         return CreateResult(diagnostics);
+    }
+
+    private void ValidateSchema(
+        ValidationRequest request,
+        IStructureGraph graph,
+        IStructureSchema schema,
+        string payloadAlias,
+        List<DiagnosticEntry> diagnostics)
+    {
+        if (_schemaValidator == null)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL008", "A schema validator must be registered before validating schemas.", string.Empty));
+            return;
+        }
+
+        ValidationResult schemaResult = _schemaValidator.Validate(new ValidationRequest
+        {
+            SourceGraph = graph,
+            Sources = request.Sources,
+            PayloadAlias = payloadAlias,
+            Schema = schema,
+            Schemas = request.Schemas,
+            Definition = request.Definition
+        });
+
+        diagnostics.AddRange(schemaResult.Diagnostics);
     }
 
     // Resolves one rule target and delegates behavior to the registered handler.
@@ -89,6 +171,71 @@ public sealed class ValidationEngine : IValidationEngine
         diagnostics.AddRange(handler.Validate(context));
     }
 
+    private void ValidateAssertions(IStructureGraph graph, ValidationScope scope, ValidationRequest request, List<DiagnosticEntry> diagnostics)
+    {
+        if (scope.Assertions.Count == 0)
+        {
+            return;
+        }
+
+        if (_expressionEvaluator == null || _executionContextFactory == null)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL004", "An expression evaluator must be registered before validating assertions.", string.Empty));
+            return;
+        }
+
+        Dictionary<string, IStructureGraph> sources = new(request.Sources, StringComparer.Ordinal);
+        sources[scope.PayloadAlias] = graph;
+
+        IExecutionContext executionContext = _executionContextFactory.Create(sources);
+        Dictionary<string, IStructureNode> aliases = new(StringComparer.Ordinal)
+        {
+            [scope.PayloadAlias] = graph.Root
+        };
+
+        foreach (IValidationAssertion assertion in scope.Assertions)
+        {
+            ValidateAssertion(assertion, executionContext, aliases, scope.PayloadAlias, diagnostics);
+        }
+    }
+
+    private void ValidateAssertion(
+        IValidationAssertion assertion,
+        IExecutionContext executionContext,
+        IReadOnlyDictionary<string, IStructureNode> aliases,
+        string payloadAlias,
+        List<DiagnosticEntry> diagnostics)
+    {
+        ITransformationExpressionEvaluationResult result;
+
+        try
+        {
+            result = _expressionEvaluator.Evaluate(new TransformationExpressionEvaluationContext
+            {
+                ExecutionContext = executionContext,
+                Expression = assertion.Expression,
+                Aliases = aliases
+            });
+        }
+        catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, NormalizeAssertionPath(assertion.Path, payloadAlias)));
+            return;
+        }
+
+        if (!result.Succeeded)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation assertion could not be evaluated.", NormalizeAssertionPath(assertion.Path, payloadAlias)));
+            diagnostics.AddRange(result.Diagnostics);
+            return;
+        }
+
+        if (!IsTruthyBoolean(result.Result))
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL004", assertion.Message, NormalizeAssertionPath(assertion.Path, payloadAlias)));
+        }
+    }
+
     // Resolves the rule path and converts navigation failures into diagnostics.
     private bool TryResolvePath(IStructureNode root, IValidationRule rule, List<DiagnosticEntry> diagnostics, out IStructureNode node)
     {
@@ -116,6 +263,121 @@ public sealed class ValidationEngine : IValidationEngine
         };
     }
 
+    private static ValidationScope ResolveScope(ValidationRequest request)
+    {
+        if (request.Definition is IValidationDocument validationDocument)
+        {
+            return new ValidationScope
+            {
+                HasValidationDocument = true,
+                PayloadAlias = ResolvePayloadAlias(validationDocument.PayloadAlias, request.PayloadAlias),
+                SchemaKey = validationDocument.SchemaKey,
+                Rules = validationDocument.Rules,
+                Assertions = validationDocument.Assertions
+            };
+        }
+
+        if (request.Definition is ITransformationDocument transformationDocument)
+        {
+            return new ValidationScope
+            {
+                HasValidationDocument = true,
+                PayloadAlias = ResolvePayloadAlias(transformationDocument.ValidationPayloadAlias, request.PayloadAlias),
+                SchemaKey = transformationDocument.ValidationSchemaKey,
+                Rules = transformationDocument.Validations,
+                Assertions = transformationDocument.ValidationAssertions
+            };
+        }
+
+        return new ValidationScope
+        {
+            HasValidationDocument = false,
+            PayloadAlias = ResolvePayloadAlias(request.PayloadAlias, string.Empty),
+            SchemaKey = string.Empty,
+            Rules = [],
+            Assertions = []
+        };
+    }
+
+    private static IStructureGraph ResolveGraph(ValidationRequest request, string payloadAlias)
+    {
+        if (request.SourceGraph != null)
+        {
+            return request.SourceGraph;
+        }
+
+        if (request.Sources.TryGetValue(payloadAlias, out IStructureGraph graph))
+        {
+            return graph;
+        }
+
+        return null;
+    }
+
+    private static IStructureSchema ResolveSchema(ValidationRequest request, string schemaKey)
+    {
+        if (request.Schema != null)
+        {
+            return request.Schema;
+        }
+
+        if (!string.IsNullOrWhiteSpace(schemaKey) && request.Schemas.TryGetValue(schemaKey, out IStructureSchema schema))
+        {
+            return schema;
+        }
+
+        return null;
+    }
+
+    private static bool IsTruthyBoolean(IFunctionResult result)
+    {
+        if (result is not IScalarFunctionResult scalarResult || scalarResult.Value.IsNull)
+        {
+            return false;
+        }
+
+        return string.Equals(scalarResult.Value.RawValue, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolvePayloadAlias(string preferredAlias, string fallbackAlias)
+    {
+        string alias = preferredAlias;
+
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            alias = fallbackAlias;
+        }
+
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            alias = "source";
+        }
+
+        return alias.TrimStart('$');
+    }
+
+    private static string NormalizeAssertionPath(string path, string payloadAlias)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        string prefix = "$" + payloadAlias + ".";
+
+        if (path.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return path[prefix.Length..];
+        }
+
+        if (string.Equals(path, "$" + payloadAlias, StringComparison.Ordinal))
+        {
+            return "$root";
+        }
+
+        return path;
+    }
+
     // Creates an error diagnostic for validation orchestration failures.
     private static DiagnosticEntry CreateDiagnostic(string code, string message, string path)
     {
@@ -126,5 +388,18 @@ public sealed class ValidationEngine : IValidationEngine
             Path = path,
             Severity = "Error"
         };
+    }
+
+    private sealed class ValidationScope
+    {
+        internal bool HasValidationDocument { get; set; }
+
+        internal string PayloadAlias { get; set; } = "source";
+
+        internal string SchemaKey { get; set; } = string.Empty;
+
+        internal IReadOnlyCollection<IValidationRule> Rules { get; set; } = [];
+
+        internal IReadOnlyCollection<IValidationAssertion> Assertions { get; set; } = [];
     }
 }

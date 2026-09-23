@@ -43,6 +43,18 @@ internal sealed class AstBuilder
             });
         }
 
+        builder.WithValidationScope(node.ValidationPayloadAlias, node.ValidationSchemaKey);
+
+        foreach (ValidationAssertionNode assertion in node.ValidationAssertions)
+        {
+            builder.WithValidationAssertion(new ValidationAssertion
+            {
+                Expression = BuildExpression(assertion.Expression),
+                Message = assertion.Message,
+                Path = assertion.Path
+            });
+        }
+
         return builder.Build();
     }
 

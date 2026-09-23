@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddTransient<ITransformationExpressionEvaluator, TransformationExpressionEvaluator>();
         services.AddTransient<ITransformationEngine, TransformationEngine>();
+        services.AddTransient<ISchemaValidator, SchemaValidator>();
         services.AddTransient<IValidationEngine, ValidationEngine>();
         services.AddSingleton<IValidationRuleRegistry, ValidationRuleRegistry>();
 

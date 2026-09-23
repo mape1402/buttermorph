@@ -122,6 +122,22 @@ public sealed class ButterMorphDependencyInjectionTests
     }
 
     /// <summary>
+    /// Confirms that dependency injection resolves the schema validator.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphResolvesSchemaValidator()
+    {
+        ServiceCollection services = new();
+        services.AddButterMorph();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ISchemaValidator schemaValidator = provider.GetRequiredService<ISchemaValidator>();
+
+        Assert.NotNull(schemaValidator);
+    }
+
+    /// <summary>
     /// Confirms that dependency injection resolves the validation rule registry.
     /// </summary>
     [Fact]
