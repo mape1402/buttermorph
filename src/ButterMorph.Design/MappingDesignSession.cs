@@ -61,6 +61,9 @@ public sealed class MappingDesignSession : IMappingDesignSession
             TargetSchema = document.TargetSchema,
             Mappings = document.Mappings,
             Validations = document.Validations,
+            ValidationPayloadAlias = document.ValidationPayloadAlias,
+            ValidationSchemaKey = document.ValidationSchemaKey,
+            ValidationAssertions = document.ValidationAssertions,
             Metadata = document.Metadata
         };
 
@@ -249,6 +252,25 @@ public sealed class MappingDesignSession : IMappingDesignSession
     }
 
     /// <summary>
+    /// Replaces explicit validation assertions for the current document.
+    /// </summary>
+    /// <param name="payloadAlias">The source alias used as validation payload.</param>
+    /// <param name="schemaKey">The schema key used to validate the payload.</param>
+    /// <param name="assertions">The validation assertions.</param>
+    /// <returns>The operation result.</returns>
+    public IMappingOperationResult SetValidationAssertions(
+        string payloadAlias,
+        string schemaKey,
+        IReadOnlyCollection<IValidationAssertion> assertions)
+    {
+        _document.ValidationPayloadAlias = NormalizePayloadAlias(payloadAlias);
+        _document.ValidationSchemaKey = schemaKey ?? string.Empty;
+        _document.ValidationAssertions = assertions ?? [];
+
+        return Success();
+    }
+
+    /// <summary>
     /// Imports DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>
@@ -274,6 +296,9 @@ public sealed class MappingDesignSession : IMappingDesignSession
                 TargetSchema = _document.TargetSchema,
                 Mappings = transformationDocument.Mappings,
                 Validations = transformationDocument.Validations,
+                ValidationPayloadAlias = transformationDocument.ValidationPayloadAlias,
+                ValidationSchemaKey = transformationDocument.ValidationSchemaKey,
+                ValidationAssertions = transformationDocument.ValidationAssertions,
                 Metadata = transformationDocument.Metadata
             };
 
@@ -301,6 +326,17 @@ public sealed class MappingDesignSession : IMappingDesignSession
     public SemanticAnalysisResult Analyze()
     {
         return _semanticAnalyzer.Analyze(_document);
+    }
+
+    // Normalizes payload aliases used by validation assertions.
+    private static string NormalizePayloadAlias(string payloadAlias)
+    {
+        if (string.IsNullOrWhiteSpace(payloadAlias))
+        {
+            return "source";
+        }
+
+        return payloadAlias.Trim().TrimStart('$');
     }
 
     // Creates a successful operation result.
