@@ -23,6 +23,15 @@ public sealed class TransformationDocumentBuilder : ITransformationDocumentBuild
     // Stores validation rules in insertion order.
     private readonly List<IValidationRule> _validations = [];
 
+    // Stores the validation payload alias.
+    private string _validationPayloadAlias = "source";
+
+    // Stores the validation schema key.
+    private string _validationSchemaKey = string.Empty;
+
+    // Stores validation assertions in insertion order.
+    private readonly List<IValidationAssertion> _validationAssertions = [];
+
     // Stores document metadata.
     private readonly Dictionary<string, string> _metadata = new(StringComparer.Ordinal);
 
@@ -103,6 +112,34 @@ public sealed class TransformationDocumentBuilder : ITransformationDocumentBuild
     }
 
     /// <summary>
+    /// Sets the validation payload and schema scope.
+    /// </summary>
+    /// <param name="payloadAlias">The payload alias.</param>
+    /// <param name="schemaKey">The schema key.</param>
+    /// <returns>The current builder.</returns>
+    public ITransformationDocumentBuilder WithValidationScope(string payloadAlias, string schemaKey)
+    {
+        if (!string.IsNullOrWhiteSpace(payloadAlias))
+        {
+            _validationPayloadAlias = payloadAlias.TrimStart('$');
+        }
+
+        _validationSchemaKey = schemaKey ?? string.Empty;
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a boolean validation assertion.
+    /// </summary>
+    /// <param name="assertion">The validation assertion.</param>
+    /// <returns>The current builder.</returns>
+    public ITransformationDocumentBuilder WithValidationAssertion(IValidationAssertion assertion)
+    {
+        _validationAssertions.Add(assertion);
+        return this;
+    }
+
+    /// <summary>
     /// Adds document metadata.
     /// </summary>
     /// <param name="key">The metadata key.</param>
@@ -128,6 +165,9 @@ public sealed class TransformationDocumentBuilder : ITransformationDocumentBuild
             TargetSchema = _targetSchema,
             Mappings = [.. _mappings],
             Validations = [.. _validations],
+            ValidationPayloadAlias = _validationPayloadAlias,
+            ValidationSchemaKey = _validationSchemaKey,
+            ValidationAssertions = [.. _validationAssertions],
             Metadata = new Dictionary<string, string>(_metadata, StringComparer.Ordinal)
         };
     }

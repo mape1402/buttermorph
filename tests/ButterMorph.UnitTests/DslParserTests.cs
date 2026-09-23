@@ -160,6 +160,29 @@ public sealed class DslParserTests
     }
 
     /// <summary>
+    /// Confirms that explicit validation assertions are parsed.
+    /// </summary>
+    [Fact]
+    public void ParseCreatesValidationAssertions()
+    {
+        ITransformationDocument document = Parse(
+            """
+            validate $source against Order {
+              assert gt($source.quantity, 10): "Quantity must be greater than 10"
+            }
+            """);
+
+        IValidationAssertion assertion = Assert.Single(document.ValidationAssertions);
+        IFunctionCallExpression expression = Assert.IsAssignableFrom<IFunctionCallExpression>(assertion.Expression);
+
+        Assert.Equal("source", document.ValidationPayloadAlias);
+        Assert.Equal("Order", document.ValidationSchemaKey);
+        Assert.Equal("gt", expression.FunctionKey);
+        Assert.Equal("$source.quantity", assertion.Path);
+        Assert.Equal("Quantity must be greater than 10", assertion.Message);
+    }
+
+    /// <summary>
     /// Confirms that invalid syntax produces positioned format errors.
     /// </summary>
     [Fact]

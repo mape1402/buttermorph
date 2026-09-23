@@ -88,6 +88,43 @@ public sealed class DslExporterTests
     }
 
     /// <summary>
+    /// Confirms that explicit validation assertions are exported.
+    /// </summary>
+    [Fact]
+    public void ExportWritesValidationAssertions()
+    {
+        ITransformationDocument document = new TransformationDocument
+        {
+            ValidationPayloadAlias = "source",
+            ValidationSchemaKey = "Order",
+            ValidationAssertions =
+            [
+                new ValidationAssertion
+                {
+                    Expression = new FunctionCallExpression
+                    {
+                        FunctionKey = "gt",
+                        Arguments =
+                        [
+                            CreatePath("$source.quantity"),
+                            CreateNumber("10")
+                        ]
+                    },
+                    Message = "Quantity must be greater than 10",
+                    Path = "$source.quantity"
+                }
+            ]
+        };
+
+        string dsl = new DslExporter().Export(document);
+        ITransformationDocument parsed = Parse(dsl);
+
+        Assert.Contains("validate $source against Order", dsl, System.StringComparison.Ordinal);
+        Assert.Contains("assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", dsl, System.StringComparison.Ordinal);
+        Assert.Single(parsed.ValidationAssertions);
+    }
+
+    /// <summary>
     /// Confirms that strings are escaped and parse back correctly.
     /// </summary>
     [Fact]

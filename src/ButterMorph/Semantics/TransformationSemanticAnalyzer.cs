@@ -50,11 +50,27 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
             AnalyzeValidationRule(document, rule, diagnostics);
         }
 
+        foreach (IValidationAssertion assertion in document.ValidationAssertions)
+        {
+            AnalyzeValidationAssertion(document, assertion, diagnostics);
+        }
+
         return new SemanticAnalysisResult
         {
             Succeeded = diagnostics.Count == 0,
             Diagnostics = diagnostics
         };
+    }
+
+    // Analyzes one boolean validation assertion.
+    private void AnalyzeValidationAssertion(ITransformationDocument document, IValidationAssertion assertion, List<DiagnosticEntry> diagnostics)
+    {
+        ExpressionSemanticShape shape = AnalyzeExpression(document, assertion.Expression, new Dictionary<string, ISchemaNode>(StringComparer.Ordinal), diagnostics, assertion.Path);
+
+        if (shape.ValueKind != FunctionValueKind.Scalar)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSM013", "Validation assertion must produce a scalar boolean result.", assertion.Path));
+        }
     }
 
     // Analyzes one validation rule and its typed arguments.
