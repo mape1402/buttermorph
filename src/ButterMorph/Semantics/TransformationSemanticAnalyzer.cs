@@ -93,7 +93,7 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
             IValidationRuleParameterDescriptor parameter = descriptor.Parameters.ElementAt(index);
             ExpressionSemanticShape shape = AnalyzeExpression(document, argument, new Dictionary<string, ISchemaNode>(StringComparer.Ordinal), diagnostics, rule.Path);
 
-            if (shape.ValueKind != parameter.ValueKind)
+            if (!IsArgumentCompatible(parameter.ValueKind, shape))
             {
                 diagnostics.Add(CreateDiagnostic("BMSM009", $"Validation rule '{rule.RuleKey}' argument '{parameter.Key}' has an invalid value kind.", rule.Path));
             }
@@ -261,7 +261,7 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
             IFunctionParameterDescriptor parameter = descriptor.Parameters.ElementAt(index);
             ExpressionSemanticShape argumentShape = AnalyzeExpression(document, argument, aliases, diagnostics, path);
 
-            if (argumentShape.ValueKind != parameter.ValueKind)
+            if (!IsArgumentCompatible(parameter.ValueKind, argumentShape))
             {
                 diagnostics.Add(CreateDiagnostic("BMSM006", $"Function '{expression.FunctionKey}' argument '{parameter.Key}' has an invalid value kind.", path));
             }
@@ -356,6 +356,34 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
     private static bool HasValidCount(int actual, int maximum, int minimum)
     {
         return actual >= minimum && actual <= maximum;
+    }
+
+    // Checks whether an argument shape can satisfy a descriptor parameter.
+    private static bool IsArgumentCompatible(FunctionValueKind parameterKind, ExpressionSemanticShape argumentShape)
+    {
+        if (parameterKind == FunctionValueKind.Any)
+        {
+            return true;
+        }
+
+        if (argumentShape.ValueKind == parameterKind)
+        {
+            return true;
+        }
+
+        if (parameterKind == FunctionValueKind.ScalarCollection)
+        {
+            if (argumentShape.ValueKind == FunctionValueKind.Scalar)
+            {
+                return true;
+            }
+
+            return argumentShape.ValueKind == FunctionValueKind.StructureNodeCollection &&
+                argumentShape.HasSchema &&
+                argumentShape.SchemaNode.Kind == SchemaNodeKind.Scalar;
+        }
+
+        return false;
     }
 
     // Creates a shape from schema metadata.

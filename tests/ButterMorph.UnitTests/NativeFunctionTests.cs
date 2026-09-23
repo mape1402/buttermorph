@@ -39,6 +39,8 @@ public sealed class NativeFunctionTests
         Assert.Empty(missing);
         Assert.Equal(Inventory().Count, registry.ListDescriptors().Count);
         Assert.Equal("Splits text using a literal separator.", registry.Resolve("split").Description);
+        Assert.Equal(FunctionValueKind.ScalarCollection, registry.ResolveDescriptor("join").Parameters.First().ValueKind);
+        Assert.Equal(FunctionValueKind.Any, registry.ResolveDescriptor("jsonStringify").Parameters.First().ValueKind);
     }
 
     /// <summary>
@@ -245,6 +247,37 @@ public sealed class NativeFunctionTests
         Assert.Equal(["red", "green"], tags.Children.Cast<IScalarStructureNode>().Select(node => node.Value.RawValue).ToList());
     }
 
+    /// <summary>
+    /// Confirms native collection functions accept scalar array field references.
+    /// </summary>
+    [Fact]
+    public void NativeCollectionFunctionsAcceptScalarArrayReferences()
+    {
+        using ServiceProvider provider = CreateProvider();
+        ITransformationSemanticAnalyzer analyzer = provider.GetRequiredService<ITransformationSemanticAnalyzer>();
+        ITransformationEngine engine = provider.GetRequiredService<ITransformationEngine>();
+        ITransformationDocument document = CreateScalarArrayReferenceDocument();
+
+        SemanticAnalysisResult semanticResult = analyzer.Analyze(document);
+        TransformationResult transformResult = engine.Transform(new TransformationRequest
+        {
+            Definition = document,
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["source"] = CreateTagGraph()
+            }
+        });
+
+        IScalarStructureNode joined = Assert.IsAssignableFrom<IScalarStructureNode>(transformResult.ResultGraph.Root.Children.Single(node => node.Name == "Joined"));
+        IScalarStructureNode count = Assert.IsAssignableFrom<IScalarStructureNode>(transformResult.ResultGraph.Root.Children.Single(node => node.Name == "TagCount"));
+
+        Assert.True(semanticResult.Succeeded);
+        Assert.Empty(semanticResult.Diagnostics);
+        Assert.True(transformResult.Succeeded);
+        Assert.Equal("red,green", joined.Value.RawValue);
+        Assert.Equal("2", count.Value.RawValue);
+    }
+
     // Creates the dependency injection provider used by native function tests.
     private static ServiceProvider CreateProvider()
     {
@@ -260,6 +293,142 @@ public sealed class NativeFunctionTests
         {
             ExecutionContext = new ExecutionContext(),
             Arguments = arguments
+        };
+    }
+
+    // Creates a document that maps scalar array field references through native functions.
+    private static ITransformationDocument CreateScalarArrayReferenceDocument()
+    {
+        return new TransformationDocument
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["source"] = new StructureSchema
+                {
+                    Key = "source",
+                    Name = "Source",
+                    Version = "1.0.0",
+                    Root = new SchemaNode
+                    {
+                        Name = "$root",
+                        Kind = SchemaNodeKind.Object,
+                        Children =
+                        [
+                            new SchemaNode
+                            {
+                                Name = "Tags",
+                                Kind = SchemaNodeKind.Array,
+                                Children =
+                                [
+                                    new SchemaNode
+                                    {
+                                        Name = "$item",
+                                        Kind = SchemaNodeKind.Scalar,
+                                        DataType = "String"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            TargetSchema = new StructureSchema
+            {
+                Key = "target",
+                Name = "Target",
+                Version = "1.0.0",
+                Root = new SchemaNode
+                {
+                    Name = "$root",
+                    Kind = SchemaNodeKind.Object,
+                    Children =
+                    [
+                        new SchemaNode
+                        {
+                            Name = "Joined",
+                            Kind = SchemaNodeKind.Scalar,
+                            DataType = "String"
+                        },
+                        new SchemaNode
+                        {
+                            Name = "TagCount",
+                            Kind = SchemaNodeKind.Scalar,
+                            DataType = "Number"
+                        }
+                    ]
+                }
+            },
+            Mappings =
+            [
+                new TransformationMapping
+                {
+                    TargetPath = "Joined",
+                    SourceExpression = new FunctionCallExpression
+                    {
+                        FunctionKey = "join",
+                        Arguments =
+                        [
+                            new PathExpression
+                            {
+                                Path = "$source.Tags"
+                            },
+                            new ScalarLiteralExpression
+                            {
+                                Value = StringValue(",")
+                            }
+                        ]
+                    }
+                },
+                new TransformationMapping
+                {
+                    TargetPath = "TagCount",
+                    SourceExpression = new FunctionCallExpression
+                    {
+                        FunctionKey = "count",
+                        Arguments =
+                        [
+                            new PathExpression
+                            {
+                                Path = "$source.Tags"
+                            }
+                        ]
+                    }
+                }
+            ]
+        };
+    }
+
+    // Creates a source graph with a scalar array.
+    private static IStructureGraph CreateTagGraph()
+    {
+        return new StructureGraph
+        {
+            Root = new StructureNode
+            {
+                Name = "$root",
+                Kind = StructureNodeKind.Object,
+                Children =
+                [
+                    new StructureNode
+                    {
+                        Name = "Tags",
+                        Kind = StructureNodeKind.Array,
+                        Children =
+                        [
+                            new ScalarStructureNode
+                            {
+                                Name = "0",
+                                Value = StringValue("red")
+                            },
+                            new ScalarStructureNode
+                            {
+                                Name = "1",
+                                Value = StringValue("green")
+                            }
+                        ]
+                    }
+                ]
+            }
         };
     }
 
