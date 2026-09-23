@@ -189,6 +189,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-dsl-diagnostics-toggle", script, StringComparison.Ordinal);
         Assert.Contains("createFunctionDescriptionMap", script, StringComparison.Ordinal);
         Assert.Contains("handleDslFunctionHover", script, StringComparison.Ordinal);
+        Assert.Contains("data-message-dsl", script, StringComparison.Ordinal);
+        Assert.Contains("setActiveDesignerView", script, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesignerSaved", script, StringComparison.Ordinal);
         Assert.Contains("window.opener.postMessage", script, StringComparison.Ordinal);
         Assert.Contains("window.close()", script, StringComparison.Ordinal);
@@ -264,6 +266,34 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("Mappings saved", savedHtml, StringComparison.Ordinal);
         Assert.Contains("$source.Customer.Name", savedHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("$source.Customer.Email  }", savedHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that visual mapping saves surface semantic diagnostics.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSaveTargetMappingsReturnsVisualErrorMessageForDiagnostics()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Customer.Name"),
+                new KeyValuePair<string, string>("Expressions", "$missing.Customer.Name")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.True(ReadNumber(json, "diagnosticsCount") > 0);
+        Assert.True(ReadArrayCount(json, "editorDiagnostics") > 0);
+        Assert.Contains("Open the DSL view", ReadString(json, "message"), StringComparison.Ordinal);
     }
 
     /// <summary>

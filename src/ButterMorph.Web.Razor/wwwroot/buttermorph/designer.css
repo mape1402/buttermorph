@@ -197,6 +197,21 @@ button:hover,
   padding: 0 0.35rem;
 }
 
+.bm-message-action {
+  background-color: var(--bm-primary);
+  border-color: rgba(26, 26, 46, 0.12);
+  color: #ffffff;
+  min-height: 24px;
+  padding: 0.12rem 0.55rem;
+  white-space: nowrap;
+}
+
+.bm-message-action:hover {
+  background-color: var(--bm-primary-hover);
+  border-color: var(--bm-primary-hover);
+  color: #ffffff;
+}
+
 .bm-message-hidden {
   display: none;
 }

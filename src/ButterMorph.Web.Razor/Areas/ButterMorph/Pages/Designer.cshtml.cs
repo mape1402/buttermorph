@@ -461,12 +461,12 @@ public sealed class DesignerModel : PageModel
             }
             else
             {
-                Message = "Mappings saved with diagnostics.";
+                Message = "Mapping has errors. Open the DSL view to review diagnostics.";
             }
         }
         else
         {
-            Message = "Some target mappings could not be saved.";
+            Message = "Some target mappings could not be saved. Open the DSL view to review diagnostics.";
             Diagnostics = diagnostics;
         }
 
