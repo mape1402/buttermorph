@@ -480,13 +480,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const panel = document.querySelector("[data-dock-panel='" + savedPanel + "']");
     setActiveDockPanel(panel ? savedPanel : "sources");
   }
-  function updateMessage(response) {
+  function updateMessage(response, showDslAction) {
     const box = document.querySelector("[data-message-box='true']");
     const text = document.querySelector("[data-message-text='true']");
     const count = document.querySelector("[data-diagnostics-count='true']");
+    const action = document.querySelector("[data-message-dsl='true']");
     const message = readValue(response, "message") || "";
     const diagnosticsCount = readValue(response, "diagnosticsCount") || 0;
     const succeeded = readValue(response, "succeeded");
+    const shouldShowDslAction = !!showDslAction && diagnosticsCount > 0;
     if (succeeded && message.length === 0 && diagnosticsCount === 0) {
       hideMessage();
       return;
@@ -501,11 +503,18 @@ document.addEventListener("DOMContentLoaded", function () {
     if (count) {
       count.textContent = diagnosticsCount > 0 ? diagnosticsCount + " diagnostics" : "Ready";
     }
+    if (action) {
+      action.hidden = !shouldShowDslAction;
+    }
   }
   function hideMessage() {
     const box = document.querySelector("[data-message-box='true']");
+    const action = document.querySelector("[data-message-dsl='true']");
     if (box) {
       box.classList.add("bm-message-hidden");
+    }
+    if (action) {
+      action.hidden = true;
     }
   }
   function readValue(source, key) {
@@ -823,11 +832,11 @@ document.addEventListener("DOMContentLoaded", function () {
         updateMessage(response);
         return;
       }
-      if ((readValue(response, "editorDiagnostics") || []).length > 0) {
-        hideMessage();
-      } else {
-        updateMessage(response);
+      if ((readValue(response, "editorDiagnostics") || []).length > 0 || (readValue(response, "diagnosticsCount") || 0) > 0) {
+        updateMessage(response, true);
+        return;
       }
+      updateMessage(response);
     }).catch(function (error) {
       updateErrorMessage(error.message);
     });
@@ -877,6 +886,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function isDslViewActive() {
     return workbench && workbench.getAttribute("data-active-view") === "Dsl";
+  }
+  function setActiveDesignerView(view) {
+    if (workbench && view) {
+      workbench.setAttribute("data-active-view", view);
+      if (view === "Dsl") {
+        refreshDslEditor();
+      }
+    }
   }
   function insertIntoDslEditor(expressionText, selectFirstArgument) {
     if (!dslEditor || expressionText.length === 0) {
@@ -980,13 +997,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   document.querySelectorAll(".bm-view-button").forEach(function (button) {
     button.addEventListener("click", function () {
-      const view = button.getAttribute("data-view");
-      if (workbench && view) {
-        workbench.setAttribute("data-active-view", view);
-        if (view === "Dsl") {
-          refreshDslEditor();
-        }
-      }
+      setActiveDesignerView(button.getAttribute("data-view"));
     });
   });
   document.querySelectorAll("[data-dock-pin]").forEach(function (button) {
@@ -1068,10 +1079,13 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.querySelectorAll("[data-message-close='true']").forEach(function (button) {
     button.addEventListener("click", function () {
-      const box = document.querySelector("[data-message-box='true']");
-      if (box) {
-        box.classList.add("bm-message-hidden");
-      }
+      hideMessage();
+    });
+  });
+  document.querySelectorAll("[data-message-dsl='true']").forEach(function (button) {
+    button.addEventListener("click", function () {
+      setActiveDesignerView("Dsl");
+      hideMessage();
     });
   });
   function readArraySource(target) {
