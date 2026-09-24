@@ -2175,22 +2175,33 @@ li.CodeMirror-hint-active {
   gap: 0.7rem;
 }
 
+.bm-validation-row[data-rule-kind="simple"] .bm-complex-assertion-panel,
+.bm-validation-row[data-rule-kind="advanced"] .bm-simple-rule-panel {
+  display: none !important;
+}
+
 .bm-complex-expression textarea {
   min-height: 74px;
   resize: vertical;
 }
 
-.bm-condition-builder {
+.bm-condition-builder,
+.bm-advanced-expression {
   border-top: 1px solid var(--bm-border);
   padding-top: 0.65rem;
 }
 
-.bm-condition-builder summary {
+.bm-condition-builder summary,
+.bm-advanced-expression summary {
   color: var(--bm-primary);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+.bm-advanced-expression label {
+  margin-top: 0.65rem;
 }
 
 .bm-condition-builder-body {

@@ -31,6 +31,14 @@ public sealed class ValidationAssertionDisplayModel
     public string Value { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets a value indicating whether the selected simple operator needs a right-hand value.
+    /// </summary>
+    public bool RequiresValue =>
+        Operator != "exists" &&
+        Operator != "isEmpty" &&
+        Operator != "notEmpty";
+
+    /// <summary>
     /// Gets or sets the user-facing validation message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
