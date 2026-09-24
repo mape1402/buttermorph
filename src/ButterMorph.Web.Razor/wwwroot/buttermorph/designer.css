@@ -2092,7 +2092,8 @@ li.CodeMirror-hint-active {
   min-height: 100%;
 }
 
-.bm-validation-row label {
+.bm-validation-row label,
+.bm-condition-builder label {
   color: var(--bm-muted);
   display: flex;
   flex-direction: column;
@@ -2102,7 +2103,11 @@ li.CodeMirror-hint-active {
   text-transform: uppercase;
 }
 
-.bm-validation-row input {
+.bm-validation-row input,
+.bm-validation-row select,
+.bm-validation-row textarea,
+.bm-condition-builder input,
+.bm-condition-builder select {
   font-size: 0.9rem;
   font-weight: 500;
   text-transform: none;
@@ -2136,20 +2141,6 @@ li.CodeMirror-hint-active {
   justify-content: flex-end;
 }
 
-.bm-validation-section-actions [data-insert-logic] {
-  background-color: #eef2ff;
-  border-color: #dbe4ff;
-  color: var(--bm-primary);
-  font-size: 0.74rem;
-  min-height: 28px;
-  padding: 0.18rem 0.5rem;
-}
-
-.bm-validation-section-actions [data-insert-logic]:hover {
-  background-color: #e0e7ff;
-  border-color: rgba(99, 102, 241, 0.45);
-}
-
 .bm-validation-grid {
   display: flex;
   flex-direction: column;
@@ -2157,17 +2148,123 @@ li.CodeMirror-hint-active {
 }
 
 .bm-validation-row {
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.7rem;
+}
+
+.bm-validation-row-top {
   align-items: end;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(170px, 0.5fr) minmax(260px, 1fr) auto;
+}
+
+.bm-simple-rule-panel {
+  align-items: end;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(240px, 1fr) minmax(170px, 0.55fr) minmax(220px, 0.8fr);
+}
+
+.bm-complex-assertion-panel {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.bm-complex-expression textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.bm-condition-builder {
+  border-top: 1px solid var(--bm-border);
+  padding-top: 0.65rem;
+}
+
+.bm-condition-builder summary {
+  color: var(--bm-primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bm-condition-builder-body {
+  display: grid;
+  gap: 0.7rem;
+  padding-top: 0.7rem;
+}
+
+.bm-condition-mode {
+  max-width: 220px;
+}
+
+.bm-condition-group {
   border: 1px solid var(--bm-border);
   border-radius: 8px;
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 0.8fr) minmax(150px, 1fr) auto;
-  padding: 0.7rem;
+  padding: 0.65rem;
 }
 
-.bm-validation-row-assertion {
-  grid-template-columns: minmax(240px, 1.4fr) minmax(220px, 1fr) minmax(160px, 0.8fr) auto;
+.bm-condition-group .bm-condition-group {
+  background-color: rgba(99, 102, 241, 0.04);
+}
+
+.bm-condition-group-header {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: space-between;
+}
+
+.bm-condition-group-header label {
+  min-width: 190px;
+}
+
+.bm-condition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bm-condition-actions button,
+.bm-condition-row button {
+  font-size: 0.76rem;
+  min-height: 30px;
+  padding: 0.22rem 0.55rem;
+}
+
+.bm-condition-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bm-condition-row {
+  align-items: end;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) minmax(180px, 1fr) auto;
+}
+
+.bm-condition-row [data-condition-right][hidden] {
+  display: none;
+}
+
+.bm-condition-branch {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.bm-condition-branch h4 {
+  font-size: 0.78rem;
+  margin: 0;
+  text-transform: uppercase;
 }
 
 .bm-validation-row-remove {
@@ -2175,7 +2272,9 @@ li.CodeMirror-hint-active {
 }
 
 body[data-bm-theme-mode="dark"] .bm-validation-section,
-body[data-bm-theme-mode="dark"] .bm-validation-row {
+body[data-bm-theme-mode="dark"] .bm-validation-row,
+body[data-bm-theme-mode="dark"] .bm-condition-builder,
+body[data-bm-theme-mode="dark"] .bm-condition-group {
   border-color: var(--bm-border);
 }
 
@@ -2191,8 +2290,9 @@ body[data-bm-theme-mode="dark"] .bm-validation-row {
     grid-template-columns: 1fr;
   }
 
-  .bm-validation-row,
-  .bm-validation-row-assertion {
+  .bm-validation-row-top,
+  .bm-simple-rule-panel,
+  .bm-condition-row {
     grid-template-columns: 1fr;
   }
 }

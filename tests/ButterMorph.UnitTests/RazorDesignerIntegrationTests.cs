@@ -115,11 +115,15 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("Invoice source", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"gte(argument0, argument1)\"", html, StringComparison.Ordinal);
         Assert.Contains("validation-designer.js", html, StringComparison.Ordinal);
-        Assert.Contains("data-insert-logic=\"and\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-insert-logic=\"or\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-insert-logic=\"mixed\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-insert-logic=\"when\"", html, StringComparison.Ordinal);
-        Assert.Contains("data-insert-logic=\"not\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"AssertionKinds\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"SimpleFieldPaths\"", html, StringComparison.Ordinal);
+        Assert.Contains("Simple field rule", html, StringComparison.Ordinal);
+        Assert.Contains("Complex assertion", html, StringComparison.Ordinal);
+        Assert.Contains("data-condition-builder=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-builder-mode=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-condition-operator=\"true\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("name=\"AssertionPaths\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-insert-logic", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Field Rules", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-rule-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Payload alias", html, StringComparison.Ordinal);
@@ -143,9 +147,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             new FormUrlEncodedContent(
             [
                 new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("AssertionKinds", "Complex"),
                 new KeyValuePair<string, string>("AssertionExpressions", "and(gt($invoice.Header.Total, 0), or(eq($payment.Payment.Method, \"Wire\"), eq($payment.Payment.Method, \"Card\")))"),
-                new KeyValuePair<string, string>("AssertionMessages", "Invoice total and payment method must be valid."),
-                new KeyValuePair<string, string>("AssertionPaths", "$invoice.Header.Total")
+                new KeyValuePair<string, string>("AssertionMessages", "Invoice total and payment method must be valid.")
             ]));
         string json = await response.Content.ReadAsStringAsync();
         string dsl = ReadString(json, "dslContent");
@@ -154,6 +158,49 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
         Assert.Contains("assert and(gt($invoice.Header.Total, 0), or(eq($payment.Payment.Method, \"Wire\"), eq($payment.Payment.Method, \"Card\")))", dsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms simple rules save an automatic field path while complex assertions do not.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerSavesSimpleRulePathAndComplexAssertionWithoutPath()
+    {
+        FakeButterMorphValidationDesignerHost host = new();
+        HttpClient client = CreateValidationHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=validation-kind-save");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=validation-kind-save&handler=SaveValidationDocument",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("AssertionKinds", "Simple"),
+                new KeyValuePair<string, string>("SimpleFieldPaths", "$invoice.Header.Total"),
+                new KeyValuePair<string, string>("SimpleOperators", "gt"),
+                new KeyValuePair<string, string>("SimpleValues", "10"),
+                new KeyValuePair<string, string>("AssertionExpressions", string.Empty),
+                new KeyValuePair<string, string>("AssertionMessages", "Invoice total must be greater than 10."),
+                new KeyValuePair<string, string>("AssertionKinds", "Complex"),
+                new KeyValuePair<string, string>("SimpleFieldPaths", string.Empty),
+                new KeyValuePair<string, string>("SimpleOperators", "exists"),
+                new KeyValuePair<string, string>("SimpleValues", string.Empty),
+                new KeyValuePair<string, string>("AssertionExpressions", "and(gt($invoice.Header.Total, 0), eq($payment.Payment.Amount, $invoice.Header.Total))"),
+                new KeyValuePair<string, string>("AssertionMessages", "Invoice and payment must be valid.")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        IValidationAssertion[] assertions = host.LastSaveRequest.Document.Assertions.ToArray();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(1, host.SaveCalls);
+        Assert.Equal(2, assertions.Length);
+        Assert.Equal("$invoice.Header.Total", assertions[0].Path);
+        Assert.Equal(string.Empty, assertions[1].Path);
+        Assert.Contains("assert gt($invoice.Header.Total, 10)", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+        Assert.Contains("assert and(gt($invoice.Header.Total, 0), eq($payment.Payment.Amount, $invoice.Header.Total))", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2088,6 +2135,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IButterMorphDesignerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a test client with a fake validation host integration.
+    private HttpClient CreateValidationHostClient(FakeButterMorphValidationDesignerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphValidationDesignerHost>(host);
             });
         });
         return factory.CreateClient();
