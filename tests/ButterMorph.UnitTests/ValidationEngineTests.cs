@@ -36,110 +36,6 @@ public sealed class ValidationEngineTests
     }
 
     /// <summary>
-    /// Confirms that missing paths are reported as diagnostics.
-    /// </summary>
-    [Fact]
-    public void ValidateReturnsDiagnosticWhenPathIsMissing()
-    {
-        ValidationRuleRegistry registry = new();
-        registry.Register("pass", new PassingValidationRuleHandler());
-        ValidationEngine engine = CreateEngine(registry);
-        ValidationRequest request = CreateRequest(
-        [
-            CreateRule("Customer.Unknown", "pass")
-        ]);
-
-        ValidationResult result = engine.Validate(request);
-
-        Assert.False(result.IsValid);
-        AssertDiagnostic(result, "BMVL002");
-    }
-
-    /// <summary>
-    /// Confirms that missing handlers are reported as diagnostics.
-    /// </summary>
-    [Fact]
-    public void ValidateReturnsDiagnosticWhenHandlerIsMissing()
-    {
-        ValidationEngine engine = CreateEngine(new ValidationRuleRegistry());
-        ValidationRequest request = CreateRequest(
-        [
-            CreateRule("Customer.Name", "missing")
-        ]);
-
-        ValidationResult result = engine.Validate(request);
-
-        Assert.False(result.IsValid);
-        AssertDiagnostic(result, "BMVL003");
-    }
-
-    /// <summary>
-    /// Confirms that a registered handler receives the resolved node.
-    /// </summary>
-    [Fact]
-    public void ValidateExecutesRegisteredHandler()
-    {
-        CapturingValidationRuleHandler handler = new();
-        ValidationRuleRegistry registry = new();
-        registry.Register("capture", handler);
-        ValidationEngine engine = CreateEngine(registry);
-        ValidationRequest request = CreateRequest(
-        [
-            CreateRule("Customer.Name", "capture")
-        ]);
-
-        ValidationResult result = engine.Validate(request);
-
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Diagnostics);
-        Assert.Equal("Name", handler.CapturedNode.Name);
-        Assert.Equal("Customer.Name", handler.CapturedPath);
-    }
-
-    /// <summary>
-    /// Confirms that diagnostics from several rules are accumulated.
-    /// </summary>
-    [Fact]
-    public void ValidateAccumulatesDiagnosticsFromMultipleRules()
-    {
-        ValidationRuleRegistry registry = new();
-        registry.Register("diagnostic", new DiagnosticValidationRuleHandler());
-        ValidationEngine engine = CreateEngine(registry);
-        ValidationRequest request = CreateRequest(
-        [
-            CreateRule("Customer.Name", "diagnostic"),
-            CreateRule("Orders[0].Id", "diagnostic")
-        ]);
-
-        ValidationResult result = engine.Validate(request);
-
-        Assert.False(result.IsValid);
-        Assert.Equal(2, result.Diagnostics.Count);
-        Assert.All(result.Diagnostics, diagnostic => Assert.Equal("TEST001", diagnostic.Code));
-    }
-
-    /// <summary>
-    /// Confirms that validation passes when all handlers produce no diagnostics.
-    /// </summary>
-    [Fact]
-    public void ValidateReturnsValidWhenAllHandlersPass()
-    {
-        ValidationRuleRegistry registry = new();
-        registry.Register("pass", new PassingValidationRuleHandler());
-        ValidationEngine engine = CreateEngine(registry);
-        ValidationRequest request = CreateRequest(
-        [
-            CreateRule("Customer.Name", "pass"),
-            CreateRule("Orders[0].Id", "pass")
-        ]);
-
-        ValidationResult result = engine.Validate(request);
-
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Diagnostics);
-    }
-
-    /// <summary>
     /// Confirms that validation assertions can read payload fields through functions.
     /// </summary>
     [Fact]
@@ -264,14 +160,18 @@ public sealed class ValidationEngineTests
         return new ValidationRequest
         {
             SourceGraph = graph,
+            PayloadAlias = "source",
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["source"] = graph
+            },
+            Schema = schema,
             Schemas = new Dictionary<string, IStructureSchema>
             {
                 ["Order"] = schema
             },
             Definition = new ValidationDocument
             {
-                PayloadAlias = "source",
-                SchemaKey = "Order",
                 Assertions =
                 [
                     new ValidationAssertion
@@ -312,34 +212,6 @@ public sealed class ValidationEngineTests
             Format = "json",
             Content = json
         });
-    }
-
-    // Creates a validation request with test graph and rules.
-    private static ValidationRequest CreateRequest(IReadOnlyCollection<IValidationRule> rules)
-    {
-        return new ValidationRequest
-        {
-            SourceGraph = NavigationTestGraphFactory.CreateCustomerGraph(),
-            Definition = new ValidationDocument
-            {
-                Definition = new DslDefinition
-                {
-                    Content = string.Empty
-                },
-                Rules = rules
-            }
-        };
-    }
-
-    // Creates a validation rule for tests.
-    private static IValidationRule CreateRule(string path, string ruleKey)
-    {
-        return new ValidationRule
-        {
-            Path = path,
-            RuleKey = ruleKey,
-            Arguments = []
-        };
     }
 
     // Confirms that a validation result contains a diagnostic code.

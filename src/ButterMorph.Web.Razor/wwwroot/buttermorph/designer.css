@@ -2092,13 +2092,6 @@ li.CodeMirror-hint-active {
   min-height: 100%;
 }
 
-.bm-validation-scope {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(160px, 1fr));
-}
-
-.bm-validation-scope label,
 .bm-validation-row label {
   color: var(--bm-muted);
   display: flex;
@@ -2109,7 +2102,6 @@ li.CodeMirror-hint-active {
   text-transform: uppercase;
 }
 
-.bm-validation-scope input,
 .bm-validation-row input {
   font-size: 0.9rem;
   font-weight: 500;
@@ -2178,7 +2170,6 @@ body[data-bm-theme-mode="dark"] .bm-validation-row {
     grid-template-columns: 1fr;
   }
 
-  .bm-validation-scope,
   .bm-validation-row,
   .bm-validation-row-assertion {
     grid-template-columns: 1fr;

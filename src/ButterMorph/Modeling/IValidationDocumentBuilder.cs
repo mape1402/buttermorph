@@ -15,21 +15,6 @@ public interface IValidationDocumentBuilder
     IValidationDocumentBuilder WithDefinition(IDslDefinition definition);
 
     /// <summary>
-    /// Adds a validation rule.
-    /// </summary>
-    /// <param name="rule">The validation rule.</param>
-    /// <returns>The current builder.</returns>
-    IValidationDocumentBuilder WithRule(IValidationRule rule);
-
-    /// <summary>
-    /// Sets the validation payload and schema scope.
-    /// </summary>
-    /// <param name="payloadAlias">The payload alias.</param>
-    /// <param name="schemaKey">The schema key.</param>
-    /// <returns>The current builder.</returns>
-    IValidationDocumentBuilder WithValidationScope(string payloadAlias, string schemaKey);
-
-    /// <summary>
     /// Adds a boolean validation assertion.
     /// </summary>
     /// <param name="assertion">The validation assertion.</param>

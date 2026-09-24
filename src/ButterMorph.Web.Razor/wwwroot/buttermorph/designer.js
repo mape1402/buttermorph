@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     window.CodeMirror.defineMode("buttermorphDsl", function () {
-      const keywords = /^(metadata|target|validate|against|assert|project|as|when|true|false|null)\b/;
+      const keywords = /^(metadata|target|project|as|when|true|false|null)\b/;
       return {
         token: function (stream) {
           if (stream.eatSpace()) {
@@ -296,9 +296,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function createKeywordSuggestions() {
     return [
       { text: "target {\n  \n}", displayText: "target block", description: "Creates target mappings." },
-      { text: "validate {\n  \n}", displayText: "validate block", description: "Creates validation rules." },
-      { text: "validate $source against Schema {\n  assert gt($source.value, 0): \"Value must be greater than 0\"\n}", displayText: "validate payload", description: "Creates explicit payload validation assertions." },
-      { text: "assert gt($source.value, 0): \"Value must be greater than 0\"", displayText: "assert", description: "Creates a validation assertion." },
       { text: "metadata {\n  key: \"value\"\n}", displayText: "metadata block", description: "Creates document metadata." },
       { text: "when(condition, thenExpression, elseExpression)", displayText: "when", description: "Creates a conditional expression.", isFunction: true },
       { text: "true", displayText: "true", description: "Boolean literal." },
@@ -323,20 +320,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const fullTextBeforeCursor = editor.getRange(window.CodeMirror.Pos(0, 0), cursor);
     const metadataIndex = fullTextBeforeCursor.lastIndexOf("metadata");
     const targetIndex = fullTextBeforeCursor.lastIndexOf("target");
-    const validateIndex = fullTextBeforeCursor.lastIndexOf("validate");
     if (prefix.indexOf("$") === 0) {
       return "source-path";
     }
     if (beforeCursor.indexOf("=>") >= 0) {
       return "projection-body";
     }
-    if (validateIndex > metadataIndex && validateIndex > targetIndex) {
-      if (beforeCursor.indexOf("assert") >= 0) {
-        return "validation-expression";
-      }
-      return beforeCursor.indexOf(":") >= 0 ? "validation-expression" : "target-path";
-    }
-    if (metadataIndex > targetIndex && metadataIndex > validateIndex) {
+    if (metadataIndex > targetIndex) {
       return "metadata";
     }
     if (beforeCursor.indexOf(":") >= 0) {
@@ -358,9 +348,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (context === "projection-body") {
       return createAliasSuggestions(editor).concat(createFunctionSuggestions()).concat(createKeywordSuggestions());
-    }
-    if (context === "validation-expression") {
-      return createFunctionSuggestions().concat(createKeywordSuggestions());
     }
     return createKeywordSuggestions()
       .concat(createProjectSuggestions())

@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     window.CodeMirror.defineMode("buttermorphValidationDsl", function () {
-      const keywords = /^(validate|against|assert|project|as|when|true|false|null)\b/;
+      const keywords = /^(validate|assert|project|as|when|true|false|null)\b/;
       return {
         token: function (stream) {
           if (stream.eatSpace()) {
@@ -182,8 +182,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function createKeywordSuggestions() {
     return [
-      { text: "validate {\n  Customer.Name: required\n}", displayText: "field rules", description: "Creates field validation rules." },
-      { text: "validate $source against Schema {\n  assert gt($source.quantity, 10): \"Quantity must be greater than 10\"\n}", displayText: "assertions", description: "Creates validation assertions." },
+      { text: "validate {\n  assert gt($source.quantity, 10): \"Quantity must be greater than 10\"\n}", displayText: "validate block", description: "Creates validation assertions." },
       { text: "assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", displayText: "assert", description: "Creates a validation assertion." },
       { text: "true", displayText: "true", description: "Boolean literal." },
       { text: "false", displayText: "false", description: "Boolean literal." },
@@ -648,10 +647,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   document.addEventListener("click", function (event) {
-    if (event.target.matches("[data-add-rule='true']")) {
-      cloneTemplate("[data-rule-template='true']", "[data-rule-list='true']");
-      return;
-    }
     if (event.target.matches("[data-add-assertion='true']")) {
       cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
       return;

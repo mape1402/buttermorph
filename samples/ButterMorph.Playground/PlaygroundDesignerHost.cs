@@ -305,7 +305,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButter
             });
         }
 
-        int validationCount = request.Document.Rules.Count + request.Document.Assertions.Count;
+        int validationCount = request.Document.Assertions.Count;
         _validationStore.Save(new PlaygroundValidationSave
         {
             ContextKey = request.ContextKey,
@@ -341,7 +341,7 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButter
         IValidationDocument document = loadResult.InitialDocument;
         string savedAt = string.Empty;
         string dslContent = _validationDslExporter.Export(document);
-        int validationCount = document.Rules.Count + document.Assertions.Count;
+        int validationCount = document.Assertions.Count;
 
         if (_validationStore.TryGet(contextKey, out PlaygroundValidationSave save))
         {
@@ -383,8 +383,6 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButter
         {
             return new ValidationDocument
             {
-                PayloadAlias = "invoice",
-                SchemaKey = "invoice",
                 Assertions =
                 [
                     Assertion(
@@ -409,8 +407,6 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButter
         {
             return new ValidationDocument
             {
-                PayloadAlias = "ticket",
-                SchemaKey = "ticket",
                 Assertions =
                 [
                     Assertion(
@@ -427,8 +423,6 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButter
 
         return new ValidationDocument
         {
-            PayloadAlias = "orders",
-            SchemaKey = "orders",
             Assertions =
             [
                 Assertion(

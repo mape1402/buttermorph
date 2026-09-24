@@ -52,22 +52,12 @@ public sealed class ValidationDesignSession : IValidationDesignSession
     /// <summary>
     /// Replaces the current validation document.
     /// </summary>
-    /// <param name="payloadAlias">The payload alias used by scoped assertions.</param>
-    /// <param name="schemaKey">The schema key used by scoped assertions.</param>
-    /// <param name="rules">The validation rules.</param>
     /// <param name="assertions">The validation assertions.</param>
     /// <returns>The operation result.</returns>
-    public IValidationOperationResult ReplaceDocument(
-        string payloadAlias,
-        string schemaKey,
-        IReadOnlyCollection<IValidationRule> rules,
-        IReadOnlyCollection<IValidationAssertion> assertions)
+    public IValidationOperationResult ReplaceDocument(IReadOnlyCollection<IValidationAssertion> assertions)
     {
         _document = new ValidationDocument
         {
-            PayloadAlias = ResolvePayloadAlias(payloadAlias),
-            SchemaKey = schemaKey?.Trim() ?? string.Empty,
-            Rules = rules ?? [],
             Assertions = assertions ?? []
         };
 
@@ -146,21 +136,7 @@ public sealed class ValidationDesignSession : IValidationDesignSession
         return new ValidationDocument
         {
             Definition = document.Definition,
-            PayloadAlias = ResolvePayloadAlias(document.PayloadAlias),
-            SchemaKey = document.SchemaKey,
-            Rules = document.Rules,
             Assertions = document.Assertions
         };
-    }
-
-    // Resolves a normalized payload alias.
-    private static string ResolvePayloadAlias(string payloadAlias)
-    {
-        if (string.IsNullOrWhiteSpace(payloadAlias))
-        {
-            return "source";
-        }
-
-        return payloadAlias.Trim().TrimStart('$');
     }
 }

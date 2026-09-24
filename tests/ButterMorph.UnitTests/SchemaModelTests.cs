@@ -99,16 +99,11 @@ public sealed class SchemaModelTests
     }
 
     /// <summary>
-    /// Confirms that validation documents preserve validation data.
+    /// Confirms that validation documents preserve validation assertions.
     /// </summary>
     [Fact]
-    public void ValidationDocumentPreservesRulesAndAssertions()
+    public void ValidationDocumentPreservesAssertions()
     {
-        ValidationRule validation = new()
-        {
-            Path = "Name",
-            RuleKey = "required"
-        };
         ValidationAssertion assertion = new()
         {
             Expression = new ScalarLiteralExpression
@@ -124,21 +119,12 @@ public sealed class SchemaModelTests
         };
         ValidationDocument document = new()
         {
-            PayloadAlias = "source",
-            SchemaKey = "Customer",
-            Rules =
-            [
-                validation
-            ],
             Assertions =
             [
                 assertion
             ]
         };
 
-        Assert.Equal("source", document.PayloadAlias);
-        Assert.Equal("Customer", document.SchemaKey);
-        Assert.Same(validation, Assert.Single(document.Rules));
         Assert.Same(assertion, Assert.Single(document.Assertions));
     }
 }
