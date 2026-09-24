@@ -952,9 +952,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     input.focus();
     activeExpressionInput = input;
-    if (shouldSyncExpressionInput(input)) {
-      scheduleVisualSync();
-    }
+    scheduleVisualSync();
   }
   function replaceExpressionInput(input, expressionText, selectFirstArgument) {
     if (!input || expressionText.length === 0) {
@@ -968,12 +966,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     input.focus();
     activeExpressionInput = input;
-    if (shouldSyncExpressionInput(input)) {
-      scheduleVisualSync();
-    }
-  }
-  function shouldSyncExpressionInput(input) {
-    return input && !input.classList.contains("bm-validation-expression-input");
+    scheduleVisualSync();
   }
   function scheduleVisualSync() {
     window.clearTimeout(visualTimer);
@@ -1064,12 +1057,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     closeDockFlyout();
   });
-  document.querySelectorAll(".bm-expression-input, .bm-validation-expression-input").forEach(function (input) {
+  document.querySelectorAll(".bm-expression-input").forEach(function (input) {
     input.addEventListener("focus", function () {
       activeExpressionInput = input;
     });
-  });
-  document.querySelectorAll(".bm-expression-input").forEach(function (input) {
     input.addEventListener("input", scheduleVisualSync);
   });
   if (dslEditor) {
@@ -1163,9 +1154,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           activeExpressionInput.value = path;
           activeExpressionInput.focus();
-          if (shouldSyncExpressionInput(activeExpressionInput)) {
-            scheduleVisualSync();
-          }
+          scheduleVisualSync();
         }
       }
       if (navigator.clipboard && path) {

@@ -2,8 +2,6 @@
 @model ButterMorph.Web.Razor.DesignerModel
 @{
     Layout = null;
-    var validationRows = new List<ButterMorph.Web.Razor.ValidationAssertionDisplayModel>(Model.ValidationAssertions);
-    validationRows.Add(new ButterMorph.Web.Razor.ValidationAssertionDisplayModel());
 }
 
 <!doctype html>
@@ -33,7 +31,6 @@
             </div>
             <div class="bm-view-toggle" role="group" aria-label="Designer view">
                 <button type="button" class="bm-view-button" data-view="Visual">Visual Designer</button>
-                <button type="button" class="bm-view-button" data-view="Validations">Validations</button>
                 <button type="button" class="bm-view-button" data-view="Dsl">DSL</button>
             </div>
         </header>
@@ -202,84 +199,6 @@
                             }
                         </div>
                     }
-                </form>
-            </section>
-
-            <section class="bm-designer-surface bm-validation-surface" data-view-panel="Validations">
-                <form method="post" asp-page-handler="SaveValidationAssertions" class="bm-validation-form">
-                    <div class="bm-canvas-header">
-                        <div>
-                            <h2>Validation assertions</h2>
-                        </div>
-                        <button type="submit">Save validations</button>
-                    </div>
-                    <input type="hidden" name="ActiveView" value="Validations" />
-
-                    <div class="bm-validation-scope">
-                        <label>
-                            Payload
-                            <select name="ValidationPayloadAlias">
-                                @if (Model.SourceSchemas.Count == 0)
-                                {
-                                    <option value="@Model.ValidationPayloadAlias">@Model.ValidationPayloadAlias</option>
-                                }
-                                @foreach (var source in Model.SourceSchemas)
-                                {
-                                    <option value="@source.Key" selected="@(string.Equals(source.Key, Model.ValidationPayloadAlias, StringComparison.Ordinal) ? "selected" : null)">@source.DisplayName</option>
-                                }
-                            </select>
-                        </label>
-                        <label>
-                            Schema
-                            <input name="ValidationSchemaKey" value="@Model.ValidationSchemaKey" list="bm-validation-schema-options" />
-                            <datalist id="bm-validation-schema-options">
-                                @foreach (var source in Model.SourceSchemas)
-                                {
-                                    <option value="@source.Key">@source.DisplayName</option>
-                                    <option value="@source.SchemaKey">@source.SchemaName</option>
-                                }
-                            </datalist>
-                        </label>
-                    </div>
-
-                    <div class="bm-validation-grid">
-                        <div class="bm-validation-row bm-validation-row-header" aria-hidden="true">
-                            <span>Function</span>
-                            <span>Left</span>
-                            <span>Right</span>
-                            <span>Message</span>
-                        </div>
-                        @foreach (var assertion in validationRows)
-                        {
-                            <div class="bm-validation-row">
-                                <select name="ValidationFunctions" class="bm-validation-function" aria-label="Validation function">
-                                    @if (!string.IsNullOrWhiteSpace(assertion.FunctionKey) && !Model.ValidationFunctionKeys.Contains(assertion.FunctionKey))
-                                    {
-                                        <option value="@assertion.FunctionKey" selected>@assertion.FunctionKey</option>
-                                    }
-                                    <option value=""></option>
-                                    @foreach (string functionKey in Model.ValidationFunctionKeys)
-                                    {
-                                        <option value="@functionKey" selected="@(string.Equals(functionKey, assertion.FunctionKey, StringComparison.Ordinal) ? "selected" : null)">@functionKey</option>
-                                    }
-                                </select>
-                                <input class="bm-validation-expression-input"
-                                       name="ValidationLeftExpressions"
-                                       value="@assertion.LeftExpression"
-                                       placeholder="$source.Field"
-                                       aria-label="Validation left expression" />
-                                <input class="bm-validation-expression-input"
-                                       name="ValidationRightExpressions"
-                                       value="@assertion.RightExpression"
-                                       placeholder="10, true, text, or $source.Other"
-                                       aria-label="Validation right expression" />
-                                <input name="ValidationMessages"
-                                       value="@assertion.Message"
-                                       placeholder="Message when the assertion fails"
-                                       aria-label="Validation message" />
-                            </div>
-                        }
-                    </div>
                 </form>
             </section>
 

@@ -81,18 +81,6 @@ public interface IMappingDesignSession
     IMappingOperationResult RemoveValidationRule(string path, string ruleKey);
 
     /// <summary>
-    /// Replaces explicit validation assertions for the current document.
-    /// </summary>
-    /// <param name="payloadAlias">The source alias used as validation payload.</param>
-    /// <param name="schemaKey">The schema key used to validate the payload.</param>
-    /// <param name="assertions">The validation assertions.</param>
-    /// <returns>The operation result.</returns>
-    IMappingOperationResult SetValidationAssertions(
-        string payloadAlias,
-        string schemaKey,
-        IReadOnlyCollection<IValidationAssertion> assertions);
-
-    /// <summary>
     /// Imports DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>
