@@ -32,26 +32,6 @@ public sealed class DesignSessionTests
     }
 
     /// <summary>
-    /// Confirms that sessions can edit validation rules.
-    /// </summary>
-    [Fact]
-    public void SessionAddsAndRemovesValidationRules()
-    {
-        IMappingDesignSession session = CreateSession();
-        ValidationRule rule = new()
-        {
-            Path = "Customer.Name",
-            RuleKey = "required",
-            Arguments = []
-        };
-
-        session.AddValidationRule(rule);
-        session.RemoveValidationRule("Customer.Name", "required");
-
-        Assert.Empty(session.Document.Validations);
-    }
-
-    /// <summary>
     /// Confirms that invalid user operations return diagnostics.
     /// </summary>
     [Fact]

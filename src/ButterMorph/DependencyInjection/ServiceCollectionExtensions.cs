@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IButterMorphEngine, global::ButterMorph.ButterMorphEngine>();
         services.AddTransient<IDslParser, DslParser>();
         services.AddTransient<IDslExporter, DslExporter>();
+        services.AddTransient<IValidationDslExporter, ValidationDslExporter>();
         services.AddTransient<IExecutionPipeline, ExecutionPipeline>();
         services.AddTransient<IExecutionContextFactory, ExecutionContextFactory>();
         services.AddTransient<INavigationEngine, NavigationEngine>();

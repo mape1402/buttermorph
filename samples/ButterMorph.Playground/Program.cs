@@ -174,7 +174,7 @@ app.MapPost("/playground/validate/{contextKey}", async (
         mappingCount = save.MappingCount;
     }
 
-    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, document, mappingCount, engine);
+    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, mappingCount, engine);
     return Results.Json(validationResult);
 });
 app.MapButterMorphDesigner("/buttermorph");
@@ -601,7 +601,6 @@ public partial class Program
         string contextKey,
         IReadOnlyDictionary<string, string> sourceJson,
         IReadOnlyDictionary<string, IStructureSchema> sourceSchemas,
-        ITransformationDocument document,
         int mappingCount,
         IButterMorphEngine engine)
     {
@@ -626,16 +625,9 @@ public partial class Program
         }
 
         Dictionary<string, IStructureSchema> schemas = CreateSchemaLookup(sourceSchemas);
-        string assertionAlias = ResolveValidationPayloadAlias(document);
-        bool hasAssertions = document.ValidationAssertions.Count > 0;
 
         foreach (KeyValuePair<string, IStructureGraph> source in sources)
         {
-            if (hasAssertions && string.Equals(source.Key, assertionAlias, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             if (sourceSchemas.TryGetValue(source.Key, out IStructureSchema schema))
             {
                 ValidationResult result = engine.Validate(new ValidationRequest
@@ -647,26 +639,6 @@ public partial class Program
                     Schemas = schemas
                 });
                 diagnostics.AddRange(result.Diagnostics);
-            }
-        }
-
-        if (hasAssertions)
-        {
-            if (sources.TryGetValue(assertionAlias, out IStructureGraph graph))
-            {
-                ValidationResult result = engine.Validate(new ValidationRequest
-                {
-                    SourceGraph = graph,
-                    PayloadAlias = assertionAlias,
-                    Sources = sources,
-                    Schemas = schemas,
-                    Definition = document
-                });
-                diagnostics.AddRange(result.Diagnostics);
-            }
-            else
-            {
-                diagnostics.Add(CreateDiagnostic("BMPG002", "Validation payload '" + assertionAlias + "' was not found.", assertionAlias));
             }
         }
 
@@ -760,17 +732,6 @@ public partial class Program
         }
 
         return schemas;
-    }
-
-    // Resolves the payload alias used by validation assertions.
-    private static string ResolveValidationPayloadAlias(ITransformationDocument document)
-    {
-        if (string.IsNullOrWhiteSpace(document.ValidationPayloadAlias))
-        {
-            return "source";
-        }
-
-        return document.ValidationPayloadAlias.TrimStart('$');
     }
 
     // Creates a host diagnostic entry.

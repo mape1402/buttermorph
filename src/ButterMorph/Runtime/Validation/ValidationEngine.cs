@@ -99,7 +99,9 @@ public sealed class ValidationEngine : IValidationEngine
             return CreateResult(diagnostics);
         }
 
-        if (graph == null && (scope.Rules.Count > 0 || scope.Assertions.Count > 0))
+        bool graphRequired = schema != null || scope.Rules.Count > 0;
+
+        if (graph == null && graphRequired)
         {
             diagnostics.Add(CreateDiagnostic("BMVL006", "Validation payload graph is required.", string.Empty));
             return CreateResult(diagnostics);
@@ -185,13 +187,17 @@ public sealed class ValidationEngine : IValidationEngine
         }
 
         Dictionary<string, IStructureGraph> sources = new(request.Sources, StringComparer.Ordinal);
-        sources[scope.PayloadAlias] = graph;
+        if (graph != null)
+        {
+            sources[scope.PayloadAlias] = graph;
+        }
 
         IExecutionContext executionContext = _executionContextFactory.Create(sources);
-        Dictionary<string, IStructureNode> aliases = new(StringComparer.Ordinal)
+        Dictionary<string, IStructureNode> aliases = new(StringComparer.Ordinal);
+        if (graph != null)
         {
-            [scope.PayloadAlias] = graph.Root
-        };
+            aliases[scope.PayloadAlias] = graph.Root;
+        }
 
         foreach (IValidationAssertion assertion in scope.Assertions)
         {
@@ -274,18 +280,6 @@ public sealed class ValidationEngine : IValidationEngine
                 SchemaKey = validationDocument.SchemaKey,
                 Rules = validationDocument.Rules,
                 Assertions = validationDocument.Assertions
-            };
-        }
-
-        if (request.Definition is ITransformationDocument transformationDocument)
-        {
-            return new ValidationScope
-            {
-                HasValidationDocument = true,
-                PayloadAlias = ResolvePayloadAlias(transformationDocument.ValidationPayloadAlias, request.PayloadAlias),
-                SchemaKey = transformationDocument.ValidationSchemaKey,
-                Rules = transformationDocument.Validations,
-                Assertions = transformationDocument.ValidationAssertions
             };
         }
 

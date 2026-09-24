@@ -139,7 +139,7 @@ public sealed class DslParserTests
     [Fact]
     public void ParseCreatesValidationRules()
     {
-        ITransformationDocument document = Parse(
+        IValidationDocument document = ParseValidation(
             """
             validate {
               Customer.Name: required
@@ -148,9 +148,9 @@ public sealed class DslParserTests
             }
             """);
 
-        Assert.Equal(3, document.Validations.Count);
-        IValidationRule minRule = document.Validations.ElementAt(1);
-        IValidationRule formatRule = document.Validations.ElementAt(2);
+        Assert.Equal(3, document.Rules.Count);
+        IValidationRule minRule = document.Rules.ElementAt(1);
+        IValidationRule formatRule = document.Rules.ElementAt(2);
 
         Assert.Equal("min", minRule.RuleKey);
         Assert.Single(minRule.Arguments);
@@ -165,21 +165,41 @@ public sealed class DslParserTests
     [Fact]
     public void ParseCreatesValidationAssertions()
     {
-        ITransformationDocument document = Parse(
+        IValidationDocument document = ParseValidation(
             """
             validate $source against Order {
               assert gt($source.quantity, 10): "Quantity must be greater than 10"
             }
             """);
 
-        IValidationAssertion assertion = Assert.Single(document.ValidationAssertions);
+        IValidationAssertion assertion = Assert.Single(document.Assertions);
         IFunctionCallExpression expression = Assert.IsAssignableFrom<IFunctionCallExpression>(assertion.Expression);
 
-        Assert.Equal("source", document.ValidationPayloadAlias);
-        Assert.Equal("Order", document.ValidationSchemaKey);
+        Assert.Equal("source", document.PayloadAlias);
+        Assert.Equal("Order", document.SchemaKey);
         Assert.Equal("gt", expression.FunctionKey);
         Assert.Equal("$source.quantity", assertion.Path);
         Assert.Equal("Quantity must be greater than 10", assertion.Message);
+    }
+
+    /// <summary>
+    /// Confirms that mapping and validation declarations must live in separate documents.
+    /// </summary>
+    [Fact]
+    public void ParseRejectsMixedMappingAndValidationDeclarations()
+    {
+        FormatException exception = Assert.Throws<FormatException>(() => Parse(
+            """
+            target {
+              Name: $source.Name
+            }
+
+            validate {
+              Name: required
+            }
+            """));
+
+        Assert.Contains("separate documents", exception.Message, System.StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -251,7 +271,7 @@ public sealed class DslParserTests
         ValidationRuleRegistry registry = new();
         registry.Register("min", handler);
         ValidationEngine engine = new(new PathResolver(), registry);
-        ITransformationDocument document = Parse(
+        IValidationDocument document = ParseValidation(
             """
             validate {
               Customer.Name: min(2)
@@ -263,7 +283,7 @@ public sealed class DslParserTests
             SourceGraph = NavigationTestGraphFactory.CreateCustomerGraph(),
             Definition = new ValidationDocument
             {
-                Rules = document.Validations
+                Rules = document.Rules
             }
         });
 
@@ -281,6 +301,17 @@ public sealed class DslParserTests
         });
 
         return Assert.IsAssignableFrom<ITransformationDocument>(document);
+    }
+
+    // Parses DSL content into a validation document.
+    private static IValidationDocument ParseValidation(string content)
+    {
+        IDslDocument document = new DslParser().Parse(new DslDefinition
+        {
+            Content = content
+        });
+
+        return Assert.IsAssignableFrom<IValidationDocument>(document);
     }
 
     // Creates a transformation engine with real navigation and test functions.

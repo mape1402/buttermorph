@@ -28,26 +28,6 @@ public sealed class TransformationDocument : ITransformationDocument
     public IReadOnlyCollection<ITransformationMapping> Mappings { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets validation rules associated with the target graph.
-    /// </summary>
-    public IReadOnlyCollection<IValidationRule> Validations { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets the payload alias used by validation assertions.
-    /// </summary>
-    public string ValidationPayloadAlias { get; set; } = "source";
-
-    /// <summary>
-    /// Gets or sets the schema key used by validation assertions.
-    /// </summary>
-    public string ValidationSchemaKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets boolean validation assertions associated with the document.
-    /// </summary>
-    public IReadOnlyCollection<IValidationAssertion> ValidationAssertions { get; set; } = [];
-
-    /// <summary>
     /// Gets or sets UI and tooling metadata for the transformation document.
     /// </summary>
     public IReadOnlyDictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();

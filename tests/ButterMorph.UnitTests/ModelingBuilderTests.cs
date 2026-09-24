@@ -14,24 +14,18 @@ using ButterMorph.Transformation;
 public sealed class ModelingBuilderTests
 {
     /// <summary>
-    /// Confirms that document builder preserves modeling data.
+    /// Confirms that document builder preserves mapping data.
     /// </summary>
     [Fact]
-    public void DocumentBuilderPreservesSchemasMappingsValidationsAndMetadata()
+    public void DocumentBuilderPreservesSchemasMappingsAndMetadata()
     {
         IStructureSchema sourceSchema = CreateCustomerSchema();
         IStructureSchema targetSchema = ButterMorphModel.CreateSchema("Target").Build();
-        ValidationRule validation = new()
-        {
-            Path = "Customer.Name",
-            RuleKey = "required"
-        };
 
         ITransformationDocument document = ButterMorphModel.CreateDocument()
             .WithSourceSchema("source", sourceSchema)
             .WithTargetSchema(targetSchema)
             .MapPath("$source.Customer.Name", "Customer.Name")
-            .WithValidation(validation)
             .WithMetadata("owner", "ui")
             .Build();
 
@@ -39,10 +33,39 @@ public sealed class ModelingBuilderTests
 
         Assert.Same(sourceSchema, document.SourceSchemas["source"]);
         Assert.Same(targetSchema, document.TargetSchema);
-        Assert.Same(validation, Assert.Single(document.Validations));
         Assert.Equal("ui", document.Metadata["owner"]);
         Assert.IsAssignableFrom<IPathExpression>(mapping.SourceExpression);
         Assert.Equal("Customer.Name", mapping.TargetPath);
+    }
+
+    /// <summary>
+    /// Confirms that validation document builder preserves rules and assertion scope.
+    /// </summary>
+    [Fact]
+    public void ValidationDocumentBuilderPreservesRulesAndAssertions()
+    {
+        ValidationRule validation = new()
+        {
+            Path = "Customer.Name",
+            RuleKey = "required"
+        };
+        ValidationAssertion assertion = new()
+        {
+            Expression = ButterMorphModel.Expressions.Boolean(true),
+            Message = "Must be true.",
+            Path = "$source.Customer.Name"
+        };
+
+        IValidationDocument document = ButterMorphModel.CreateValidationDocument()
+            .WithValidationScope("source", "Customer")
+            .WithRule(validation)
+            .WithAssertion(assertion)
+            .Build();
+
+        Assert.Equal("source", document.PayloadAlias);
+        Assert.Equal("Customer", document.SchemaKey);
+        Assert.Same(validation, Assert.Single(document.Rules));
+        Assert.Same(assertion, Assert.Single(document.Assertions));
     }
 
     /// <summary>

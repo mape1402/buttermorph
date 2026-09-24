@@ -23,6 +23,15 @@ public static class ButterMorphModel
     }
 
     /// <summary>
+    /// Creates a validation document builder.
+    /// </summary>
+    /// <returns>The validation document builder.</returns>
+    public static IValidationDocumentBuilder CreateValidationDocument()
+    {
+        return new ValidationDocumentBuilder();
+    }
+
+    /// <summary>
     /// Creates a structure schema builder.
     /// </summary>
     /// <param name="name">The schema name.</param>

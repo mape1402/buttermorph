@@ -169,6 +169,54 @@ public sealed class ValidationEngineTests
         Assert.Empty(result.Diagnostics);
     }
 
+    /// <summary>
+    /// Confirms that validation assertions can compare fields from several sources.
+    /// </summary>
+    [Fact]
+    public void ValidateExecutesAssertionsAcrossSeveralSources()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        ValidationRequest request = new()
+        {
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["order"] = ReadJson("{\"quantity\":12}"),
+                ["limits"] = ReadJson("{\"minimum\":10}")
+            },
+            Definition = new ValidationDocument
+            {
+                Assertions =
+                [
+                    new ValidationAssertion
+                    {
+                        Expression = new FunctionCallExpression
+                        {
+                            FunctionKey = "gt",
+                            Arguments =
+                            [
+                                new PathExpression
+                                {
+                                    Path = "$order.quantity"
+                                },
+                                new PathExpression
+                                {
+                                    Path = "$limits.minimum"
+                                }
+                            ]
+                        },
+                        Message = "Quantity must be greater than minimum.",
+                        Path = "$order.quantity"
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Diagnostics);
+    }
+
     // Creates a validation engine with real path resolution.
     private static ValidationEngine CreateEngine(IValidationRuleRegistry registry)
     {
@@ -190,11 +238,7 @@ public sealed class ValidationEngineTests
     // Creates a validation request with schema and assertion DSL document.
     private static ValidationRequest CreateAssertionRequest(string json)
     {
-        IStructureGraph graph = new JsonReader().Read(new StructureInput
-        {
-            Format = "json",
-            Content = json
-        });
+        IStructureGraph graph = ReadJson(json);
         IStructureSchema schema = new StructureSchema
         {
             Key = "Order",
@@ -224,11 +268,11 @@ public sealed class ValidationEngineTests
             {
                 ["Order"] = schema
             },
-            Definition = new TransformationDocument
+            Definition = new ValidationDocument
             {
-                ValidationPayloadAlias = "source",
-                ValidationSchemaKey = "Order",
-                ValidationAssertions =
+                PayloadAlias = "source",
+                SchemaKey = "Order",
+                Assertions =
                 [
                     new ValidationAssertion
                     {
@@ -258,6 +302,16 @@ public sealed class ValidationEngineTests
                 ]
             }
         };
+    }
+
+    // Reads a JSON payload into a structure graph.
+    private static IStructureGraph ReadJson(string json)
+    {
+        return new JsonReader().Read(new StructureInput
+        {
+            Format = "json",
+            Content = json
+        });
     }
 
     // Creates a validation request with test graph and rules.

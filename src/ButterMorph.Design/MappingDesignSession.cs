@@ -60,7 +60,6 @@ public sealed class MappingDesignSession : IMappingDesignSession
             SourceSchemas = document.SourceSchemas,
             TargetSchema = document.TargetSchema,
             Mappings = document.Mappings,
-            Validations = document.Validations,
             Metadata = document.Metadata
         };
 
@@ -210,45 +209,6 @@ public sealed class MappingDesignSession : IMappingDesignSession
     }
 
     /// <summary>
-    /// Adds a validation rule.
-    /// </summary>
-    /// <param name="rule">The validation rule.</param>
-    /// <returns>The operation result.</returns>
-    public IMappingOperationResult AddValidationRule(IValidationRule rule)
-    {
-        List<IValidationRule> validations = [.. _document.Validations];
-        validations.Add(rule);
-        _document.Validations = validations;
-
-        return Success();
-    }
-
-    /// <summary>
-    /// Removes validation rules by path and key.
-    /// </summary>
-    /// <param name="path">The validation path.</param>
-    /// <param name="ruleKey">The rule key.</param>
-    /// <returns>The operation result.</returns>
-    public IMappingOperationResult RemoveValidationRule(string path, string ruleKey)
-    {
-        List<IValidationRule> validations = [];
-
-        foreach (IValidationRule rule in _document.Validations)
-        {
-            bool samePath = string.Equals(rule.Path, path, StringComparison.Ordinal);
-            bool sameKey = string.Equals(rule.RuleKey, ruleKey, StringComparison.Ordinal);
-
-            if (!samePath || !sameKey)
-            {
-                validations.Add(rule);
-            }
-        }
-
-        _document.Validations = validations;
-        return Success();
-    }
-
-    /// <summary>
     /// Imports DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>
@@ -273,7 +233,6 @@ public sealed class MappingDesignSession : IMappingDesignSession
                 SourceSchemas = _document.SourceSchemas,
                 TargetSchema = _document.TargetSchema,
                 Mappings = transformationDocument.Mappings,
-                Validations = transformationDocument.Validations,
                 Metadata = transformationDocument.Metadata
             };
 

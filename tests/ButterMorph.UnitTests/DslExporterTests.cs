@@ -12,10 +12,10 @@ using ButterMorph.Dsl;
 public sealed class DslExporterTests
 {
     /// <summary>
-    /// Confirms that metadata, nested target mappings and validations are exported.
+    /// Confirms that metadata and nested target mappings are exported.
     /// </summary>
     [Fact]
-    public void ExportWritesMetadataTargetAndValidationBlocks()
+    public void ExportWritesMetadataAndTargetBlocks()
     {
         ITransformationDocument document = new TransformationDocument
         {
@@ -28,10 +28,6 @@ public sealed class DslExporterTests
             [
                 CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Name"),
                 CreateMapping(CreatePath("$source.Customer.Email"), "Customer.Email")
-            ],
-            Validations =
-            [
-                CreateRule("Customer.Name", "required", [])
             ]
         };
 
@@ -49,10 +45,6 @@ public sealed class DslExporterTests
                 Name: $source.Customer.Name
                 Email: $source.Customer.Email
               }
-            }
-
-            validate {
-              Customer.Name: required
             }
             """,
             NormalizeLineEndings(dsl));
@@ -91,13 +83,13 @@ public sealed class DslExporterTests
     /// Confirms that explicit validation assertions are exported.
     /// </summary>
     [Fact]
-    public void ExportWritesValidationAssertions()
+    public void ValidationExportWritesValidationAssertions()
     {
-        ITransformationDocument document = new TransformationDocument
+        IValidationDocument document = new ValidationDocument
         {
-            ValidationPayloadAlias = "source",
-            ValidationSchemaKey = "Order",
-            ValidationAssertions =
+            PayloadAlias = "source",
+            SchemaKey = "Order",
+            Assertions =
             [
                 new ValidationAssertion
                 {
@@ -116,12 +108,12 @@ public sealed class DslExporterTests
             ]
         };
 
-        string dsl = new DslExporter().Export(document);
-        ITransformationDocument parsed = Parse(dsl);
+        string dsl = new ValidationDslExporter().Export(document);
+        IValidationDocument parsed = ParseValidation(dsl);
 
         Assert.Contains("validate $source against Order", dsl, System.StringComparison.Ordinal);
         Assert.Contains("assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", dsl, System.StringComparison.Ordinal);
-        Assert.Single(parsed.ValidationAssertions);
+        Assert.Single(parsed.Assertions);
     }
 
     /// <summary>
@@ -192,11 +184,6 @@ public sealed class DslExporterTests
                 CreateMapping(CreateArrayExpression(), "Codes"),
                 CreateMapping(CreateScalarCollection(), "Tags"),
                 CreateMapping(CreatePath("$source.Orders[0].Id"), "Orders[0].Id")
-            ],
-            Validations =
-            [
-                CreateRule("Customer.Display", "required", []),
-                CreateRule("Customer.Display", "min", [CreateNumber("2")])
             ]
         };
 
@@ -205,11 +192,31 @@ public sealed class DslExporterTests
 
         Assert.Equal(document.Metadata, parsed.Metadata);
         Assert.Equal(document.Mappings.Count, parsed.Mappings.Count);
-        Assert.Equal(document.Validations.Count, parsed.Validations.Count);
         Assert.Contains(parsed.Mappings, mapping => string.Equals(mapping.TargetPath, "Orders[0].Id", System.StringComparison.Ordinal));
         Assert.IsAssignableFrom<IScalarCollectionLiteralExpression>(parsed.Mappings.ElementAt(5).SourceExpression);
-        Assert.Equal("min", parsed.Validations.ElementAt(1).RuleKey);
-        Assert.Single(parsed.Validations.ElementAt(1).Arguments);
+    }
+
+    /// <summary>
+    /// Confirms that validation DSL exports and parses back into a validation document.
+    /// </summary>
+    [Fact]
+    public void ValidationExportRoundtripPreservesRules()
+    {
+        IValidationDocument document = new ValidationDocument
+        {
+            Rules =
+            [
+                CreateRule("Customer.Display", "required", []),
+                CreateRule("Customer.Display", "min", [CreateNumber("2")])
+            ]
+        };
+
+        string dsl = new ValidationDslExporter().Export(document);
+        IValidationDocument parsed = ParseValidation(dsl);
+
+        Assert.Equal(document.Rules.Count, parsed.Rules.Count);
+        Assert.Equal("min", parsed.Rules.ElementAt(1).RuleKey);
+        Assert.Single(parsed.Rules.ElementAt(1).Arguments);
     }
 
     /// <summary>
@@ -253,6 +260,17 @@ public sealed class DslExporterTests
         });
 
         return Assert.IsAssignableFrom<ITransformationDocument>(document);
+    }
+
+    // Parses DSL text into a validation document.
+    private static IValidationDocument ParseValidation(string dsl)
+    {
+        IDslDocument document = new DslParser().Parse(new DslDefinition
+        {
+            Content = dsl
+        });
+
+        return Assert.IsAssignableFrom<IValidationDocument>(document);
     }
 
     // Creates a transformation mapping.
