@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let dslCodeEditor = null;
   let dslSelectionStart = 0;
   let dslSelectionEnd = 0;
+  let activeBuilderInput = null;
   const workbench = document.querySelector(".bm-workbench");
   const visualForm = document.querySelector("[data-validation-form='true']");
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
@@ -318,6 +319,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function collectVisualForm() {
+    syncAllAssertionRows();
     const data = new FormData(visualForm);
     data.set("ActiveView", "Visual");
     return data;
@@ -505,7 +507,12 @@ document.addEventListener("DOMContentLoaded", function () {
       selectFirstFunctionArgument(input, insertionStart, expressionText);
     }
     input.focus();
-    activeExpressionInput = input;
+    if (input.matches(".bm-expression-input")) {
+      activeExpressionInput = input;
+    } else {
+      activeBuilderInput = input;
+    }
+    updateExpressionOwners(input);
     scheduleVisualSync();
   }
 
@@ -520,7 +527,12 @@ document.addEventListener("DOMContentLoaded", function () {
       selectFirstFunctionArgument(input, 0, expressionText);
     }
     input.focus();
-    activeExpressionInput = input;
+    if (input.matches(".bm-expression-input")) {
+      activeExpressionInput = input;
+    } else {
+      activeBuilderInput = input;
+    }
+    updateExpressionOwners(input);
     scheduleVisualSync();
   }
 
@@ -559,69 +571,300 @@ document.addEventListener("DOMContentLoaded", function () {
     return firstElement;
   }
 
-  function readExpressionSeed(input) {
-    if (!input) {
-      return "";
+  function cloneTemplateElement(selector) {
+    const template = document.querySelector(selector);
+    if (!template) {
+      return null;
     }
-    if (hasTextSelection(input)) {
-      return input.value.substring(input.selectionStart, input.selectionEnd).trim();
-    }
-    return (input.value || "").trim();
+    return template.content.firstElementChild.cloneNode(true);
   }
 
-  function createLogicExpression(kind, seed) {
-    const condition = seed || "gt($source.quantity, 10)";
+  function normalizeSimpleOperator(operatorKey) {
+    if (operatorKey === "required") {
+      return "exists";
+    }
+    const operators = [
+      "exists",
+      "notEmpty",
+      "isEmpty",
+      "eq",
+      "neq",
+      "gt",
+      "gte",
+      "lt",
+      "lte",
+      "contains",
+      "startsWith",
+      "endsWith",
+      "regexMatch"
+    ];
+    return operators.indexOf(operatorKey) >= 0 ? operatorKey : "exists";
+  }
 
-    if (kind === "and") {
-      return "and(" + condition + ", exists($source.id))";
-    }
-    if (kind === "or") {
-      return "or(" + condition + ", eq($source.status, \"Paid\"))";
-    }
-    if (kind === "mixed") {
-      return "and(" + condition + ", or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\")))";
-    }
-    if (kind === "when") {
-      return "when(" + condition + ", and(exists($source.id), gt($source.total, 0)), true)";
-    }
-    if (kind === "not") {
-      return "not(" + condition + ")";
-    }
+  function simpleOperatorNeedsValue(operatorKey) {
+    const normalized = normalizeSimpleOperator(operatorKey);
+    return normalized !== "exists" && normalized !== "isEmpty" && normalized !== "notEmpty";
+  }
 
+  function isDslValueExpression(value) {
+    const text = (value || "").trim();
+    if (text.length === 0) {
+      return false;
+    }
+    if (text.charAt(0) === "$" ||
+      (text.charAt(0) === "\"" && text.charAt(text.length - 1) === "\"") ||
+      (text.charAt(0) === "[" && text.charAt(text.length - 1) === "]") ||
+      (text.charAt(0) === "{" && text.charAt(text.length - 1) === "}") ||
+      /^(true|false|null)$/i.test(text) ||
+      /^-?\d+(?:\.\d+)?$/.test(text)) {
+      return true;
+    }
+    return /^[A-Za-z_][A-Za-z0-9_]*\(.*\)$/.test(text);
+  }
+
+  function writeDslString(value) {
+    return "\"" + String(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, "\\\"")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t") + "\"";
+  }
+
+  function formatDslValue(value) {
+    const text = (value || "").trim();
+    return isDslValueExpression(text) ? text : writeDslString(text);
+  }
+
+  function buildSimpleExpression(fieldPath, operatorKey, value) {
+    const operator = normalizeSimpleOperator(operatorKey);
+    if (!fieldPath) {
+      return "";
+    }
+    if (operator === "notEmpty") {
+      return "not(isEmpty(" + fieldPath + "))";
+    }
+    if (!simpleOperatorNeedsValue(operator)) {
+      return operator + "(" + fieldPath + ")";
+    }
+    if ((value || "").trim().length === 0) {
+      return "";
+    }
+    return operator + "(" + fieldPath + ", " + formatDslValue(value) + ")";
+  }
+
+  function getExpressionOutput(row) {
+    return row ? row.querySelector("[data-expression-output='true']") : null;
+  }
+
+  function getComplexExpressionEditor(row) {
+    return row ? row.querySelector("[data-complex-expression-editor='true']") : null;
+  }
+
+  function updateSimpleValueVisibility(row) {
+    const operator = row ? row.querySelector("[data-simple-operator='true']") : null;
+    const wrapper = row ? row.querySelector("[data-simple-value-wrapper='true']") : null;
+    if (!operator || !wrapper) {
+      return;
+    }
+    wrapper.hidden = !simpleOperatorNeedsValue(operator.value);
+  }
+
+  function updateSimpleExpression(row) {
+    const field = row ? row.querySelector("[data-simple-field='true']") : null;
+    const operator = row ? row.querySelector("[data-simple-operator='true']") : null;
+    const value = row ? row.querySelector("[data-simple-value='true']") : null;
+    const output = getExpressionOutput(row);
+    if (!field || !operator || !value || !output) {
+      return;
+    }
+    updateSimpleValueVisibility(row);
+    output.value = buildSimpleExpression(field.value.trim(), operator.value, value.value.trim());
+  }
+
+  function syncComplexExpression(row) {
+    const editor = getComplexExpressionEditor(row);
+    const output = getExpressionOutput(row);
+    if (!editor || !output) {
+      return;
+    }
+    output.value = editor.value;
+  }
+
+  function setAssertionKind(row) {
+    const kind = row ? row.querySelector("[data-assertion-kind='true']") : null;
+    const simplePanel = row ? row.querySelector("[data-simple-rule-panel='true']") : null;
+    const complexPanel = row ? row.querySelector("[data-complex-assertion-panel='true']") : null;
+    if (!kind || !simplePanel || !complexPanel) {
+      return;
+    }
+    const isSimple = kind.value === "Simple";
+    simplePanel.hidden = !isSimple;
+    complexPanel.hidden = isSimple;
+    if (isSimple) {
+      updateSimpleExpression(row);
+    } else {
+      syncComplexExpression(row);
+    }
+  }
+
+  function readConditionExpression(conditionRow) {
+    const left = conditionRow.querySelector("[data-condition-left='true']");
+    const operator = conditionRow.querySelector("[data-condition-operator='true']");
+    const right = conditionRow.querySelector("[data-condition-right='true']");
+    const fieldPath = left ? left.value.trim() : "";
+    const operatorKey = operator ? normalizeSimpleOperator(operator.value) : "exists";
+    if (!fieldPath) {
+      return "";
+    }
+    if (right) {
+      right.hidden = !simpleOperatorNeedsValue(operatorKey);
+    }
+    return buildSimpleExpression(fieldPath, operatorKey, right ? right.value.trim() : "");
+  }
+
+  function getDirectChild(element, selector) {
+    if (!element) {
+      return null;
+    }
+    const children = Array.prototype.slice.call(element.children);
+    for (let index = 0; index < children.length; index++) {
+      if (children[index].matches(selector)) {
+        return children[index];
+      }
+    }
+    return null;
+  }
+
+  function readConditionGroupExpression(group) {
+    const header = getDirectChild(group, ".bm-condition-group-header");
+    const list = getDirectChild(group, "[data-condition-list='true']");
+    const operator = header ? header.querySelector("[data-group-operator='true']") : null;
+    const parts = [];
+    if (!list) {
+      return "";
+    }
+    Array.prototype.slice.call(list.children).forEach(function (child) {
+      let expression = "";
+      if (child.matches("[data-condition-row='true']")) {
+        expression = readConditionExpression(child);
+      } else if (child.matches("[data-condition-group='true']")) {
+        expression = readConditionGroupExpression(child);
+      }
+      if (expression.length > 0) {
+        parts.push(expression);
+      }
+    });
+    if (parts.length === 0) {
+      return "";
+    }
+    if (parts.length === 1) {
+      return parts[0];
+    }
+    return (operator && operator.value === "or" ? "or" : "and") + "(" + parts.join(", ") + ")";
+  }
+
+  function findPanelRootGroup(panel) {
+    return panel ? getDirectChild(panel, "[data-condition-group='true']") : null;
+  }
+
+  function updateBuilderPanels(builder) {
+    const mode = builder.querySelector("[data-builder-mode='true']");
+    const activeMode = mode ? mode.value : "group";
+    builder.querySelectorAll("[data-builder-panel]").forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-builder-panel") !== activeMode;
+    });
+  }
+
+  function updateBuilderExpression(builder) {
+    const row = builder.closest("[data-assertion-row='true']");
+    const editor = getComplexExpressionEditor(row);
+    const output = getExpressionOutput(row);
+    const mode = builder.querySelector("[data-builder-mode='true']");
+    let expression = "";
+    updateBuilderPanels(builder);
+    if (mode && mode.value === "when") {
+      const conditionGroup = builder.querySelector("[data-when-part='condition']");
+      const thenGroup = builder.querySelector("[data-when-part='then']");
+      const elseGroup = builder.querySelector("[data-when-part='else']");
+      const condition = readConditionGroupExpression(conditionGroup) || "true";
+      const thenExpression = readConditionGroupExpression(thenGroup) || "true";
+      const elseExpression = readConditionGroupExpression(elseGroup) || "true";
+      if (condition !== "true" || thenExpression !== "true" || elseExpression !== "true") {
+        expression = "when(" + condition + ", " + thenExpression + ", " + elseExpression + ")";
+      }
+    } else {
+      expression = readConditionGroupExpression(findPanelRootGroup(builder.querySelector("[data-builder-panel='group']")));
+    }
+    if (expression.length > 0) {
+      if (editor) {
+        editor.value = expression;
+        activeExpressionInput = editor;
+      }
+      if (output) {
+        output.value = expression;
+      }
+    }
+  }
+
+  function addConditionToList(list) {
+    const condition = cloneTemplateElement("[data-condition-row-template='true']");
+    if (condition) {
+      list.appendChild(condition);
+    }
     return condition;
   }
 
-  function findWritableExpressionInput() {
-    if (activeExpressionInput && document.contains(activeExpressionInput)) {
-      return activeExpressionInput;
+  function addGroupToList(list) {
+    const group = cloneTemplateElement("[data-condition-group-template='true']");
+    if (group) {
+      list.appendChild(group);
     }
-
-    const expressionInputs = Array.prototype.slice.call(document.querySelectorAll(".bm-expression-input"));
-    for (let index = expressionInputs.length - 1; index >= 0; index--) {
-      if ((expressionInputs[index].value || "").trim().length === 0) {
-        activeExpressionInput = expressionInputs[index];
-        return activeExpressionInput;
-      }
-    }
-
-    const row = cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
-    if (!row) {
-      return null;
-    }
-
-    activeExpressionInput = row.querySelector(".bm-expression-input");
-    return activeExpressionInput;
+    return group;
   }
 
-  function insertLogicExpression(kind) {
-    const input = findWritableExpressionInput();
-    if (!input) {
+  function syncAssertionRow(row) {
+    const kind = row.querySelector("[data-assertion-kind='true']");
+    if (kind && kind.value === "Simple") {
+      updateSimpleExpression(row);
       return;
     }
+    syncComplexExpression(row);
+  }
 
-    const seed = readExpressionSeed(input);
-    const expression = createLogicExpression(kind, seed);
-    replaceExpressionInput(input, expression, !seed);
+  function syncAllAssertionRows() {
+    document.querySelectorAll("[data-assertion-row='true']").forEach(syncAssertionRow);
+  }
+
+  function initializeAssertionRow(row) {
+    if (!row) {
+      return;
+    }
+    setAssertionKind(row);
+    row.querySelectorAll("[data-condition-operator='true']").forEach(function (operator) {
+      const conditionRow = operator.closest("[data-condition-row='true']");
+      const right = conditionRow ? conditionRow.querySelector("[data-condition-right='true']") : null;
+      if (right) {
+        right.hidden = !simpleOperatorNeedsValue(operator.value);
+      }
+    });
+  }
+
+  function updateExpressionOwners(input) {
+    const row = input.closest("[data-assertion-row='true']");
+    if (!row) {
+      return;
+    }
+    if (input.matches("[data-complex-expression-editor='true']")) {
+      syncComplexExpression(row);
+    }
+    if (input.matches("[data-simple-field='true'], [data-simple-operator='true'], [data-simple-value='true']")) {
+      updateSimpleExpression(row);
+    }
+    const builder = input.closest("[data-condition-builder='true']");
+    if (builder) {
+      updateBuilderExpression(builder);
+    }
   }
 
   function setLeftDockMode(mode) {
@@ -710,6 +953,23 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.addEventListener("input", function (event) {
     if (event.target.matches("[data-validation-input='true']")) {
+      updateExpressionOwners(event.target);
+      scheduleVisualSync();
+    }
+    if (event.target.matches("[data-condition-left='true'], [data-condition-right='true']")) {
+      updateExpressionOwners(event.target);
+      scheduleVisualSync();
+    }
+  });
+  document.addEventListener("change", function (event) {
+    if (event.target.matches("[data-assertion-kind='true']")) {
+      const row = event.target.closest("[data-assertion-row='true']");
+      setAssertionKind(row);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-simple-operator='true'], [data-builder-mode='true'], [data-group-operator='true'], [data-condition-operator='true']")) {
+      updateExpressionOwners(event.target);
       scheduleVisualSync();
     }
   });
@@ -717,14 +977,61 @@ document.addEventListener("DOMContentLoaded", function () {
     if (event.target.matches(".bm-expression-input")) {
       activeExpressionInput = event.target;
     }
+    if (event.target.matches("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true']")) {
+      activeBuilderInput = event.target;
+    }
   });
   document.addEventListener("click", function (event) {
     if (event.target.matches("[data-add-assertion='true']")) {
-      cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
+      initializeAssertionRow(cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']"));
       return;
     }
-    if (event.target.matches("[data-insert-logic]")) {
-      insertLogicExpression(event.target.getAttribute("data-insert-logic") || "");
+    if (event.target.matches("[data-add-condition='true']")) {
+      const group = event.target.closest("[data-condition-group='true']");
+      const list = getDirectChild(group, "[data-condition-list='true']");
+      const condition = list ? addConditionToList(list) : null;
+      if (condition) {
+        const firstInput = condition.querySelector("[data-condition-left='true']");
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+      updateBuilderExpression(event.target.closest("[data-condition-builder='true']"));
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-add-group='true']")) {
+      const group = event.target.closest("[data-condition-group='true']");
+      const list = getDirectChild(group, "[data-condition-list='true']");
+      const nestedGroup = list ? addGroupToList(list) : null;
+      if (nestedGroup) {
+        const firstInput = nestedGroup.querySelector("[data-condition-left='true']");
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+      updateBuilderExpression(event.target.closest("[data-condition-builder='true']"));
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-remove-condition='true']")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const condition = event.target.closest("[data-condition-row='true']");
+      if (condition) {
+        condition.remove();
+      }
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-remove-group='true']")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const group = event.target.closest("[data-condition-group='true']");
+      if (group) {
+        group.remove();
+      }
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
       return;
     }
     if (event.target.matches("[data-remove-row='true']")) {
@@ -744,15 +1051,28 @@ document.addEventListener("DOMContentLoaded", function () {
       hideMessage();
     }
   });
+  document.querySelectorAll("[data-assertion-row='true']").forEach(initializeAssertionRow);
   document.querySelectorAll(".bm-source-field, .bm-source-branch[data-path]").forEach(function (field) {
     field.addEventListener("click", function () {
       const path = field.getAttribute("data-path") || "";
-      if (activeExpressionInput && path) {
+      if (activeBuilderInput && path && document.contains(activeBuilderInput)) {
+        if (hasTextSelection(activeBuilderInput)) {
+          insertIntoExpressionInput(activeBuilderInput, path, false);
+        } else {
+          activeBuilderInput.value = path;
+          activeBuilderInput.focus();
+          updateExpressionOwners(activeBuilderInput);
+          scheduleVisualSync();
+        }
+        return;
+      }
+      if (activeExpressionInput && path && document.contains(activeExpressionInput)) {
         if (hasTextSelection(activeExpressionInput)) {
           insertIntoExpressionInput(activeExpressionInput, path, false);
         } else {
           activeExpressionInput.value = path;
           activeExpressionInput.focus();
+          updateExpressionOwners(activeExpressionInput);
           scheduleVisualSync();
         }
       }
@@ -772,11 +1092,23 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".bm-function-item").forEach(function (functionItem) {
     functionItem.addEventListener("click", function () {
       const template = functionItem.getAttribute("data-function-template") || "";
-      if (activeExpressionInput) {
+      if (activeExpressionInput && document.contains(activeExpressionInput)) {
         if (hasTextSelection(activeExpressionInput)) {
           insertIntoExpressionInput(activeExpressionInput, template, true);
         } else {
           replaceExpressionInput(activeExpressionInput, template, true);
+        }
+        updateExpressionOwners(activeExpressionInput);
+        return;
+      }
+      if (activeBuilderInput && document.contains(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true']")) {
+        if (hasTextSelection(activeBuilderInput)) {
+          insertIntoExpressionInput(activeBuilderInput, template, true);
+        } else {
+          activeBuilderInput.value = template;
+          activeBuilderInput.focus();
+          updateExpressionOwners(activeBuilderInput);
+          scheduleVisualSync();
         }
         return;
       }

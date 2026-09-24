@@ -82,16 +82,34 @@ public sealed class ValidationDesignerModel : PageModel
     public List<string> AssertionExpressions { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets posted assertion kinds.
+    /// </summary>
+    [BindProperty]
+    public List<string> AssertionKinds { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted simple assertion field paths.
+    /// </summary>
+    [BindProperty]
+    public List<string> SimpleFieldPaths { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted simple assertion operators.
+    /// </summary>
+    [BindProperty]
+    public List<string> SimpleOperators { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted simple assertion values.
+    /// </summary>
+    [BindProperty]
+    public List<string> SimpleValues { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets posted assertion messages.
     /// </summary>
     [BindProperty]
     public List<string> AssertionMessages { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted assertion diagnostic paths.
-    /// </summary>
-    [BindProperty]
-    public List<string> AssertionPaths { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the DSL editor content.
@@ -452,22 +470,36 @@ public sealed class ValidationDesignerModel : PageModel
     // Saves posted validation assertions.
     private void SavePostedAssertions(List<IValidationAssertion> assertions, List<DiagnosticEntry> diagnostics)
     {
-        int count = Math.Max(AssertionExpressions.Count, Math.Max(AssertionMessages.Count, AssertionPaths.Count));
+        int count = new[]
+        {
+            CountPostedValues(AssertionKinds),
+            CountPostedValues(AssertionExpressions),
+            CountPostedValues(SimpleFieldPaths),
+            CountPostedValues(SimpleOperators),
+            CountPostedValues(SimpleValues),
+            CountPostedValues(AssertionMessages)
+        }.Max();
 
         for (int index = 0; index < count; index++)
         {
+            string kind = NormalizeAssertionKind(GetPostedValue(AssertionKinds, index));
             string expression = GetPostedValue(AssertionExpressions, index).Trim();
             string message = GetPostedValue(AssertionMessages, index).Trim();
-            string path = GetPostedValue(AssertionPaths, index).Trim();
 
-            if (string.IsNullOrWhiteSpace(expression) && string.IsNullOrWhiteSpace(message) && string.IsNullOrWhiteSpace(path))
+            if (string.Equals(kind, "Simple", StringComparison.Ordinal))
+            {
+                SavePostedSimpleAssertion(index, message, assertions, diagnostics);
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(expression) && string.IsNullOrWhiteSpace(message))
             {
                 continue;
             }
 
             if (string.IsNullOrWhiteSpace(expression))
             {
-                diagnostics.Add(CreateDiagnostic("BVDG006", "Validation assertion expression is required.", path));
+                diagnostics.Add(CreateDiagnostic("BVDG006", "Validation assertion expression is required.", string.Empty));
                 continue;
             }
 
@@ -478,13 +510,59 @@ public sealed class ValidationDesignerModel : PageModel
                 {
                     Expression = assertion.Expression,
                     Message = string.IsNullOrWhiteSpace(message) ? assertion.Message : message,
-                    Path = string.IsNullOrWhiteSpace(path) ? assertion.Path : path
+                    Path = string.Empty
                 });
             }
             catch (FormatException exception)
             {
-                diagnostics.Add(CreateDiagnostic("BVDG007", exception.Message, path));
+                diagnostics.Add(CreateDiagnostic("BVDG007", exception.Message, string.Empty));
             }
+        }
+    }
+
+    // Saves a simple field rule from guided field/operator/value inputs.
+    private void SavePostedSimpleAssertion(
+        int index,
+        string message,
+        List<IValidationAssertion> assertions,
+        List<DiagnosticEntry> diagnostics)
+    {
+        string fieldPath = GetPostedValue(SimpleFieldPaths, index).Trim();
+        string operatorKey = NormalizeSimpleOperator(GetPostedValue(SimpleOperators, index));
+        string value = GetPostedValue(SimpleValues, index).Trim();
+
+        if (string.IsNullOrWhiteSpace(fieldPath) && string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(fieldPath))
+        {
+            diagnostics.Add(CreateDiagnostic("BVDG008", "Simple validation field is required.", string.Empty));
+            return;
+        }
+
+        if (RequiresSimpleValue(operatorKey) && string.IsNullOrWhiteSpace(value))
+        {
+            diagnostics.Add(CreateDiagnostic("BVDG009", "Simple validation value is required.", fieldPath));
+            return;
+        }
+
+        string expression = BuildSimpleAssertionExpression(fieldPath, operatorKey, value);
+
+        try
+        {
+            IValidationAssertion assertion = ParseAssertion(expression, message);
+            assertions.Add(new ValidationAssertion
+            {
+                Expression = assertion.Expression,
+                Message = string.IsNullOrWhiteSpace(message) ? assertion.Message : message,
+                Path = fieldPath
+            });
+        }
+        catch (FormatException exception)
+        {
+            diagnostics.Add(CreateDiagnostic("BVDG010", exception.Message, fieldPath));
         }
     }
 
@@ -549,16 +627,35 @@ public sealed class ValidationDesignerModel : PageModel
 
         foreach (IValidationAssertion assertion in document.Assertions)
         {
-            assertions.Add(new ValidationAssertionDisplayModel
-            {
-                Expression = ExportAssertionExpression(assertion),
-                Message = assertion.Message,
-                Path = assertion.Path
-            });
+            assertions.Add(CreateAssertionDisplay(assertion));
         }
 
-        assertions.Add(new ValidationAssertionDisplayModel());
+        assertions.Add(new ValidationAssertionDisplayModel
+        {
+            Kind = "Simple"
+        });
         return assertions;
+    }
+
+    // Creates one editable assertion row from an existing assertion.
+    private ValidationAssertionDisplayModel CreateAssertionDisplay(IValidationAssertion assertion)
+    {
+        ValidationAssertionDisplayModel display = new()
+        {
+            Kind = "Complex",
+            Expression = ExportAssertionExpression(assertion),
+            Message = assertion.Message
+        };
+
+        if (TryCreateSimpleDisplay(assertion.Expression, out string fieldPath, out string operatorKey, out string value))
+        {
+            display.Kind = "Simple";
+            display.FieldPath = fieldPath;
+            display.Operator = operatorKey;
+            display.Value = value;
+        }
+
+        return display;
     }
 
     // Creates grouped function toolbox display data from registered descriptors.
@@ -689,6 +786,125 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return dsl[start..end].Trim();
+    }
+
+    // Exports an expression by wrapping it in a temporary assertion.
+    private string ExportExpressionText(ITransformationExpression expression)
+    {
+        return ExportAssertionExpression(new ValidationAssertion
+        {
+            Expression = expression,
+            Message = "Expression"
+        });
+    }
+
+    // Reads a simple field rule from an expression when the visual designer can represent it directly.
+    private bool TryCreateSimpleDisplay(
+        ITransformationExpression expression,
+        out string fieldPath,
+        out string operatorKey,
+        out string value)
+    {
+        fieldPath = string.Empty;
+        operatorKey = "exists";
+        value = string.Empty;
+
+        if (expression is not IFunctionCallExpression function)
+        {
+            return false;
+        }
+
+        ITransformationExpression[] arguments = function.Arguments.ToArray();
+        string functionKey = function.FunctionKey;
+
+        if (string.Equals(functionKey, "not", StringComparison.Ordinal) &&
+            arguments.Length == 1 &&
+            arguments[0] is IFunctionCallExpression nested &&
+            string.Equals(nested.FunctionKey, "isEmpty", StringComparison.Ordinal) &&
+            TryReadPathArgument(nested.Arguments.ToArray(), out fieldPath))
+        {
+            operatorKey = "notEmpty";
+            return true;
+        }
+
+        if ((string.Equals(functionKey, "exists", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "isEmpty", StringComparison.Ordinal)) &&
+            TryReadPathArgument(arguments, out fieldPath))
+        {
+            operatorKey = functionKey;
+            return true;
+        }
+
+        if (!TryReadTwoArgumentSimpleOperator(functionKey, arguments, out fieldPath, out value))
+        {
+            return false;
+        }
+
+        operatorKey = NormalizeSimpleOperator(functionKey);
+        return true;
+    }
+
+    // Reads a single path argument.
+    private static bool TryReadPathArgument(IReadOnlyList<ITransformationExpression> arguments, out string fieldPath)
+    {
+        fieldPath = string.Empty;
+
+        if (arguments.Count != 1 || arguments[0] is not IPathExpression path)
+        {
+            return false;
+        }
+
+        fieldPath = path.Path;
+        return true;
+    }
+
+    // Reads a two-argument simple operator call.
+    private bool TryReadTwoArgumentSimpleOperator(
+        string functionKey,
+        IReadOnlyList<ITransformationExpression> arguments,
+        out string fieldPath,
+        out string value)
+    {
+        fieldPath = string.Empty;
+        value = string.Empty;
+
+        if (!IsTwoArgumentSimpleOperator(functionKey) ||
+            arguments.Count != 2 ||
+            arguments[0] is not IPathExpression path)
+        {
+            return false;
+        }
+
+        fieldPath = path.Path;
+        value = ReadSimpleValue(arguments[1]);
+        return true;
+    }
+
+    // Reads a simple right-hand value for display.
+    private string ReadSimpleValue(ITransformationExpression expression)
+    {
+        if (expression is IPathExpression path)
+        {
+            return path.Path;
+        }
+
+        if (expression is IScalarLiteralExpression scalar)
+        {
+            if (scalar.Value.IsNull)
+            {
+                return "null";
+            }
+
+            if (string.Equals(scalar.Value.DataType, "Boolean", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(scalar.Value.DataType, "Number", StringComparison.OrdinalIgnoreCase))
+            {
+                return scalar.Value.RawValue;
+            }
+
+            return scalar.Value.RawValue;
+        }
+
+        return ExportExpressionText(expression);
     }
 
     // Resolves fallback message text when a host does not provide one.
@@ -885,15 +1101,135 @@ public sealed class ValidationDesignerModel : PageModel
         return "Operation failed.";
     }
 
+    // Normalizes assertion kind values posted by the designer.
+    private static string NormalizeAssertionKind(string kind)
+    {
+        if (string.Equals(kind, "Simple", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Simple";
+        }
+
+        return "Complex";
+    }
+
+    // Normalizes simple operator aliases.
+    private static string NormalizeSimpleOperator(string operatorKey)
+    {
+        string normalized = (operatorKey ?? string.Empty).Trim();
+
+        return normalized switch
+        {
+            "required" => "exists",
+            "eq" => "eq",
+            "neq" => "neq",
+            "gt" => "gt",
+            "gte" => "gte",
+            "lt" => "lt",
+            "lte" => "lte",
+            "contains" => "contains",
+            "startsWith" => "startsWith",
+            "endsWith" => "endsWith",
+            "regexMatch" => "regexMatch",
+            "isEmpty" => "isEmpty",
+            "notEmpty" => "notEmpty",
+            _ => "exists"
+        };
+    }
+
+    // Builds the expression used by a simple field rule.
+    private static string BuildSimpleAssertionExpression(string fieldPath, string operatorKey, string value)
+    {
+        string normalizedOperator = NormalizeSimpleOperator(operatorKey);
+
+        if (string.Equals(normalizedOperator, "notEmpty", StringComparison.Ordinal))
+        {
+            return "not(isEmpty(" + fieldPath + "))";
+        }
+
+        if (!RequiresSimpleValue(normalizedOperator))
+        {
+            return normalizedOperator + "(" + fieldPath + ")";
+        }
+
+        return normalizedOperator + "(" + fieldPath + ", " + FormatSimpleValue(value) + ")";
+    }
+
+    // Indicates whether a simple operator needs a right-hand value.
+    private static bool RequiresSimpleValue(string operatorKey)
+    {
+        return !string.Equals(NormalizeSimpleOperator(operatorKey), "exists", StringComparison.Ordinal) &&
+            !string.Equals(NormalizeSimpleOperator(operatorKey), "isEmpty", StringComparison.Ordinal) &&
+            !string.Equals(NormalizeSimpleOperator(operatorKey), "notEmpty", StringComparison.Ordinal);
+    }
+
+    // Indicates whether an expression function can be represented as a two-argument simple rule.
+    private static bool IsTwoArgumentSimpleOperator(string functionKey)
+    {
+        return string.Equals(functionKey, "eq", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "neq", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "gt", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "gte", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "lt", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "lte", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "contains", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "startsWith", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "endsWith", StringComparison.Ordinal) ||
+            string.Equals(functionKey, "regexMatch", StringComparison.Ordinal);
+    }
+
+    // Formats a simple right-hand value as DSL.
+    private static string FormatSimpleValue(string value)
+    {
+        string trimmed = value.Trim();
+
+        if (IsDslValueExpression(trimmed))
+        {
+            return trimmed;
+        }
+
+        return WriteString(trimmed);
+    }
+
+    // Detects values that are already DSL expressions instead of raw string literals.
+    private static bool IsDslValueExpression(string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        if (value.StartsWith("$", StringComparison.Ordinal) ||
+            (value.StartsWith("\"", StringComparison.Ordinal) && value.EndsWith("\"", StringComparison.Ordinal)) ||
+            (value.StartsWith("[", StringComparison.Ordinal) && value.EndsWith("]", StringComparison.Ordinal)) ||
+            (value.StartsWith("{", StringComparison.Ordinal) && value.EndsWith("}", StringComparison.Ordinal)) ||
+            string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(value, "null", StringComparison.OrdinalIgnoreCase) ||
+            double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+        {
+            return true;
+        }
+
+        int openIndex = value.IndexOf('(', StringComparison.Ordinal);
+
+        return openIndex > 0 && value.EndsWith(")", StringComparison.Ordinal);
+    }
+
     // Gets a posted value by index without throwing for uneven lists.
     private static string GetPostedValue(IReadOnlyList<string> values, int index)
     {
-        if (index >= values.Count)
+        if (values == null || index >= values.Count)
         {
             return string.Empty;
         }
 
-        return values[index];
+        return values[index] ?? string.Empty;
+    }
+
+    // Counts posted values without throwing for missing form lists.
+    private static int CountPostedValues(IReadOnlyCollection<string> values)
+    {
+        return values?.Count ?? 0;
     }
 
     // Creates an error diagnostic.
