@@ -183,7 +183,14 @@
                     <section class="bm-validation-section">
                         <div class="bm-validation-section-header">
                             <h3>Assertions</h3>
-                            <button type="button" data-add-assertion="true">Add assertion</button>
+                            <div class="bm-validation-section-actions">
+                                <button type="button" data-insert-logic="and" title="Wrap expression with AND">AND</button>
+                                <button type="button" data-insert-logic="or" title="Wrap expression with OR">OR</button>
+                                <button type="button" data-insert-logic="mixed" title="Insert mixed AND/OR expression">AND/OR</button>
+                                <button type="button" data-insert-logic="when" title="Insert conditional validation">WHEN</button>
+                                <button type="button" data-insert-logic="not" title="Wrap expression with NOT">NOT</button>
+                                <button type="button" data-add-assertion="true">Add assertion</button>
+                            </div>
                         </div>
                         <div class="bm-validation-grid" data-assertion-list="true">
                             @foreach (var assertion in Model.Assertions)

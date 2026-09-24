@@ -115,12 +115,45 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("Invoice source", html, StringComparison.Ordinal);
         Assert.Contains("data-function-template=\"gte(argument0, argument1)\"", html, StringComparison.Ordinal);
         Assert.Contains("validation-designer.js", html, StringComparison.Ordinal);
+        Assert.Contains("data-insert-logic=\"and\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-insert-logic=\"or\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-insert-logic=\"mixed\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-insert-logic=\"when\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-insert-logic=\"not\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Field Rules", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-rule-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Payload alias", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Schema key", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Output schema", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Save mappings", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the validation designer syncs mixed logical assertion expressions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerSyncsMixedLogicalExpressions()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=invoice-logic-sync");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=invoice-logic-sync&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("AssertionExpressions", "and(gt($invoice.Header.Total, 0), or(eq($payment.Payment.Method, \"Wire\"), eq($payment.Payment.Method, \"Card\")))"),
+                new KeyValuePair<string, string>("AssertionMessages", "Invoice total and payment method must be valid."),
+                new KeyValuePair<string, string>("AssertionPaths", "$invoice.Header.Total")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        string dsl = ReadString(json, "dslContent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
+        Assert.Contains("assert and(gt($invoice.Header.Total, 0), or(eq($payment.Payment.Method, \"Wire\"), eq($payment.Payment.Method, \"Card\")))", dsl, StringComparison.Ordinal);
     }
 
     /// <summary>

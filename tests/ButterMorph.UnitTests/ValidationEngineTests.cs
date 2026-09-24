@@ -113,6 +113,85 @@ public sealed class ValidationEngineTests
         Assert.Empty(result.Diagnostics);
     }
 
+    /// <summary>
+    /// Confirms that validation assertions can mix AND and OR in one expression.
+    /// </summary>
+    [Fact]
+    public void ValidateExecutesMixedLogicalAssertionExpressions()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        ValidationRequest request = new()
+        {
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["order"] = ReadJson("{\"total\":1200,\"status\":\"Draft\"}"),
+                ["payment"] = ReadJson("{\"amount\":1200}")
+            },
+            Definition = new ValidationDocument
+            {
+                Assertions =
+                [
+                    new ValidationAssertion
+                    {
+                        Expression = Function(
+                            "and",
+                            Function("gt", Path("$order.total"), Number("1000")),
+                            Function(
+                                "or",
+                                Function("eq", Path("$order.status"), Text("Paid")),
+                                Function("eq", Path("$payment.amount"), Path("$order.total")))),
+                        Message = "Order total and settlement state must be valid.",
+                        Path = "$order.total"
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
+    /// Confirms that validation assertions can branch with nested conditional expressions.
+    /// </summary>
+    [Fact]
+    public void ValidateExecutesConditionalAssertionExpressions()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        ValidationRequest request = new()
+        {
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["order"] = ReadJson("{\"total\":1200}"),
+                ["payment"] = ReadJson("{\"amount\":100}")
+            },
+            Definition = new ValidationDocument
+            {
+                Assertions =
+                [
+                    new ValidationAssertion
+                    {
+                        Expression = new ConditionalExpression
+                        {
+                            Condition = Function("gt", Path("$order.total"), Number("1000")),
+                            ThenExpression = Function("eq", Path("$payment.amount"), Path("$order.total")),
+                            ElseExpression = Boolean(true)
+                        },
+                        Message = "High value orders require a matching payment.",
+                        Path = "$order.total"
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMVL004" && diagnostic.Path == "$order.total");
+    }
+
     // Creates a validation engine with real path resolution.
     private static ValidationEngine CreateEngine(IValidationRuleRegistry registry)
     {
@@ -126,6 +205,12 @@ public sealed class ValidationEngineTests
         NavigationEngine navigationEngine = new(pathResolver);
         FunctionRegistry functionRegistry = new();
         functionRegistry.Register("gt", new GreaterThanFunction());
+        functionRegistry.Register("eq", new EqualToFunction());
+        functionRegistry.Register("and", new AndFunction());
+        functionRegistry.Register("or", new OrFunction());
+        functionRegistry.Register("not", new NotFunction());
+        functionRegistry.Register("exists", new ExistsFunction());
+        functionRegistry.Register("isEmpty", new IsEmptyFunction());
         TransformationExpressionEvaluator evaluator = new(navigationEngine, pathResolver, functionRegistry);
 
         return new ValidationEngine(pathResolver, registry, new SchemaValidator(), evaluator, new ExecutionContextFactory());
@@ -212,6 +297,67 @@ public sealed class ValidationEngineTests
             Format = "json",
             Content = json
         });
+    }
+
+    // Creates a function call expression.
+    private static ITransformationExpression Function(string key, params ITransformationExpression[] arguments)
+    {
+        return new FunctionCallExpression
+        {
+            FunctionKey = key,
+            Arguments = arguments
+        };
+    }
+
+    // Creates a path expression.
+    private static ITransformationExpression Path(string path)
+    {
+        return new PathExpression
+        {
+            Path = path
+        };
+    }
+
+    // Creates a number literal expression.
+    private static ITransformationExpression Number(string value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "Number",
+                RawValue = value,
+                IsNull = false
+            }
+        };
+    }
+
+    // Creates a text literal expression.
+    private static ITransformationExpression Text(string value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "String",
+                RawValue = value,
+                IsNull = false
+            }
+        };
+    }
+
+    // Creates a boolean literal expression.
+    private static ITransformationExpression Boolean(bool value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "Boolean",
+                RawValue = value ? "true" : "false",
+                IsNull = false
+            }
+        };
     }
 
     // Confirms that a validation result contains a diagnostic code.

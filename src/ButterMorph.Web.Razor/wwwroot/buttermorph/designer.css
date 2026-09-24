@@ -2129,6 +2129,27 @@ li.CodeMirror-hint-active {
   margin: 0;
 }
 
+.bm-validation-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.bm-validation-section-actions [data-insert-logic] {
+  background-color: #eef2ff;
+  border-color: #dbe4ff;
+  color: var(--bm-primary);
+  font-size: 0.74rem;
+  min-height: 28px;
+  padding: 0.18rem 0.5rem;
+}
+
+.bm-validation-section-actions [data-insert-logic]:hover {
+  background-color: #e0e7ff;
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
 .bm-validation-grid {
   display: flex;
   flex-direction: column;
