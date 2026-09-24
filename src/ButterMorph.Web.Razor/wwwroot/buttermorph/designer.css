@@ -2088,19 +2088,20 @@ li.CodeMirror-hint-active {
 .bm-validation-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
   min-height: 100%;
 }
 
 .bm-validation-row label,
 .bm-condition-builder label {
-  color: var(--bm-muted);
+  color: #646a86;
   display: flex;
   flex-direction: column;
-  font-size: 0.76rem;
-  font-weight: 700;
-  gap: 0.35rem;
-  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 650;
+  gap: 0.26rem;
+  line-height: 1.2;
+  text-transform: none;
 }
 
 .bm-validation-row input,
@@ -2108,18 +2109,52 @@ li.CodeMirror-hint-active {
 .bm-validation-row textarea,
 .bm-condition-builder input,
 .bm-condition-builder select {
-  font-size: 0.9rem;
+  background-color: #ffffff;
+  border: 1px solid #d9ddea;
+  border-radius: 6px;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: #171a2f;
+  font-size: 0.83rem;
   font-weight: 500;
+  min-height: 32px;
+  padding: 0.34rem 0.5rem;
   text-transform: none;
+  width: 100%;
+}
+
+.bm-validation-row select,
+.bm-condition-builder select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #68708d 50%),
+    linear-gradient(135deg, #68708d 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  padding-right: 1.65rem;
+}
+
+.bm-validation-row input:focus,
+.bm-validation-row select:focus,
+.bm-validation-row textarea:focus,
+.bm-condition-builder input:focus,
+.bm-condition-builder select:focus {
+  border-color: rgba(79, 70, 229, 0.55);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  outline: none;
 }
 
 .bm-validation-section {
-  border: 1px solid var(--bm-border);
-  border-radius: 8px;
+  background-color: #f7f8fd;
+  border: 1px solid #dde1ee;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.85rem;
+  gap: 0.85rem;
+  padding: 0.8rem;
 }
 
 .bm-validation-section-header {
@@ -2130,7 +2165,8 @@ li.CodeMirror-hint-active {
 }
 
 .bm-validation-section-header h3 {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
+  font-weight: 750;
   margin: 0;
 }
 
@@ -2142,37 +2178,59 @@ li.CodeMirror-hint-active {
 }
 
 .bm-validation-grid {
+  counter-reset: validation-rule;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.8rem;
 }
 
 .bm-validation-row {
-  border: 1px solid var(--bm-border);
-  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #d8dceb;
+  border-radius: 9px;
+  box-shadow: 0 8px 20px rgba(26, 26, 46, 0.045);
+  counter-increment: validation-rule;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.7rem;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.bm-validation-row::before {
+  background: #fbfcff;
+  border-bottom: 1px solid #eaedf7;
+  color: #59617e;
+  content: "Rule " counter(validation-rule);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: 0.52rem 0.7rem;
 }
 
 .bm-validation-row-top {
   align-items: end;
   display: grid;
-  gap: 0.65rem;
-  grid-template-columns: minmax(170px, 0.5fr) minmax(260px, 1fr) auto;
+  gap: 0.6rem;
+  grid-template-columns: minmax(150px, 0.45fr) minmax(260px, 1fr) auto;
+  padding: 0.68rem 0.7rem 0;
 }
 
 .bm-simple-rule-panel {
   align-items: end;
+  border-top: 1px solid #eef1f8;
   display: grid;
-  gap: 0.65rem;
-  grid-template-columns: minmax(240px, 1fr) minmax(170px, 0.55fr) minmax(220px, 0.8fr);
+  gap: 0.6rem;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(170px, 0.65fr) minmax(180px, 0.85fr);
+  margin: 0.65rem 0.7rem 0.7rem;
+  padding-top: 0.62rem;
 }
 
 .bm-complex-assertion-panel {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.65rem;
+  margin: 0.65rem 0.7rem 0.7rem;
 }
 
 .bm-validation-row[data-rule-kind="simple"] .bm-complex-assertion-panel,
@@ -2182,22 +2240,24 @@ li.CodeMirror-hint-active {
 
 .bm-complex-expression textarea {
   min-height: 74px;
+  font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+  font-size: 0.78rem;
   resize: vertical;
 }
 
 .bm-condition-builder,
 .bm-advanced-expression {
-  border-top: 1px solid var(--bm-border);
-  padding-top: 0.65rem;
+  border-top: 1px solid #eef1f8;
+  padding-top: 0.55rem;
 }
 
 .bm-condition-builder summary,
 .bm-advanced-expression summary {
-  color: var(--bm-primary);
+  color: #4f46e5;
   cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: none;
 }
 
 .bm-advanced-expression label {
@@ -2206,8 +2266,8 @@ li.CodeMirror-hint-active {
 
 .bm-condition-builder-body {
   display: grid;
-  gap: 0.7rem;
-  padding-top: 0.7rem;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
 }
 
 .bm-condition-mode {
@@ -2215,11 +2275,12 @@ li.CodeMirror-hint-active {
 }
 
 .bm-condition-group {
-  border: 1px solid var(--bm-border);
+  background-color: #fbfcff;
+  border: 1px solid #e1e5f2;
   border-radius: 8px;
   display: grid;
-  gap: 0.65rem;
-  padding: 0.65rem;
+  gap: 0.6rem;
+  padding: 0.6rem;
 }
 
 .bm-condition-group .bm-condition-group {
@@ -2230,7 +2291,7 @@ li.CodeMirror-hint-active {
   align-items: end;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.5rem;
   justify-content: space-between;
 }
 
@@ -2241,7 +2302,7 @@ li.CodeMirror-hint-active {
 .bm-condition-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
 .bm-condition-actions button,
@@ -2253,13 +2314,13 @@ li.CodeMirror-hint-active {
 
 .bm-condition-list {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .bm-condition-row {
   align-items: end;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
   grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) minmax(180px, 1fr) auto;
 }
 
@@ -2273,13 +2334,29 @@ li.CodeMirror-hint-active {
 }
 
 .bm-condition-branch h4 {
-  font-size: 0.78rem;
+  color: #59617e;
+  font-size: 0.74rem;
+  font-weight: 750;
   margin: 0;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .bm-validation-row-remove {
+  background-color: #ffffff;
+  border-color: #d9ddea;
+  color: #30354f;
+  font-size: 0.78rem;
+  min-height: 32px;
+  padding: 0.28rem 0.66rem;
   white-space: nowrap;
+}
+
+.bm-validation-section-actions button {
+  background-color: #ffffff;
+  border-color: #d8dceb;
+  font-size: 0.8rem;
+  min-height: 32px;
+  padding: 0.3rem 0.72rem;
 }
 
 body[data-bm-theme-mode="dark"] .bm-validation-section,
