@@ -18,6 +18,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ICapabilityExplorer, CapabilityExplorer>();
         services.AddTransient<IMappingDesignSessionFactory, MappingDesignSessionFactory>();
         services.AddSingleton<IMappingDesignSessionStore, MappingDesignSessionStore>();
+        services.AddTransient<IValidationDesignSessionFactory, ValidationDesignSessionFactory>();
+        services.AddSingleton<IValidationDesignSessionStore, ValidationDesignSessionStore>();
 
         return services;
     }

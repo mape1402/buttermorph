@@ -2081,6 +2081,91 @@ li.CodeMirror-hint-active {
   resize: none;
 }
 
+.bm-validation-workbench .bm-designer-surface {
+  overflow: auto;
+}
+
+.bm-validation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 100%;
+}
+
+.bm-validation-scope {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+}
+
+.bm-validation-scope label,
+.bm-validation-row label {
+  color: var(--bm-muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.76rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  text-transform: uppercase;
+}
+
+.bm-validation-scope input,
+.bm-validation-row input {
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.bm-validation-section {
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.bm-validation-section-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bm-validation-section-header h3 {
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.bm-validation-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.bm-validation-row {
+  align-items: end;
+  border: 1px solid var(--bm-border);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 0.8fr) minmax(150px, 1fr) auto;
+  padding: 0.7rem;
+}
+
+.bm-validation-row-assertion {
+  grid-template-columns: minmax(240px, 1.4fr) minmax(220px, 1fr) minmax(160px, 0.8fr) auto;
+}
+
+.bm-validation-row-remove {
+  white-space: nowrap;
+}
+
+body[data-bm-theme-mode="dark"] .bm-validation-section,
+body[data-bm-theme-mode="dark"] .bm-validation-row {
+  border-color: var(--bm-border);
+}
+
 @media (max-width: 1100px) {
   .bm-schema-legacy-workbench {
     grid-template-columns: 1fr;
@@ -2090,6 +2175,12 @@ li.CodeMirror-hint-active {
   .bm-schema-legacy-field-main,
   .bm-schema-legacy-add-root,
   .bm-schema-legacy-nested-add {
+    grid-template-columns: 1fr;
+  }
+
+  .bm-validation-scope,
+  .bm-validation-row,
+  .bm-validation-row-assertion {
     grid-template-columns: 1fr;
   }
 }

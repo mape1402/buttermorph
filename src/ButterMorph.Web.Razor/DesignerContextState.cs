@@ -11,4 +11,7 @@ internal sealed class DesignerContextState
 
     // Stores source metadata for the current designer context.
     internal Dictionary<string, ButterMorphDesignerSourceMetadata> SourceMetadata { get; } = new(StringComparer.Ordinal);
+
+    // Stores source schemas for designers whose documents do not own schemas.
+    internal Dictionary<string, ButterMorph.Abstractions.IStructureSchema> SourceSchemas { get; } = new(StringComparer.Ordinal);
 }

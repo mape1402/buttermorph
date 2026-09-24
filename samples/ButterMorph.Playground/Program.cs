@@ -16,10 +16,12 @@ builder.Services.AddButterMorphJsonSchema();
 builder.Services.AddButterMorphSchemaDesign();
 builder.Services.AddButterMorphRazorDesigner();
 builder.Services.AddSingleton<PlaygroundMappingStore>();
+builder.Services.AddSingleton<PlaygroundValidationStore>();
 builder.Services.AddSingleton<PlaygroundSchemaStore>();
 builder.Services.AddSingleton<PlaygroundDesignerHost>();
 builder.Services.AddSingleton<PlaygroundSchemaDesignerHost>();
 builder.Services.AddSingleton<IButterMorphDesignerHost>(provider => provider.GetRequiredService<PlaygroundDesignerHost>());
+builder.Services.AddSingleton<IButterMorphValidationDesignerHost>(provider => provider.GetRequiredService<PlaygroundDesignerHost>());
 builder.Services.AddSingleton<IButterMorphSchemaDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
 builder.Services.AddSingleton<IButterMorphSchemaTypeDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
 builder.Services.AddSingleton<IButterMorphFieldMetadataDesignerHost>(provider => provider.GetRequiredService<PlaygroundSchemaDesignerHost>());
@@ -91,6 +93,17 @@ app.MapGet("/playground/saves/{contextKey}", (string contextKey, PlaygroundMappi
 
     return Results.Json(CreateMappingView(contextKey, string.Empty, string.Empty, 0, host));
 });
+app.MapGet("/playground/validations/{contextKey}", (string contextKey, PlaygroundDesignerHost host) =>
+{
+    PlaygroundValidationView view = host.CreateValidationView(contextKey);
+
+    if (string.Equals(view.DisplayName, "Unknown scenario", StringComparison.Ordinal))
+    {
+        return Results.BadRequest(view);
+    }
+
+    return Results.Json(view);
+});
 app.MapPost("/playground/execute/{contextKey}", async (
     string contextKey,
     PlaygroundDesignerHost host,
@@ -134,10 +147,9 @@ app.MapPost("/playground/execute/{contextKey}", async (
     PlaygroundExecutionResult executionResult = ExecuteScenario(contextKey, sourceJson, document, mappingCount, engine);
     return Results.Json(executionResult);
 });
-app.MapPost("/playground/validate/{contextKey}", async (
+app.MapPost("/playground/validate-schema/{contextKey}", async (
     string contextKey,
     PlaygroundDesignerHost host,
-    PlaygroundMappingStore store,
     IButterMorphEngine engine,
     HttpRequest request) =>
 {
@@ -165,16 +177,88 @@ app.MapPost("/playground/validate/{contextKey}", async (
 
     sourceJson = await ResolvePostedSources(request, sourceJson);
 
-    ITransformationDocument document = loadResult.InitialDocument;
-    int mappingCount = document.Mappings.Count;
-
-    if (store.TryGet(contextKey, out PlaygroundMappingSave save))
+    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, loadResult.InitialDocument.Mappings.Count, engine);
+    return Results.Json(validationResult);
+});
+app.MapPost("/playground/validate/{contextKey}", async (
+    string contextKey,
+    PlaygroundDesignerHost host,
+    IButterMorphEngine engine,
+    HttpRequest request) =>
+{
+    if (!host.TryCreateLoadResult(contextKey, out ButterMorphDesignerLoadResult loadResult))
     {
-        document = save.Document;
-        mappingCount = save.MappingCount;
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Unknown playground scenario '" + contextKey + "'."]
+        });
     }
 
-    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, mappingCount, engine);
+    if (!host.TryGetSourceJson(contextKey, out IReadOnlyDictionary<string, string> sourceJson))
+    {
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Source data is not available for '" + contextKey + "'."]
+        });
+    }
+
+    sourceJson = await ResolvePostedSources(request, sourceJson);
+    PlaygroundExecutionResult validationResult = ValidateScenario(contextKey, sourceJson, loadResult.SourceSchemas, loadResult.InitialDocument.Mappings.Count, engine);
+    return Results.Json(validationResult);
+});
+app.MapPost("/playground/validate-rules/{contextKey}", async (
+    string contextKey,
+    PlaygroundDesignerHost host,
+    PlaygroundValidationStore validationStore,
+    IButterMorphEngine engine,
+    HttpRequest request) =>
+{
+    if (!host.TryCreateLoadResult(contextKey, out ButterMorphDesignerLoadResult mappingLoadResult) ||
+        !host.TryCreateValidationLoadResult(contextKey, out ButterMorphValidationDesignerLoadResult validationLoadResult))
+    {
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Unknown playground scenario '" + contextKey + "'."]
+        });
+    }
+
+    if (!host.TryGetSourceJson(contextKey, out IReadOnlyDictionary<string, string> sourceJson))
+    {
+        return Results.BadRequest(new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = false,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            Diagnostics = ["Source data is not available for '" + contextKey + "'."]
+        });
+    }
+
+    sourceJson = await ResolvePostedSources(request, sourceJson);
+    IValidationDocument document = validationLoadResult.InitialDocument;
+    int validationCount = document.Rules.Count + document.Assertions.Count;
+
+    if (validationStore.TryGet(contextKey, out PlaygroundValidationSave save))
+    {
+        document = save.Document;
+        validationCount = save.ValidationCount;
+    }
+
+    PlaygroundExecutionResult validationResult = ValidateValidationDocumentScenario(
+        contextKey,
+        sourceJson,
+        mappingLoadResult.SourceSchemas,
+        document,
+        validationCount,
+        engine);
     return Results.Json(validationResult);
 });
 app.MapButterMorphDesigner("/buttermorph");
@@ -201,7 +285,7 @@ public partial class Program
     header { background:#111827; border-radius:10px; color:#fff; padding:1rem 1.2rem; }
     h1 { font-size:1.5rem; margin:0; }
     p { color:#5b6478; margin:.35rem 0 0; }
-    .layout { display:grid; gap:1rem; grid-template-columns:320px minmax(0,1fr); }
+    .layout { display:grid; gap:1rem; grid-template-columns:320px minmax(0,1fr) minmax(0,1fr); }
     .scenarios { display:grid; gap:.7rem; }
     .scenario { background:#fff; border:1px solid #cfd7e6; border-radius:9px; color:#111827; cursor:pointer; padding:.75rem; text-align:left; }
     .scenario strong { display:block; }
@@ -257,11 +341,24 @@ public partial class Program
         </div>
         <textarea readonly data-result-dsl placeholder="Select a scenario to load its mapping."></textarea>
       </section>
+      <section>
+        <h2>Validation document</h2>
+        <div class="meta">
+          <span data-validation-context>No context selected</span>
+          <span data-validation-time>Not saved yet</span>
+          <span data-validation-count>0 validations</span>
+        </div>
+        <div class="actions">
+          <button type="button" data-edit-validation disabled>Edit validations</button>
+        </div>
+        <textarea readonly data-validation-dsl placeholder="Select a scenario to load its validation document."></textarea>
+      </section>
     </div>
     <section data-execution-panel hidden>
       <h2>Execution</h2>
       <div class="execution-actions">
-        <button type="button" class="secondary" data-validate disabled>Validate</button>
+        <button type="button" class="secondary" data-validate-schema disabled>Validate schema</button>
+        <button type="button" class="secondary" data-validate-rules disabled>Validate rules</button>
         <button type="button" data-execute disabled>Execute</button>
       </div>
       <div class="meta">
@@ -316,6 +413,10 @@ public partial class Program
       const url = "/buttermorph/designer" + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
       window.ButterMorphHost.openFrame(url, { title: "ButterMorph Mapping Designer", width: 1480, height: 900 });
     }
+    function openValidationDesigner(contextKey) {
+      const url = "/buttermorph/validations/designer" + queryMarker + "context=" + encodeURIComponent(contextKey) + "&popup=true&returnUrl=/";
+      window.ButterMorphHost.openFrame(url, { title: "ButterMorph Validation Designer", width: 1480, height: 900 });
+    }
     function openSchemaDesigner(contextKey) {
       const schemaButton = document.querySelector("[data-schema-context-button='" + contextKey + "']");
       let path = "/buttermorph/payload-schema/designer";
@@ -361,6 +462,9 @@ public partial class Program
     async function loadSave(contextKey) {
       await loadMapping(contextKey);
     }
+    async function loadValidationSave(contextKey) {
+      await loadMapping(contextKey);
+    }
     async function loadSchema(contextKey) {
       const response = await fetch("/playground/schemas/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
       const schema = await response.json();
@@ -382,6 +486,8 @@ public partial class Program
       const saved = await response.json();
       const mappingResponse = await fetch("/playground/mappings/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
       const mapping = await mappingResponse.json();
+      const validationResponse = await fetch("/playground/validations/" + encodeURIComponent(contextKey), { credentials: "same-origin" });
+      const validation = await validationResponse.json();
       selectedContext = contextKey;
       document.querySelectorAll("[data-context]").forEach(button => {
         let pressed = "false";
@@ -394,8 +500,14 @@ public partial class Program
       document.querySelector("[data-result-time]").textContent = saved.savedAt || mapping.savedAt || "Initial mapping";
       document.querySelector("[data-result-count]").textContent = (mapping.mappingCount || 0) + " mappings";
       document.querySelector("[data-result-dsl]").value = mapping.dslContent || "";
+      document.querySelector("[data-validation-context]").textContent = validation.displayName || contextKey;
+      document.querySelector("[data-validation-time]").textContent = validation.savedAt || "Initial validations";
+      document.querySelector("[data-validation-count]").textContent = (validation.validationCount || 0) + " validations";
+      document.querySelector("[data-validation-dsl]").value = validation.dslContent || "";
       document.querySelector("[data-edit]").disabled = false;
-      document.querySelector("[data-validate]").disabled = false;
+      document.querySelector("[data-edit-validation]").disabled = false;
+      document.querySelector("[data-validate-schema]").disabled = false;
+      document.querySelector("[data-validate-rules]").disabled = false;
       document.querySelector("[data-execute]").disabled = false;
       document.querySelector("[data-execution-panel]").hidden = false;
       document.querySelector("[data-execution-context]").textContent = mapping.displayName || contextKey;
@@ -440,7 +552,7 @@ public partial class Program
       renderSources(result.sources || {});
       document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n");
     }
-    async function validateMapping() {
+    async function validateSchema() {
       if (!selectedContext) {
         return;
       }
@@ -449,7 +561,7 @@ public partial class Program
         formData.append("SourceKeys", sourceBox.getAttribute("data-source-key") || "");
         formData.append("SourceJsonValues", sourceBox.value || "");
       });
-      const response = await fetch("/playground/validate/" + encodeURIComponent(selectedContext), {
+      const response = await fetch("/playground/validate-schema/" + encodeURIComponent(selectedContext), {
         method: "POST",
         credentials: "same-origin",
         body: formData
@@ -462,6 +574,29 @@ public partial class Program
       document.querySelector("[data-output-json]").value = "";
       renderSources(result.sources || {});
       document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n") || (result.succeeded ? "Validation passed" : "");
+    }
+    async function validateRules() {
+      if (!selectedContext) {
+        return;
+      }
+      const formData = new FormData();
+      document.querySelectorAll("[data-source-json]").forEach(sourceBox => {
+        formData.append("SourceKeys", sourceBox.getAttribute("data-source-key") || "");
+        formData.append("SourceJsonValues", sourceBox.value || "");
+      });
+      const response = await fetch("/playground/validate-rules/" + encodeURIComponent(selectedContext), {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData
+      });
+      const result = await response.json();
+      document.querySelector("[data-execution-panel]").hidden = false;
+      document.querySelector("[data-execution-context]").textContent = result.contextKey || selectedContext;
+      document.querySelector("[data-execution-time]").textContent = result.executedAt || "Not validated";
+      document.querySelector("[data-execution-status]").textContent = result.succeeded ? "Validation rules passed" : "Validation rules failed";
+      document.querySelector("[data-output-json]").value = "";
+      renderSources(result.sources || {});
+      document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n") || (result.succeeded ? "Validation rules passed" : "");
     }
     function renderSources(sources) {
       const sourceContainer = document.querySelector("[data-source-output]");
@@ -482,7 +617,9 @@ public partial class Program
       }
     }
     document.querySelector("[data-edit]").addEventListener("click", () => openDesigner(selectedContext));
-    document.querySelector("[data-validate]").addEventListener("click", validateMapping);
+    document.querySelector("[data-edit-validation]").addEventListener("click", () => openValidationDesigner(selectedContext));
+    document.querySelector("[data-validate-schema]").addEventListener("click", validateSchema);
+    document.querySelector("[data-validate-rules]").addEventListener("click", validateRules);
     document.querySelector("[data-execute]").addEventListener("click", executeMapping);
     window.addEventListener("message", event => {
       if (event.origin !== window.location.origin || !event.data) {
@@ -491,10 +628,16 @@ public partial class Program
       if (event.data.type === "ButterMorphDesignerSaved") {
         loadSave(event.data.contextKey);
       }
+      if (event.data.type === "ButterMorphValidationDesignerSaved") {
+        loadValidationSave(event.data.contextKey);
+      }
     });
     const savedContext = new URLSearchParams(window.location.search).get("buttermorphSavedContext");
+    const validationSavedContext = new URLSearchParams(window.location.search).get("buttermorphValidationSavedContext");
     loadScenarios().then(() => {
-      if (savedContext) {
+      if (validationSavedContext) {
+        loadValidationSave(validationSavedContext);
+      } else if (savedContext) {
         loadSave(savedContext);
       }
     });
@@ -654,6 +797,60 @@ public partial class Program
         };
     }
 
+    // Validates playground source payloads against a validation document.
+    private static PlaygroundExecutionResult ValidateValidationDocumentScenario(
+        string contextKey,
+        IReadOnlyDictionary<string, string> sourceJson,
+        IReadOnlyDictionary<string, IStructureSchema> sourceSchemas,
+        IValidationDocument document,
+        int validationCount,
+        IButterMorphEngine engine)
+    {
+        JsonReader reader = new();
+        Dictionary<string, IStructureGraph> sources = new(StringComparer.Ordinal);
+        List<DiagnosticEntry> diagnostics = [];
+
+        foreach (KeyValuePair<string, string> source in sourceJson)
+        {
+            try
+            {
+                sources[source.Key] = reader.Read(new StructureInput
+                {
+                    Format = "json",
+                    Content = source.Value
+                });
+            }
+            catch (JsonException exception)
+            {
+                diagnostics.Add(CreateDiagnostic("BMPG001", exception.Message, source.Key));
+            }
+        }
+
+        Dictionary<string, IStructureSchema> schemas = CreateSchemaLookup(sourceSchemas);
+        string payloadAlias = ResolvePayloadAlias(document.PayloadAlias);
+        sources.TryGetValue(payloadAlias, out IStructureGraph payloadGraph);
+        ValidationResult result = engine.Validate(new ValidationRequest
+        {
+            SourceGraph = payloadGraph,
+            PayloadAlias = payloadAlias,
+            Sources = sources,
+            Schemas = schemas,
+            Definition = document
+        });
+        diagnostics.AddRange(result.Diagnostics);
+
+        return new PlaygroundExecutionResult
+        {
+            ContextKey = contextKey,
+            Succeeded = diagnostics.Count == 0,
+            ExecutedAt = DateTimeOffset.UtcNow.ToString("O"),
+            MappingCount = validationCount,
+            Sources = sourceJson,
+            OutputJson = string.Empty,
+            Diagnostics = CreateDiagnosticMessages(diagnostics)
+        };
+    }
+
     // Resolves source JSON values posted from the playground source editors.
     private static async Task<IReadOnlyDictionary<string, string>> ResolvePostedSources(
         HttpRequest request,
@@ -732,6 +929,17 @@ public partial class Program
         }
 
         return schemas;
+    }
+
+    // Resolves a normalized payload alias.
+    private static string ResolvePayloadAlias(string payloadAlias)
+    {
+        if (string.IsNullOrWhiteSpace(payloadAlias))
+        {
+            return "source";
+        }
+
+        return payloadAlias.Trim().TrimStart('$');
     }
 
     // Creates a host diagnostic entry.

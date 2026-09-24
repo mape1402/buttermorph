@@ -88,6 +88,34 @@ public sealed class DesignSessionTests
     }
 
     /// <summary>
+    /// Confirms that validation sessions import and export validation DSL only.
+    /// </summary>
+    [Fact]
+    public void ValidationSessionImportsExportsAndRejectsMappingDsl()
+    {
+        IValidationDesignSession session = new ValidationDesignSession(new DslParser(), new ValidationDslExporter());
+
+        IValidationOperationResult validationResult = session.ImportDsl(
+            """
+            validate $source against Order {
+              assert gt($source.quantity, 10): "Quantity must be greater than 10"
+            }
+            """);
+        string dsl = session.ExportDsl();
+        IValidationOperationResult mappingResult = session.ImportDsl(
+            """
+            target {
+              Name: $source.Name
+            }
+            """);
+
+        Assert.True(validationResult.Succeeded);
+        Assert.Contains("validate $source against Order", dsl, System.StringComparison.Ordinal);
+        Assert.False(mappingResult.Succeeded);
+        Assert.Contains(mappingResult.Diagnostics, diagnostic => diagnostic.Code == "BVDG002");
+    }
+
+    /// <summary>
     /// Confirms that sessions execute semantic analysis.
     /// </summary>
     [Fact]
