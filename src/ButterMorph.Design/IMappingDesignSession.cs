@@ -66,21 +66,6 @@ public interface IMappingDesignSession
     IMappingOperationResult RemoveMapping(string targetPath);
 
     /// <summary>
-    /// Adds a validation rule.
-    /// </summary>
-    /// <param name="rule">The validation rule.</param>
-    /// <returns>The operation result.</returns>
-    IMappingOperationResult AddValidationRule(IValidationRule rule);
-
-    /// <summary>
-    /// Removes validation rules by path and key.
-    /// </summary>
-    /// <param name="path">The validation path.</param>
-    /// <param name="ruleKey">The rule key.</param>
-    /// <returns>The operation result.</returns>
-    IMappingOperationResult RemoveValidationRule(string path, string ruleKey);
-
-    /// <summary>
     /// Imports DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>

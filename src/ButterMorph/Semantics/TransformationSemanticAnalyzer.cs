@@ -14,20 +14,16 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
     // Provides function descriptors for expression analysis.
     private readonly IFunctionRegistry _functionRegistry;
 
-    // Provides validation rule descriptors for rule analysis.
-    private readonly IValidationRuleRegistry _validationRuleRegistry;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="TransformationSemanticAnalyzer"/> class.
     /// </summary>
     /// <param name="schemaPathResolver">The schema path resolver.</param>
     /// <param name="functionRegistry">The function registry.</param>
-    /// <param name="validationRuleRegistry">The validation rule registry.</param>
+    /// <param name="validationRuleRegistry">Reserved for constructor compatibility with existing service registrations.</param>
     public TransformationSemanticAnalyzer(ISchemaPathResolver schemaPathResolver, IFunctionRegistry functionRegistry, IValidationRuleRegistry validationRuleRegistry)
     {
         _schemaPathResolver = schemaPathResolver;
         _functionRegistry = functionRegistry;
-        _validationRuleRegistry = validationRuleRegistry;
     }
 
     /// <summary>
@@ -45,77 +41,11 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
             TryResolveTargetPath(document, mapping.TargetPath, diagnostics);
         }
 
-        foreach (IValidationRule rule in document.Validations)
-        {
-            AnalyzeValidationRule(document, rule, diagnostics);
-        }
-
-        foreach (IValidationAssertion assertion in document.ValidationAssertions)
-        {
-            AnalyzeValidationAssertion(document, assertion, diagnostics);
-        }
-
         return new SemanticAnalysisResult
         {
             Succeeded = diagnostics.Count == 0,
             Diagnostics = diagnostics
         };
-    }
-
-    // Analyzes one boolean validation assertion.
-    private void AnalyzeValidationAssertion(ITransformationDocument document, IValidationAssertion assertion, List<DiagnosticEntry> diagnostics)
-    {
-        ExpressionSemanticShape shape = AnalyzeExpression(document, assertion.Expression, new Dictionary<string, ISchemaNode>(StringComparer.Ordinal), diagnostics, assertion.Path);
-
-        if (shape.ValueKind != FunctionValueKind.Scalar)
-        {
-            diagnostics.Add(CreateDiagnostic("BMSM013", "Validation assertion must produce a scalar boolean result.", assertion.Path));
-        }
-    }
-
-    // Analyzes one validation rule and its typed arguments.
-    private void AnalyzeValidationRule(ITransformationDocument document, IValidationRule rule, List<DiagnosticEntry> diagnostics)
-    {
-        TryResolveTargetPath(document, rule.Path, diagnostics);
-
-        IValidationRuleDescriptor descriptor;
-
-        try
-        {
-            descriptor = _validationRuleRegistry.ResolveDescriptor(rule.RuleKey);
-        }
-        catch (KeyNotFoundException exception)
-        {
-            diagnostics.Add(CreateDiagnostic("BMSM007", exception.Message, rule.Path));
-            return;
-        }
-
-        ValidateValidationArguments(document, rule, descriptor, diagnostics);
-    }
-
-    // Validates validation rule argument count and kinds.
-    private void ValidateValidationArguments(ITransformationDocument document, IValidationRule rule, IValidationRuleDescriptor descriptor, List<DiagnosticEntry> diagnostics)
-    {
-        if (!HasValidCount(rule.Arguments.Count, descriptor.Parameters.Count, CountRequiredValidationParameters(descriptor)))
-        {
-            diagnostics.Add(CreateDiagnostic("BMSM008", $"Validation rule '{rule.RuleKey}' received an invalid argument count.", rule.Path));
-            return;
-        }
-
-        int index = 0;
-
-        foreach (ITransformationExpression argument in rule.Arguments)
-        {
-            IValidationRuleParameterDescriptor parameter = descriptor.Parameters.ElementAt(index);
-            ExpressionSemanticShape shape = AnalyzeExpression(document, argument, new Dictionary<string, ISchemaNode>(StringComparer.Ordinal), diagnostics, rule.Path);
-
-            if (!IsArgumentCompatible(parameter.ValueKind, shape))
-            {
-                diagnostics.Add(CreateDiagnostic("BMSM009", $"Validation rule '{rule.RuleKey}' argument '{parameter.Key}' has an invalid value kind.", rule.Path));
-            }
-
-            index++;
-        }
     }
 
     // Analyzes an expression and infers its value kind.
@@ -342,22 +272,6 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
         int count = 0;
 
         foreach (IFunctionParameterDescriptor parameter in descriptor.Parameters)
-        {
-            if (parameter.IsRequired)
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    // Counts required validation rule parameters.
-    private static int CountRequiredValidationParameters(IValidationRuleDescriptor descriptor)
-    {
-        int count = 0;
-
-        foreach (IValidationRuleParameterDescriptor parameter in descriptor.Parameters)
         {
             if (parameter.IsRequired)
             {

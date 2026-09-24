@@ -57,7 +57,7 @@ public sealed class SchemaModelTests
     }
 
     /// <summary>
-    /// Confirms that transformation documents preserve schemas, validations, and metadata.
+    /// Confirms that transformation documents preserve schemas and metadata.
     /// </summary>
     [Fact]
     public void TransformationDocumentPreservesDesignMetadata()
@@ -80,11 +80,6 @@ public sealed class SchemaModelTests
                 Kind = SchemaNodeKind.Object
             }
         };
-        ValidationRule validation = new()
-        {
-            Path = "Name",
-            RuleKey = "required"
-        };
         TransformationDocument document = new()
         {
             SourceSchemas = new Dictionary<string, IStructureSchema>
@@ -92,10 +87,6 @@ public sealed class SchemaModelTests
                 ["source"] = sourceSchema
             },
             TargetSchema = targetSchema,
-            Validations =
-            [
-                validation
-            ],
             Metadata = new Dictionary<string, string>
             {
                 ["owner"] = "ui"
@@ -104,7 +95,50 @@ public sealed class SchemaModelTests
 
         Assert.Same(sourceSchema, document.SourceSchemas["source"]);
         Assert.Same(targetSchema, document.TargetSchema);
-        Assert.Same(validation, Assert.Single(document.Validations));
         Assert.Equal("ui", document.Metadata["owner"]);
+    }
+
+    /// <summary>
+    /// Confirms that validation documents preserve validation data.
+    /// </summary>
+    [Fact]
+    public void ValidationDocumentPreservesRulesAndAssertions()
+    {
+        ValidationRule validation = new()
+        {
+            Path = "Name",
+            RuleKey = "required"
+        };
+        ValidationAssertion assertion = new()
+        {
+            Expression = new ScalarLiteralExpression
+            {
+                Value = new ScalarValue
+                {
+                    DataType = "Boolean",
+                    RawValue = "true"
+                }
+            },
+            Message = "Must be true.",
+            Path = "$source.Name"
+        };
+        ValidationDocument document = new()
+        {
+            PayloadAlias = "source",
+            SchemaKey = "Customer",
+            Rules =
+            [
+                validation
+            ],
+            Assertions =
+            [
+                assertion
+            ]
+        };
+
+        Assert.Equal("source", document.PayloadAlias);
+        Assert.Equal("Customer", document.SchemaKey);
+        Assert.Same(validation, Assert.Single(document.Rules));
+        Assert.Same(assertion, Assert.Single(document.Assertions));
     }
 }

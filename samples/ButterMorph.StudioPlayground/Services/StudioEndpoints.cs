@@ -275,16 +275,9 @@ internal static class StudioEndpoints
         }
 
         Dictionary<string, IStructureSchema> schemaLookup = CreateSchemaLookup(sourceSchemas);
-        string assertionAlias = ResolveValidationPayloadAlias(mapping.Document);
-        bool hasAssertions = mapping.Document.ValidationAssertions.Count > 0;
 
         foreach (KeyValuePair<string, IStructureGraph> graph in graphs)
         {
-            if (hasAssertions && string.Equals(graph.Key, assertionAlias, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
             if (sourceSchemas.TryGetValue(graph.Key, out IStructureSchema schema))
             {
                 ValidationResult result = engine.Validate(new ValidationRequest
@@ -296,26 +289,6 @@ internal static class StudioEndpoints
                     Schemas = schemaLookup
                 });
                 diagnostics.AddRange(result.Diagnostics);
-            }
-        }
-
-        if (hasAssertions)
-        {
-            if (graphs.TryGetValue(assertionAlias, out IStructureGraph graph))
-            {
-                ValidationResult result = engine.Validate(new ValidationRequest
-                {
-                    SourceGraph = graph,
-                    PayloadAlias = assertionAlias,
-                    Sources = graphs,
-                    Schemas = schemaLookup,
-                    Definition = mapping.Document
-                });
-                diagnostics.AddRange(result.Diagnostics);
-            }
-            else
-            {
-                diagnostics.Add(CreateDiagnostic("BMSP002", "Validation payload '" + assertionAlias + "' was not found.", assertionAlias));
             }
         }
 
@@ -347,16 +320,6 @@ internal static class StudioEndpoints
         }
 
         return schemas;
-    }
-
-    private static string ResolveValidationPayloadAlias(ITransformationDocument document)
-    {
-        if (string.IsNullOrWhiteSpace(document.ValidationPayloadAlias))
-        {
-            return "source";
-        }
-
-        return document.ValidationPayloadAlias.TrimStart('$');
     }
 
     private static string CreateId(string kind)

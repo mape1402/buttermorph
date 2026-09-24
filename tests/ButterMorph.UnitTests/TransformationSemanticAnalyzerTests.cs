@@ -24,10 +24,6 @@ public sealed class TransformationSemanticAnalyzerTests
             CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Name"),
             CreateMapping(CreateConcatExpression(), "Customer.Display"),
             CreateMapping(CreateProjectionExpression(), "OrderIds")
-        ],
-        [
-            CreateRule("Customer.Name", "required", []),
-            CreateRule("Customer.Name", "min", [CreateNumber("2")])
         ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
@@ -68,8 +64,7 @@ public sealed class TransformationSemanticAnalyzerTests
         ITransformationDocument document = CreateDocument(
         [
             CreateMapping(CreatePath("$source.Customer.Unknown"), "Customer.Name")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -86,8 +81,7 @@ public sealed class TransformationSemanticAnalyzerTests
         ITransformationDocument document = CreateDocument(
         [
             CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Unknown")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -111,8 +105,7 @@ public sealed class TransformationSemanticAnalyzerTests
             Mappings =
             [
                 CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Amount")
-            ],
-            Validations = []
+            ]
         };
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
@@ -131,8 +124,7 @@ public sealed class TransformationSemanticAnalyzerTests
         ITransformationDocument document = CreateDocument(
         [
             CreateMapping(CreateConcatExpression(), "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -153,8 +145,7 @@ public sealed class TransformationSemanticAnalyzerTests
                 FunctionKey = "concat",
                 Arguments = []
             }, "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -178,8 +169,7 @@ public sealed class TransformationSemanticAnalyzerTests
                     CreatePath("$source.Customer.Name")
                 ]
             }, "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -200,67 +190,12 @@ public sealed class TransformationSemanticAnalyzerTests
             CreateMapping(CreateFunction("camelCase", [CreatePath("$source.Customer.Name")]), "Customer.Display"),
             CreateMapping(CreateFunction("ToUpper", [CreatePath("$source.Customer.Name")]), "Customer.Display"),
             CreateMapping(CreateFunction("sum", [CreateFunction("split", [CreatePath("$source.Customer.Name"), CreateScalar(",")])]), "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
         Assert.True(result.Succeeded);
         Assert.Empty(result.Diagnostics);
-    }
-
-    /// <summary>
-    /// Confirms that missing validation rule descriptors are reported.
-    /// </summary>
-    [Fact]
-    public void AnalyzeReportsMissingValidationRuleDescriptor()
-    {
-        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), new ValidationRuleRegistry());
-        ITransformationDocument document = CreateDocument(
-        [],
-        [
-            CreateRule("Customer.Name", "required", [])
-        ]);
-
-        SemanticAnalysisResult result = analyzer.Analyze(document);
-
-        AssertDiagnostic(result, "BMSM007");
-    }
-
-    /// <summary>
-    /// Confirms that invalid validation argument count is reported.
-    /// </summary>
-    [Fact]
-    public void AnalyzeReportsValidationArgumentCountMismatch()
-    {
-        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
-        ITransformationDocument document = CreateDocument(
-        [],
-        [
-            CreateRule("Customer.Name", "min", [])
-        ]);
-
-        SemanticAnalysisResult result = analyzer.Analyze(document);
-
-        AssertDiagnostic(result, "BMSM008");
-    }
-
-    /// <summary>
-    /// Confirms that invalid validation argument kind is reported.
-    /// </summary>
-    [Fact]
-    public void AnalyzeReportsValidationArgumentKindMismatch()
-    {
-        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
-        ITransformationDocument document = CreateDocument(
-        [],
-        [
-            CreateRule("Customer.Name", "nodeRule", [CreateNumber("2")])
-        ]);
-
-        SemanticAnalysisResult result = analyzer.Analyze(document);
-
-        AssertDiagnostic(result, "BMSM009");
     }
 
     /// <summary>
@@ -278,8 +213,7 @@ public sealed class TransformationSemanticAnalyzerTests
                 ItemAlias = "item",
                 BodyExpression = CreatePath("item.Id")
             }, "OrderIds")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -296,8 +230,7 @@ public sealed class TransformationSemanticAnalyzerTests
         ITransformationDocument document = CreateDocument(
         [
             CreateMapping(CreateProjectionExpression(), "OrderIds")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -314,8 +247,7 @@ public sealed class TransformationSemanticAnalyzerTests
         ITransformationDocument document = CreateDocument(
         [
             CreateMapping(CreatePath("missing.Id"), "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -337,8 +269,7 @@ public sealed class TransformationSemanticAnalyzerTests
                 ThenExpression = CreatePath("$source.Customer.Name"),
                 ElseExpression = CreatePath("$source.Orders")
             }, "Customer.Display")
-        ],
-        []);
+        ]);
 
         SemanticAnalysisResult result = analyzer.Analyze(document);
 
@@ -352,7 +283,7 @@ public sealed class TransformationSemanticAnalyzerTests
     }
 
     // Creates a document with default source and target schemas.
-    private static ITransformationDocument CreateDocument(IReadOnlyCollection<ITransformationMapping> mappings, IReadOnlyCollection<IValidationRule> rules)
+    private static ITransformationDocument CreateDocument(IReadOnlyCollection<ITransformationMapping> mappings)
     {
         return new TransformationDocument
         {
@@ -361,8 +292,7 @@ public sealed class TransformationSemanticAnalyzerTests
                 ["source"] = CreateSourceSchema()
             },
             TargetSchema = CreateTargetSchema(),
-            Mappings = mappings,
-            Validations = rules
+            Mappings = mappings
         };
     }
 
@@ -670,17 +600,6 @@ public sealed class TransformationSemanticAnalyzerTests
         };
     }
 
-    // Creates a validation rule.
-    private static IValidationRule CreateRule(string path, string ruleKey, IReadOnlyCollection<ITransformationExpression> arguments)
-    {
-        return new ValidationRule
-        {
-            Path = path,
-            RuleKey = ruleKey,
-            Arguments = arguments
-        };
-    }
-
     // Creates a path expression.
     private static IPathExpression CreatePath(string path)
     {
@@ -733,20 +652,6 @@ public sealed class TransformationSemanticAnalyzerTests
             Value = new ScalarValue
             {
                 DataType = "String",
-                RawValue = value,
-                IsNull = false
-            }
-        };
-    }
-
-    // Creates a numeric scalar literal expression.
-    private static IScalarLiteralExpression CreateNumber(string value)
-    {
-        return new ScalarLiteralExpression
-        {
-            Value = new ScalarValue
-            {
-                DataType = "Number",
                 RawValue = value,
                 IsNull = false
             }

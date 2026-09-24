@@ -18,7 +18,25 @@ internal sealed class AstBuilder
         _definition = definition;
     }
 
-    internal ITransformationDocument Build(DocumentNode node)
+    internal IDslDocument Build(DocumentNode node)
+    {
+        bool hasMappings = node.Assignments.Count > 0;
+        bool hasValidations = node.Validations.Count > 0 || node.ValidationAssertions.Count > 0;
+
+        if (hasMappings && hasValidations)
+        {
+            throw new FormatException("Mapping and validation declarations must be stored in separate documents.");
+        }
+
+        if (hasValidations)
+        {
+            return BuildValidationDocument(node);
+        }
+
+        return BuildTransformationDocument(node);
+    }
+
+    private ITransformationDocument BuildTransformationDocument(DocumentNode node)
     {
         ITransformationDocumentBuilder builder = ButterMorphModel.CreateDocument()
             .WithDefinition(_definition);
@@ -33,9 +51,18 @@ internal sealed class AstBuilder
             builder.Map(BuildExpression(assignment.Expression), assignment.TargetPath);
         }
 
+        return builder.Build();
+    }
+
+    private IValidationDocument BuildValidationDocument(DocumentNode node)
+    {
+        IValidationDocumentBuilder builder = ButterMorphModel.CreateValidationDocument()
+            .WithDefinition(_definition)
+            .WithValidationScope(node.ValidationPayloadAlias, node.ValidationSchemaKey);
+
         foreach (ValidationNode validation in node.Validations)
         {
-            builder.WithValidation(new ValidationRule
+            builder.WithRule(new ValidationRule
             {
                 Path = validation.Path,
                 RuleKey = validation.RuleKey,
@@ -43,11 +70,9 @@ internal sealed class AstBuilder
             });
         }
 
-        builder.WithValidationScope(node.ValidationPayloadAlias, node.ValidationSchemaKey);
-
         foreach (ValidationAssertionNode assertion in node.ValidationAssertions)
         {
-            builder.WithValidationAssertion(new ValidationAssertion
+            builder.WithAssertion(new ValidationAssertion
             {
                 Expression = BuildExpression(assertion.Expression),
                 Message = assertion.Message,
