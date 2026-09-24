@@ -184,6 +184,11 @@ document.addEventListener("DOMContentLoaded", function () {
     return [
       { text: "validate {\n  assert gt($source.quantity, 10): \"Quantity must be greater than 10\"\n}", displayText: "validate block", description: "Creates validation assertions." },
       { text: "assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", displayText: "assert", description: "Creates a validation assertion." },
+      { text: "and(gt($source.quantity, 10), exists($source.id))", displayText: "and", description: "Requires every condition to be true." },
+      { text: "or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\"))", displayText: "or", description: "Requires at least one condition to be true." },
+      { text: "and(gt($source.total, 0), or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\")))", displayText: "and/or", description: "Combines AND and OR in one assertion." },
+      { text: "when(eq($source.type, \"VIP\"), and(exists($source.id), gt($source.total, 0)), true)", displayText: "when", description: "Creates a conditional validation expression." },
+      { text: "not(isEmpty($source.id))", displayText: "not", description: "Negates a validation condition." },
       { text: "true", displayText: "true", description: "Boolean literal." },
       { text: "false", displayText: "false", description: "Boolean literal." },
       { text: "null", displayText: "null", description: "Null literal." }
@@ -546,10 +551,77 @@ document.addEventListener("DOMContentLoaded", function () {
     const template = document.querySelector(selector);
     const target = document.querySelector(targetSelector);
     if (!template || !target) {
-      return;
+      return null;
     }
     const fragment = template.content.cloneNode(true);
+    const firstElement = fragment.firstElementChild;
     target.appendChild(fragment);
+    return firstElement;
+  }
+
+  function readExpressionSeed(input) {
+    if (!input) {
+      return "";
+    }
+    if (hasTextSelection(input)) {
+      return input.value.substring(input.selectionStart, input.selectionEnd).trim();
+    }
+    return (input.value || "").trim();
+  }
+
+  function createLogicExpression(kind, seed) {
+    const condition = seed || "gt($source.quantity, 10)";
+
+    if (kind === "and") {
+      return "and(" + condition + ", exists($source.id))";
+    }
+    if (kind === "or") {
+      return "or(" + condition + ", eq($source.status, \"Paid\"))";
+    }
+    if (kind === "mixed") {
+      return "and(" + condition + ", or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\")))";
+    }
+    if (kind === "when") {
+      return "when(" + condition + ", and(exists($source.id), gt($source.total, 0)), true)";
+    }
+    if (kind === "not") {
+      return "not(" + condition + ")";
+    }
+
+    return condition;
+  }
+
+  function findWritableExpressionInput() {
+    if (activeExpressionInput && document.contains(activeExpressionInput)) {
+      return activeExpressionInput;
+    }
+
+    const expressionInputs = Array.prototype.slice.call(document.querySelectorAll(".bm-expression-input"));
+    for (let index = expressionInputs.length - 1; index >= 0; index--) {
+      if ((expressionInputs[index].value || "").trim().length === 0) {
+        activeExpressionInput = expressionInputs[index];
+        return activeExpressionInput;
+      }
+    }
+
+    const row = cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
+    if (!row) {
+      return null;
+    }
+
+    activeExpressionInput = row.querySelector(".bm-expression-input");
+    return activeExpressionInput;
+  }
+
+  function insertLogicExpression(kind) {
+    const input = findWritableExpressionInput();
+    if (!input) {
+      return;
+    }
+
+    const seed = readExpressionSeed(input);
+    const expression = createLogicExpression(kind, seed);
+    replaceExpressionInput(input, expression, !seed);
   }
 
   function setLeftDockMode(mode) {
@@ -649,6 +721,10 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("click", function (event) {
     if (event.target.matches("[data-add-assertion='true']")) {
       cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
+      return;
+    }
+    if (event.target.matches("[data-insert-logic]")) {
+      insertLogicExpression(event.target.getAttribute("data-insert-logic") || "");
       return;
     }
     if (event.target.matches("[data-remove-row='true']")) {
