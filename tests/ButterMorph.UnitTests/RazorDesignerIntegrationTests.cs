@@ -109,6 +109,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Contains("Validation Designer", html, StringComparison.Ordinal);
         Assert.Contains("Save validations", html, StringComparison.Ordinal);
+        Assert.Contains("Validation rules", html, StringComparison.Ordinal);
+        Assert.Contains("Add rule", html, StringComparison.Ordinal);
         Assert.Contains("data-assertion-list=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("gt($invoice.Lines[0].Quantity, 0)", html, StringComparison.Ordinal);
         Assert.Contains("eq($payment.Payment.Amount, $invoice.Header.Total)", html, StringComparison.Ordinal);
@@ -117,13 +119,16 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("validation-designer.js", html, StringComparison.Ordinal);
         Assert.Contains("name=\"AssertionKinds\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"SimpleFieldPaths\"", html, StringComparison.Ordinal);
-        Assert.Contains("Simple field rule", html, StringComparison.Ordinal);
-        Assert.Contains("Complex assertion", html, StringComparison.Ordinal);
+        Assert.Contains("Field rule", html, StringComparison.Ordinal);
+        Assert.Contains("Advanced rule", html, StringComparison.Ordinal);
         Assert.Contains("data-condition-builder=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-builder-mode=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-condition-operator=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"AssertionPaths\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-insert-logic", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Simple field rule", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Complex assertion", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Add assertion", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Field Rules", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-rule-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Payload alias", html, StringComparison.Ordinal);

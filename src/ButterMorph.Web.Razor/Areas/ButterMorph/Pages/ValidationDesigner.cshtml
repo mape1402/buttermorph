@@ -131,7 +131,7 @@
 
                         <div class="bm-dock-content bm-function-content">
                             <div class="bm-function-search">
-                                <input type="search" placeholder="Search functions" data-function-search="true" aria-label="Search functions" />
+                                <input type="search" data-function-search="true" aria-label="Search functions" />
                             </div>
 
                             @if (Model.FunctionCategories.Count == 0)
@@ -175,43 +175,43 @@
                     @Html.AntiForgeryToken()
                     <div class="bm-canvas-header">
                         <div>
-                            <h2>Validation document</h2>
+                            <h2>Validation rules</h2>
                         </div>
                         <button type="submit">Save validations</button>
                     </div>
 
                     <section class="bm-validation-section">
                         <div class="bm-validation-section-header">
-                            <h3>Assertions</h3>
+                            <h3>Rules</h3>
                             <div class="bm-validation-section-actions">
-                                <button type="button" data-add-assertion="true">Add assertion</button>
+                                <button type="button" data-add-assertion="true">Add rule</button>
                             </div>
                         </div>
                         <div class="bm-validation-grid" data-assertion-list="true">
                             @foreach (var assertion in Model.Assertions)
                             {
-                                <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true">
+                                <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true" data-rule-kind="@(assertion.Kind == "Simple" ? "simple" : "advanced")">
                                     <div class="bm-validation-row-top">
                                         <label>
                                             Type
                                             <select name="AssertionKinds" data-assertion-kind="true" data-validation-input="true">
-                                                <option value="Simple" selected="@(assertion.Kind == "Simple" ? "selected" : null)">Simple field rule</option>
-                                                <option value="Complex" selected="@(assertion.Kind != "Simple" ? "selected" : null)">Complex assertion</option>
+                                                <option value="Simple" selected="@(assertion.Kind == "Simple" ? "selected" : null)">Field rule</option>
+                                                <option value="Complex" selected="@(assertion.Kind != "Simple" ? "selected" : null)">Advanced rule</option>
                                             </select>
                                         </label>
                                         <label>
-                                            Message
-                                            <input name="AssertionMessages" value="@assertion.Message" placeholder="Validation message" data-validation-input="true" />
+                                            Error message
+                                            <input name="AssertionMessages" value="@assertion.Message" data-validation-input="true" />
                                         </label>
                                         <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
                                     </div>
                                     <div class="bm-simple-rule-panel" data-simple-rule-panel="true" hidden="@(assertion.Kind != "Simple")">
                                         <label>
-                                            Field
-                                            <input name="SimpleFieldPaths" value="@assertion.FieldPath" placeholder="$source.quantity" data-simple-field="true" data-validation-input="true" />
+                                            Field to validate
+                                            <input name="SimpleFieldPaths" value="@assertion.FieldPath" data-simple-field="true" data-validation-input="true" />
                                         </label>
                                         <label>
-                                            Operator
+                                            Rule
                                             <select name="SimpleOperators" data-simple-operator="true" data-validation-input="true">
                                                 <option value="exists" selected="@(assertion.Operator == "exists" ? "selected" : null)">required / exists</option>
                                                 <option value="notEmpty" selected="@(assertion.Operator == "notEmpty" ? "selected" : null)">not empty</option>
@@ -228,24 +228,20 @@
                                                 <option value="regexMatch" selected="@(assertion.Operator == "regexMatch" ? "selected" : null)">matches regex</option>
                                             </select>
                                         </label>
-                                        <label data-simple-value-wrapper="true">
+                                        <label data-simple-value-wrapper="true" hidden="@(!assertion.RequiresValue ? "hidden" : null)">
                                             Value
-                                            <input name="SimpleValues" value="@assertion.Value" placeholder="10 or $other.field" data-simple-value="true" data-validation-input="true" />
+                                            <input name="SimpleValues" value="@assertion.Value" data-simple-value="true" data-validation-input="true" />
                                         </label>
                                         <input type="hidden" name="AssertionExpressions" value="@assertion.Expression" data-expression-output="true" data-validation-input="true" />
                                     </div>
                                     <div class="bm-complex-assertion-panel" data-complex-assertion-panel="true" hidden="@(assertion.Kind == "Simple")">
-                                        <label class="bm-complex-expression">
-                                            Expression
-                                            <textarea class="bm-expression-input" rows="3" placeholder="and(gt($source.quantity, 10), exists($source.id))" data-complex-expression-editor="true" data-validation-input="true">@assertion.Expression</textarea>
-                                        </label>
-                                        <details class="bm-condition-builder" data-condition-builder="true">
-                                            <summary>Condition builder</summary>
+                                        <details class="bm-condition-builder" data-condition-builder="true" open>
+                                            <summary>Build conditions</summary>
                                             <div class="bm-condition-builder-body">
                                                 <label class="bm-condition-mode">
-                                                    Mode
+                                                    Pattern
                                                     <select data-builder-mode="true">
-                                                        <option value="group">Group</option>
+                                                        <option value="group">Conditions</option>
                                                         <option value="when">If / then / else</option>
                                                     </select>
                                                 </label>
@@ -253,7 +249,7 @@
                                                     <div class="bm-condition-group" data-condition-group="true">
                                                         <div class="bm-condition-group-header">
                                                             <label>
-                                                                Match
+                                                                Combine
                                                                 <select data-group-operator="true">
                                                                     <option value="and">All conditions</option>
                                                                     <option value="or">Any condition</option>
@@ -266,7 +262,7 @@
                                                         </div>
                                                         <div class="bm-condition-list" data-condition-list="true">
                                                             <div class="bm-condition-row" data-condition-row="true">
-                                                                <input data-condition-left="true" placeholder="$source.field" />
+                                                                <input data-condition-left="true" />
                                                                 <select data-condition-operator="true">
                                                                     <option value="exists">required / exists</option>
                                                                     <option value="notEmpty">not empty</option>
@@ -282,7 +278,7 @@
                                                                     <option value="endsWith">ends with</option>
                                                                     <option value="regexMatch">matches regex</option>
                                                                 </select>
-                                                                <input data-condition-right="true" placeholder="value or $other.field" />
+                                                                <input data-condition-right="true" />
                                                                 <button type="button" data-remove-condition="true">Remove</button>
                                                             </div>
                                                         </div>
@@ -294,7 +290,7 @@
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                                             <div class="bm-condition-group-header">
                                                                 <label>
-                                                                    Match
+                                                                    Combine
                                                                     <select data-group-operator="true">
                                                                         <option value="and">All conditions</option>
                                                                         <option value="or">Any condition</option>
@@ -313,7 +309,7 @@
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
                                                             <div class="bm-condition-group-header">
                                                                 <label>
-                                                                    Match
+                                                                    Combine
                                                                     <select data-group-operator="true">
                                                                         <option value="and">All conditions</option>
                                                                         <option value="or">Any condition</option>
@@ -332,7 +328,7 @@
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
                                                             <div class="bm-condition-group-header">
                                                                 <label>
-                                                                    Match
+                                                                    Combine
                                                                     <select data-group-operator="true">
                                                                         <option value="and">All conditions</option>
                                                                         <option value="or">Any condition</option>
@@ -348,6 +344,13 @@
                                                     </section>
                                                 </div>
                                             </div>
+                                        </details>
+                                        <details class="bm-advanced-expression">
+                                            <summary>Advanced DSL</summary>
+                                            <label class="bm-complex-expression">
+                                                Expression
+                                                <textarea class="bm-expression-input" rows="3" data-complex-expression-editor="true" data-validation-input="true">@assertion.Expression</textarea>
+                                            </label>
                                         </details>
                                     </div>
                                 </div>
@@ -383,28 +386,28 @@
     </main>
 
     <template data-assertion-template="true">
-        <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true">
+        <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true" data-rule-kind="simple">
             <div class="bm-validation-row-top">
                 <label>
                     Type
                     <select name="AssertionKinds" data-assertion-kind="true" data-validation-input="true">
-                        <option value="Simple" selected>Simple field rule</option>
-                        <option value="Complex">Complex assertion</option>
+                        <option value="Simple" selected>Field rule</option>
+                        <option value="Complex">Advanced rule</option>
                     </select>
                 </label>
                 <label>
-                    Message
-                    <input name="AssertionMessages" placeholder="Validation message" data-validation-input="true" />
+                    Error message
+                    <input name="AssertionMessages" data-validation-input="true" />
                 </label>
                 <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
             </div>
             <div class="bm-simple-rule-panel" data-simple-rule-panel="true">
                 <label>
-                    Field
-                    <input name="SimpleFieldPaths" placeholder="$source.quantity" data-simple-field="true" data-validation-input="true" />
+                    Field to validate
+                    <input name="SimpleFieldPaths" data-simple-field="true" data-validation-input="true" />
                 </label>
                 <label>
-                    Operator
+                    Rule
                     <select name="SimpleOperators" data-simple-operator="true" data-validation-input="true">
                         <option value="exists">required / exists</option>
                         <option value="notEmpty">not empty</option>
@@ -423,22 +426,18 @@
                 </label>
                 <label data-simple-value-wrapper="true" hidden>
                     Value
-                    <input name="SimpleValues" placeholder="10 or $other.field" data-simple-value="true" data-validation-input="true" />
+                    <input name="SimpleValues" data-simple-value="true" data-validation-input="true" />
                 </label>
                 <input type="hidden" name="AssertionExpressions" data-expression-output="true" data-validation-input="true" />
             </div>
             <div class="bm-complex-assertion-panel" data-complex-assertion-panel="true" hidden>
-                <label class="bm-complex-expression">
-                    Expression
-                    <textarea class="bm-expression-input" rows="3" placeholder="and(gt($source.quantity, 10), exists($source.id))" data-complex-expression-editor="true" data-validation-input="true"></textarea>
-                </label>
-                <details class="bm-condition-builder" data-condition-builder="true">
-                    <summary>Condition builder</summary>
+                <details class="bm-condition-builder" data-condition-builder="true" open>
+                    <summary>Build conditions</summary>
                     <div class="bm-condition-builder-body">
                         <label class="bm-condition-mode">
-                            Mode
+                            Pattern
                             <select data-builder-mode="true">
-                                <option value="group">Group</option>
+                                <option value="group">Conditions</option>
                                 <option value="when">If / then / else</option>
                             </select>
                         </label>
@@ -446,7 +445,7 @@
                             <div class="bm-condition-group" data-condition-group="true">
                                 <div class="bm-condition-group-header">
                                     <label>
-                                        Match
+                                        Combine
                                         <select data-group-operator="true">
                                             <option value="and">All conditions</option>
                                             <option value="or">Any condition</option>
@@ -459,7 +458,7 @@
                                 </div>
                                 <div class="bm-condition-list" data-condition-list="true">
                                     <div class="bm-condition-row" data-condition-row="true">
-                                        <input data-condition-left="true" placeholder="$source.field" />
+                                        <input data-condition-left="true" />
                                         <select data-condition-operator="true">
                                             <option value="exists">required / exists</option>
                                             <option value="notEmpty">not empty</option>
@@ -475,7 +474,7 @@
                                             <option value="endsWith">ends with</option>
                                             <option value="regexMatch">matches regex</option>
                                         </select>
-                                        <input data-condition-right="true" placeholder="value or $other.field" />
+                                        <input data-condition-right="true" />
                                         <button type="button" data-remove-condition="true">Remove</button>
                                     </div>
                                 </div>
@@ -487,7 +486,7 @@
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                     <div class="bm-condition-group-header">
                                         <label>
-                                            Match
+                                            Combine
                                             <select data-group-operator="true">
                                                 <option value="and">All conditions</option>
                                                 <option value="or">Any condition</option>
@@ -506,7 +505,7 @@
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
                                     <div class="bm-condition-group-header">
                                         <label>
-                                            Match
+                                            Combine
                                             <select data-group-operator="true">
                                                 <option value="and">All conditions</option>
                                                 <option value="or">Any condition</option>
@@ -525,7 +524,7 @@
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
                                     <div class="bm-condition-group-header">
                                         <label>
-                                            Match
+                                            Combine
                                             <select data-group-operator="true">
                                                 <option value="and">All conditions</option>
                                                 <option value="or">Any condition</option>
@@ -542,13 +541,20 @@
                         </div>
                     </div>
                 </details>
+                <details class="bm-advanced-expression">
+                    <summary>Advanced DSL</summary>
+                    <label class="bm-complex-expression">
+                        Expression
+                        <textarea class="bm-expression-input" rows="3" data-complex-expression-editor="true" data-validation-input="true"></textarea>
+                    </label>
+                </details>
             </div>
         </div>
     </template>
 
     <template data-condition-row-template="true">
         <div class="bm-condition-row" data-condition-row="true">
-            <input data-condition-left="true" placeholder="$source.field" />
+            <input data-condition-left="true" />
             <select data-condition-operator="true">
                 <option value="exists">required / exists</option>
                 <option value="notEmpty">not empty</option>
@@ -564,7 +570,7 @@
                 <option value="endsWith">ends with</option>
                 <option value="regexMatch">matches regex</option>
             </select>
-            <input data-condition-right="true" placeholder="value or $other.field" />
+            <input data-condition-right="true" />
             <button type="button" data-remove-condition="true">Remove</button>
         </div>
     </template>
@@ -573,7 +579,7 @@
         <div class="bm-condition-group" data-condition-group="true">
             <div class="bm-condition-group-header">
                 <label>
-                    Match
+                    Combine
                     <select data-group-operator="true">
                         <option value="and">All conditions</option>
                         <option value="or">Any condition</option>
@@ -587,7 +593,7 @@
             </div>
             <div class="bm-condition-list" data-condition-list="true">
                 <div class="bm-condition-row" data-condition-row="true">
-                    <input data-condition-left="true" placeholder="$source.field" />
+                    <input data-condition-left="true" />
                     <select data-condition-operator="true">
                         <option value="exists">required / exists</option>
                         <option value="notEmpty">not empty</option>
@@ -603,7 +609,7 @@
                         <option value="endsWith">ends with</option>
                         <option value="regexMatch">matches regex</option>
                     </select>
-                    <input data-condition-right="true" placeholder="value or $other.field" />
+                    <input data-condition-right="true" />
                     <button type="button" data-remove-condition="true">Remove</button>
                 </div>
             </div>

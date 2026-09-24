@@ -397,7 +397,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const diagnosticsCount = readValue(response, "diagnosticsCount") || 0;
     const shouldShowDslAction = !!showDslAction && diagnosticsCount > 0;
     if (text) {
-      text.textContent = message || (diagnosticsCount > 0 ? "Validation document has errors." : "Ready.");
+      text.textContent = message || (diagnosticsCount > 0 ? "Validation rules have errors." : "Ready.");
     }
     if (count) {
       count.textContent = diagnosticsCount > 0 ? diagnosticsCount + " diagnostics" : "Ready";
@@ -699,6 +699,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     const isSimple = kind.value === "Simple";
+    row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
     simplePanel.hidden = !isSimple;
     complexPanel.hidden = isSimple;
     if (isSimple) {
