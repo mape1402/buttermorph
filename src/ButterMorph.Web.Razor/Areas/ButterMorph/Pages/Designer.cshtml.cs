@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using System.Globalization;
-using System.Text.Json;
 
 /// <summary>
 /// Displays and edits mapping definitions.
@@ -186,42 +185,6 @@ public sealed class DesignerModel : PageModel
     public string DslContent { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the validation payload alias.
-    /// </summary>
-    [BindProperty]
-    public string ValidationPayloadAlias { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the validation schema key.
-    /// </summary>
-    [BindProperty]
-    public string ValidationSchemaKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets posted validation function keys.
-    /// </summary>
-    [BindProperty]
-    public List<string> ValidationFunctions { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted validation left expressions.
-    /// </summary>
-    [BindProperty]
-    public List<string> ValidationLeftExpressions { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted validation right expressions.
-    /// </summary>
-    [BindProperty]
-    public List<string> ValidationRightExpressions { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted validation messages.
-    /// </summary>
-    [BindProperty]
-    public List<string> ValidationMessages { get; set; } = [];
-
-    /// <summary>
     /// Gets or sets the active designer view.
     /// </summary>
     [BindProperty]
@@ -251,34 +214,6 @@ public sealed class DesignerModel : PageModel
     /// Gets the current mappings.
     /// </summary>
     public IReadOnlyCollection<MappingDisplayModel> Mappings { get; private set; } = [];
-
-    /// <summary>
-    /// Gets the current validation assertions.
-    /// </summary>
-    public IReadOnlyCollection<ValidationAssertionDisplayModel> ValidationAssertions { get; private set; } = [];
-
-    /// <summary>
-    /// Gets function keys commonly used for visual validation assertions.
-    /// </summary>
-    public IReadOnlyCollection<string> ValidationFunctionKeys { get; } =
-    [
-        "exists",
-        "isNull",
-        "isEmpty",
-        "eq",
-        "neq",
-        "gt",
-        "gte",
-        "lt",
-        "lte",
-        "regexMatch",
-        "contains",
-        "startsWith",
-        "endsWith",
-        "and",
-        "or",
-        "not"
-    ];
 
     /// <summary>
     /// Gets target schema fields with editable mapping expressions.
@@ -538,49 +473,6 @@ public sealed class DesignerModel : PageModel
         LoadViewState();
 
         return new JsonResult(CreateSyncResponse(Diagnostics.Count == 0, Message));
-    }
-
-    /// <summary>
-    /// Saves visual validation assertions.
-    /// </summary>
-    /// <returns>The page result.</returns>
-    public async Task<IActionResult> OnPostSaveValidationAssertions()
-    {
-        ActiveView = "Validations";
-        IReadOnlyCollection<DiagnosticEntry> diagnostics = SavePostedValidationAssertions();
-
-        if (diagnostics.Count == 0)
-        {
-            RunSemanticDiagnostics();
-
-            if (Diagnostics.Count == 0)
-            {
-                bool hostSaved = await SaveHostState();
-
-                if (hostSaved)
-                {
-                    if (string.Equals(Message, "Mappings saved.", StringComparison.Ordinal))
-                    {
-                        Message = "Validations saved.";
-                    }
-
-                    ResolveHostCompletionState();
-                }
-            }
-            else
-            {
-                Message = "Validation has errors. Open the DSL view to review diagnostics.";
-            }
-        }
-        else
-        {
-            Message = "Some validations could not be saved. Open the DSL view to review diagnostics.";
-            Diagnostics = diagnostics;
-        }
-
-        LoadViewState();
-
-        return Page();
     }
 
     /// <summary>
@@ -864,9 +756,6 @@ public sealed class DesignerModel : PageModel
         SourceNodes = sourceNodes;
         SourceSchemas = sourceSchemas;
         FunctionCategories = CreateFunctionCategories();
-        ValidationPayloadAlias = ResolveValidationPayloadAlias(document, sourceSchemas);
-        ValidationSchemaKey = ResolveValidationSchemaKey(document, ValidationPayloadAlias);
-        ValidationAssertions = CreateValidationAssertions(document);
         TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
         TargetFields = CreateTargetFields(TargetNodes, Mappings);
@@ -1214,79 +1103,6 @@ public sealed class DesignerModel : PageModel
         return rows;
     }
 
-    // Creates editable display rows for validation assertions.
-    private IReadOnlyCollection<ValidationAssertionDisplayModel> CreateValidationAssertions(ITransformationDocument document)
-    {
-        List<ValidationAssertionDisplayModel> rows = [];
-
-        foreach (IValidationAssertion assertion in document.ValidationAssertions)
-        {
-            if (assertion.Expression is IFunctionCallExpression functionCall)
-            {
-                ITransformationExpression[] arguments = [.. functionCall.Arguments];
-                rows.Add(new ValidationAssertionDisplayModel
-                {
-                    FunctionKey = functionCall.FunctionKey,
-                    LeftExpression = arguments.Length > 0 ? ExportExpressionValue(arguments[0]) : string.Empty,
-                    RightExpression = arguments.Length > 1 ? ExportExpressionValue(arguments[1]) : string.Empty,
-                    Message = assertion.Message
-                });
-                continue;
-            }
-
-            rows.Add(new ValidationAssertionDisplayModel
-            {
-                FunctionKey = "exists",
-                LeftExpression = ExportExpressionValue(assertion.Expression),
-                Message = assertion.Message
-            });
-        }
-
-        return rows;
-    }
-
-    // Resolves the validation payload alias shown in the visual editor.
-    private static string ResolveValidationPayloadAlias(
-        ITransformationDocument document,
-        IReadOnlyCollection<SourceSchemaDisplayModel> sourceSchemas)
-    {
-        if (document.ValidationAssertions.Count == 0 && sourceSchemas.Count == 1)
-        {
-            foreach (SourceSchemaDisplayModel sourceSchema in sourceSchemas)
-            {
-                return sourceSchema.Key;
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(document.ValidationPayloadAlias))
-        {
-            return document.ValidationPayloadAlias.TrimStart('$');
-        }
-
-        foreach (SourceSchemaDisplayModel sourceSchema in sourceSchemas)
-        {
-            return sourceSchema.Key;
-        }
-
-        return "source";
-    }
-
-    // Resolves the validation schema key shown in the visual editor.
-    private static string ResolveValidationSchemaKey(ITransformationDocument document, string payloadAlias)
-    {
-        if (!string.IsNullOrWhiteSpace(document.ValidationSchemaKey))
-        {
-            return document.ValidationSchemaKey;
-        }
-
-        if (!string.IsNullOrWhiteSpace(payloadAlias))
-        {
-            return payloadAlias.TrimStart('$');
-        }
-
-        return "source";
-    }
-
     // Creates a target path to expression lookup.
     private Dictionary<string, string> CreateExpressionDictionary(ITransformationDocument document)
     {
@@ -1399,164 +1215,6 @@ public sealed class DesignerModel : PageModel
 
             expressions[CreateProjectionFieldKey(targetPath, fieldPath)] = ExportExpressionValue(property.Expression);
         }
-    }
-
-    // Saves posted validation assertions into the current document.
-    private IReadOnlyCollection<DiagnosticEntry> SavePostedValidationAssertions()
-    {
-        List<DiagnosticEntry> diagnostics = [];
-        List<IValidationAssertion> assertions = [];
-        int count = Math.Max(
-            ValidationFunctions.Count,
-            Math.Max(
-                ValidationLeftExpressions.Count,
-                Math.Max(ValidationRightExpressions.Count, ValidationMessages.Count)));
-
-        for (int index = 0; index < count; index++)
-        {
-            string functionKey = GetPostedValue(ValidationFunctions, index).Trim();
-            string leftExpression = GetPostedValue(ValidationLeftExpressions, index).Trim();
-            string rightExpression = GetPostedValue(ValidationRightExpressions, index).Trim();
-            string message = GetPostedValue(ValidationMessages, index).Trim();
-
-            if (string.IsNullOrWhiteSpace(functionKey) &&
-                string.IsNullOrWhiteSpace(leftExpression) &&
-                string.IsNullOrWhiteSpace(rightExpression) &&
-                string.IsNullOrWhiteSpace(message))
-            {
-                continue;
-            }
-
-            string path = string.IsNullOrWhiteSpace(leftExpression)
-                ? "validation[" + index.ToString(CultureInfo.InvariantCulture) + "]"
-                : leftExpression;
-
-            if (string.IsNullOrWhiteSpace(functionKey))
-            {
-                diagnostics.Add(CreateDiagnostic("BMWV001", "Validation function is required.", path));
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(leftExpression))
-            {
-                diagnostics.Add(CreateDiagnostic("BMWV002", "Validation left expression is required.", path));
-                continue;
-            }
-
-            List<ITransformationExpression> arguments =
-            [
-                CreateValidationOperand(leftExpression)
-            ];
-
-            if (!IsUnaryValidationFunction(functionKey))
-            {
-                if (string.IsNullOrWhiteSpace(rightExpression))
-                {
-                    diagnostics.Add(CreateDiagnostic("BMWV003", "Validation right expression is required for '" + functionKey + "'.", path));
-                    continue;
-                }
-
-                arguments.Add(CreateValidationOperand(rightExpression));
-            }
-
-            assertions.Add(new ButterMorph.Core.ValidationAssertion
-            {
-                Path = leftExpression,
-                Message = string.IsNullOrWhiteSpace(message) ? "Validation assertion failed." : message,
-                Expression = new ButterMorph.Core.FunctionCallExpression
-                {
-                    FunctionKey = functionKey,
-                    Arguments = arguments
-                }
-            });
-        }
-
-        if (diagnostics.Count > 0)
-        {
-            return diagnostics;
-        }
-
-        IMappingOperationResult result = Session.SetValidationAssertions(ValidationPayloadAlias, ValidationSchemaKey, assertions);
-
-        if (!result.Succeeded)
-        {
-            diagnostics.AddRange(result.Diagnostics);
-        }
-
-        return diagnostics;
-    }
-
-    // Creates an expression from visual validation text.
-    private static ITransformationExpression CreateValidationOperand(string text)
-    {
-        string value = text.Trim();
-
-        if (value.StartsWith("$", StringComparison.Ordinal))
-        {
-            return new ButterMorph.Core.PathExpression
-            {
-                Path = value
-            };
-        }
-
-        if (string.Equals(value, "null", StringComparison.OrdinalIgnoreCase))
-        {
-            return CreateScalarLiteral("Null", string.Empty, true);
-        }
-
-        if (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
-        {
-            return CreateScalarLiteral("Boolean", value.ToLowerInvariant(), false);
-        }
-
-        if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal number))
-        {
-            return CreateScalarLiteral("Number", number.ToString(CultureInfo.InvariantCulture), false);
-        }
-
-        return CreateScalarLiteral("String", UnquoteValidationString(value), false);
-    }
-
-    // Creates a scalar literal expression.
-    private static ITransformationExpression CreateScalarLiteral(string dataType, string rawValue, bool isNull)
-    {
-        return new ButterMorph.Core.ScalarLiteralExpression
-        {
-            Value = new ButterMorph.Core.ScalarValue
-            {
-                DataType = dataType,
-                RawValue = rawValue,
-                IsNull = isNull
-            }
-        };
-    }
-
-    // Removes optional JSON-style quotes from a visual string literal.
-    private static string UnquoteValidationString(string value)
-    {
-        if (value.Length < 2 || value[0] != '"' || value[^1] != '"')
-        {
-            return value;
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<string>(value) ?? string.Empty;
-        }
-        catch (JsonException)
-        {
-            return value[1..^1];
-        }
-    }
-
-    // Determines whether a validation function uses one visual operand.
-    private static bool IsUnaryValidationFunction(string functionKey)
-    {
-        return string.Equals(functionKey, "exists", StringComparison.Ordinal) ||
-            string.Equals(functionKey, "isNull", StringComparison.Ordinal) ||
-            string.Equals(functionKey, "isEmpty", StringComparison.Ordinal) ||
-            string.Equals(functionKey, "not", StringComparison.Ordinal);
     }
 
     // Saves posted target mappings into the current document.

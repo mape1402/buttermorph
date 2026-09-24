@@ -52,52 +52,6 @@ public sealed class DesignSessionTests
     }
 
     /// <summary>
-    /// Confirms that loaded documents preserve explicit validation assertions.
-    /// </summary>
-    [Fact]
-    public void SessionLoadDocumentPreservesValidationAssertions()
-    {
-        IMappingDesignSession session = CreateSession();
-        ValidationAssertion assertion = CreateValidationAssertion();
-        TransformationDocument document = new()
-        {
-            SourceSchemas = new Dictionary<string, IStructureSchema>
-            {
-                ["source"] = CreateSchema("Source")
-            },
-            TargetSchema = CreateSchema("Target"),
-            ValidationPayloadAlias = "source",
-            ValidationSchemaKey = "source",
-            ValidationAssertions = [assertion]
-        };
-
-        IMappingOperationResult result = session.LoadDocument(document);
-
-        Assert.True(result.Succeeded);
-        Assert.Equal("source", session.Document.ValidationPayloadAlias);
-        Assert.Equal("source", session.Document.ValidationSchemaKey);
-        Assert.Same(assertion, Assert.Single(session.Document.ValidationAssertions));
-    }
-
-    /// <summary>
-    /// Confirms that sessions can replace explicit validation assertions.
-    /// </summary>
-    [Fact]
-    public void SessionSetsValidationAssertions()
-    {
-        IMappingDesignSession session = CreateSession();
-
-        IMappingOperationResult result = session.SetValidationAssertions("$source", "source", [CreateValidationAssertion()]);
-        string dsl = session.ExportDsl();
-
-        Assert.True(result.Succeeded);
-        Assert.Equal("source", session.Document.ValidationPayloadAlias);
-        Assert.Single(session.Document.ValidationAssertions);
-        Assert.Contains("validate $source against source", dsl, System.StringComparison.Ordinal);
-        Assert.Contains("assert exists($source.Customer.Name)", dsl, System.StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Confirms that invalid user operations return diagnostics.
     /// </summary>
     [Fact]
@@ -154,29 +108,6 @@ public sealed class DesignSessionTests
     }
 
     /// <summary>
-    /// Confirms that imported DSL preserves explicit validation assertions.
-    /// </summary>
-    [Fact]
-    public void SessionImportDslPreservesValidationAssertions()
-    {
-        IMappingDesignSession session = CreateSession();
-
-        IMappingOperationResult result = session.ImportDsl(
-            """
-            validate $source against source {
-              assert gt($source.Customer.Age, 10): "Customer must be adult."
-            }
-            """);
-        string dsl = session.ExportDsl();
-
-        Assert.True(result.Succeeded);
-        Assert.Equal("source", session.Document.ValidationPayloadAlias);
-        Assert.Equal("source", session.Document.ValidationSchemaKey);
-        Assert.Single(session.Document.ValidationAssertions);
-        Assert.Contains("assert gt($source.Customer.Age, 10): \"Customer must be adult.\"", dsl, System.StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Confirms that sessions execute semantic analysis.
     /// </summary>
     [Fact]
@@ -227,24 +158,4 @@ public sealed class DesignSessionTests
         };
     }
 
-    // Creates a simple validation assertion for session tests.
-    private static ValidationAssertion CreateValidationAssertion()
-    {
-        return new ValidationAssertion
-        {
-            Path = "$source.Customer.Name",
-            Message = "Customer name is required.",
-            Expression = new FunctionCallExpression
-            {
-                FunctionKey = "exists",
-                Arguments =
-                [
-                    new PathExpression
-                    {
-                        Path = "$source.Customer.Name"
-                    }
-                ]
-            }
-        };
-    }
 }
