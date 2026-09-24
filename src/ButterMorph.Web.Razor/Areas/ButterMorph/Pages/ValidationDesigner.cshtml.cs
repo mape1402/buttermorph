@@ -76,36 +76,6 @@ public sealed class ValidationDesignerModel : PageModel
     public string ThemeMode => _options.Theme.DefaultMode.ToString().ToLowerInvariant();
 
     /// <summary>
-    /// Gets or sets the payload alias used by scoped assertions.
-    /// </summary>
-    [BindProperty]
-    public string PayloadAlias { get; set; } = "source";
-
-    /// <summary>
-    /// Gets or sets the schema key used by scoped assertions.
-    /// </summary>
-    [BindProperty]
-    public string SchemaKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets posted rule paths.
-    /// </summary>
-    [BindProperty]
-    public List<string> RulePaths { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted rule keys.
-    /// </summary>
-    [BindProperty]
-    public List<string> RuleKeys { get; set; } = [];
-
-    /// <summary>
-    /// Gets or sets posted rule arguments.
-    /// </summary>
-    [BindProperty]
-    public List<string> RuleArguments { get; set; } = [];
-
-    /// <summary>
     /// Gets or sets posted assertion expressions.
     /// </summary>
     [BindProperty]
@@ -144,11 +114,6 @@ public sealed class ValidationDesignerModel : PageModel
     /// Gets function toolbox categories.
     /// </summary>
     public IReadOnlyCollection<FunctionToolboxCategoryDisplayModel> FunctionCategories { get; private set; } = [];
-
-    /// <summary>
-    /// Gets the current validation rules.
-    /// </summary>
-    public IReadOnlyCollection<ValidationRuleDisplayModel> Rules { get; private set; } = [];
 
     /// <summary>
     /// Gets the current validation assertions.
@@ -451,11 +416,8 @@ public sealed class ValidationDesignerModel : PageModel
     private void LoadViewState()
     {
         IValidationDocument document = Session.Document;
-        PayloadAlias = document.PayloadAlias;
-        SchemaKey = document.SchemaKey;
         SourceSchemas = CreateSourceSchemas();
         FunctionCategories = CreateFunctionCategories();
-        Rules = CreateRules(document);
         Assertions = CreateAssertions(document);
 
         if (string.IsNullOrWhiteSpace(DslContent))
@@ -468,10 +430,8 @@ public sealed class ValidationDesignerModel : PageModel
     private IReadOnlyCollection<DiagnosticEntry> SavePostedValidationDocument()
     {
         List<DiagnosticEntry> diagnostics = [];
-        List<IValidationRule> rules = [];
         List<IValidationAssertion> assertions = [];
 
-        SavePostedRules(rules, diagnostics);
         SavePostedAssertions(assertions, diagnostics);
 
         if (diagnostics.Count > 0)
@@ -479,7 +439,7 @@ public sealed class ValidationDesignerModel : PageModel
             return diagnostics;
         }
 
-        IValidationOperationResult result = Session.ReplaceDocument(PayloadAlias, SchemaKey, rules, assertions);
+        IValidationOperationResult result = Session.ReplaceDocument(assertions);
 
         if (!result.Succeeded)
         {
@@ -487,39 +447,6 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return diagnostics;
-    }
-
-    // Saves posted validation rules.
-    private void SavePostedRules(List<IValidationRule> rules, List<DiagnosticEntry> diagnostics)
-    {
-        int count = Math.Max(RulePaths.Count, Math.Max(RuleKeys.Count, RuleArguments.Count));
-
-        for (int index = 0; index < count; index++)
-        {
-            string path = GetPostedValue(RulePaths, index).Trim();
-            string ruleKey = GetPostedValue(RuleKeys, index).Trim();
-            string arguments = GetPostedValue(RuleArguments, index).Trim();
-
-            if (string.IsNullOrWhiteSpace(path) && string.IsNullOrWhiteSpace(ruleKey) && string.IsNullOrWhiteSpace(arguments))
-            {
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(ruleKey))
-            {
-                diagnostics.Add(CreateDiagnostic("BVDG004", "Validation rule path and rule key are required.", path));
-                continue;
-            }
-
-            try
-            {
-                rules.Add(ParseRule(path, ruleKey, arguments));
-            }
-            catch (FormatException exception)
-            {
-                diagnostics.Add(CreateDiagnostic("BVDG005", exception.Message, path));
-            }
-        }
     }
 
     // Saves posted validation assertions.
@@ -561,32 +488,12 @@ public sealed class ValidationDesignerModel : PageModel
         }
     }
 
-    // Parses one visual validation rule row.
-    private IValidationRule ParseRule(string path, string ruleKey, string arguments)
-    {
-        string invocation = ruleKey;
-
-        if (!string.IsNullOrWhiteSpace(arguments))
-        {
-            invocation += "(" + arguments + ")";
-        }
-
-        IValidationDocument document = ParseValidationDocument(
-            "validate {" + Environment.NewLine +
-            "  " + path + ": " + invocation + Environment.NewLine +
-            "}");
-
-        return document.Rules.First();
-    }
-
     // Parses one visual validation assertion row.
     private IValidationAssertion ParseAssertion(string expression, string message)
     {
-        string payloadAlias = ResolvePayloadAlias(PayloadAlias);
-        string schemaKey = string.IsNullOrWhiteSpace(SchemaKey) ? "Schema" : SchemaKey.Trim();
         string assertionMessage = string.IsNullOrWhiteSpace(message) ? "Validation assertion failed." : message;
         IValidationDocument document = ParseValidationDocument(
-            "validate $" + payloadAlias + " against " + schemaKey + " {" + Environment.NewLine +
+            "validate {" + Environment.NewLine +
             "  assert " + expression + ": " + WriteString(assertionMessage) + Environment.NewLine +
             "}");
 
@@ -633,25 +540,6 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return sourceSchemas;
-    }
-
-    // Creates editable rule rows.
-    private IReadOnlyCollection<ValidationRuleDisplayModel> CreateRules(IValidationDocument document)
-    {
-        List<ValidationRuleDisplayModel> rules = [];
-
-        foreach (IValidationRule rule in document.Rules)
-        {
-            rules.Add(new ValidationRuleDisplayModel
-            {
-                Path = rule.Path,
-                RuleKey = rule.RuleKey,
-                Arguments = ExportRuleArguments(rule)
-            });
-        }
-
-        rules.Add(new ValidationRuleDisplayModel());
-        return rules;
     }
 
     // Creates editable assertion rows.
@@ -779,8 +667,6 @@ public sealed class ValidationDesignerModel : PageModel
     {
         string dsl = _validationDslExporter.Export(new ValidationDocument
         {
-            PayloadAlias = ResolvePayloadAlias(PayloadAlias),
-            SchemaKey = string.IsNullOrWhiteSpace(SchemaKey) ? "Schema" : SchemaKey,
             Assertions =
             [
                 assertion
@@ -800,40 +686,6 @@ public sealed class ValidationDesignerModel : PageModel
         if (end < start)
         {
             return dsl[start..].Trim();
-        }
-
-        return dsl[start..end].Trim();
-    }
-
-    // Exports one rule argument list as DSL text.
-    private string ExportRuleArguments(IValidationRule rule)
-    {
-        if (rule.Arguments.Count == 0)
-        {
-            return string.Empty;
-        }
-
-        string dsl = _validationDslExporter.Export(new ValidationDocument
-        {
-            Rules =
-            [
-                rule
-            ]
-        });
-        string marker = rule.RuleKey + "(";
-        int start = dsl.IndexOf(marker, StringComparison.Ordinal);
-
-        if (start < 0)
-        {
-            return string.Empty;
-        }
-
-        start += marker.Length;
-        int end = dsl.IndexOf(")", start, StringComparison.Ordinal);
-
-        if (end < start)
-        {
-            return string.Empty;
         }
 
         return dsl[start..end].Trim();
@@ -1031,17 +883,6 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return "Operation failed.";
-    }
-
-    // Resolves a normalized payload alias.
-    private static string ResolvePayloadAlias(string payloadAlias)
-    {
-        if (string.IsNullOrWhiteSpace(payloadAlias))
-        {
-            return "source";
-        }
-
-        return payloadAlias.Trim().TrimStart('$');
     }
 
     // Gets a posted value by index without throwing for uneven lists.

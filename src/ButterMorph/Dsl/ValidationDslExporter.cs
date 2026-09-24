@@ -18,40 +18,9 @@ public sealed class ValidationDslExporter : IValidationDslExporter
     {
         StringBuilder builder = new();
 
-        WriteRules(builder, document);
         WriteAssertions(builder, document);
 
         return builder.ToString().TrimEnd();
-    }
-
-    // Writes validation rules preserving document order.
-    private static void WriteRules(StringBuilder builder, IValidationDocument document)
-    {
-        if (document.Rules.Count == 0)
-        {
-            return;
-        }
-
-        builder.AppendLine("validate {");
-
-        foreach (IValidationRule rule in document.Rules)
-        {
-            WriteIndent(builder, 1);
-            builder.Append(rule.Path);
-            builder.Append(": ");
-            builder.Append(rule.RuleKey);
-
-            if (rule.Arguments.Count > 0)
-            {
-                builder.Append('(');
-                builder.Append(string.Join(", ", rule.Arguments.Select(WriteExpression)));
-                builder.Append(')');
-            }
-
-            builder.AppendLine();
-        }
-
-        builder.AppendLine("}");
     }
 
     // Writes boolean validation assertions preserving document order.
@@ -62,23 +31,7 @@ public sealed class ValidationDslExporter : IValidationDslExporter
             return;
         }
 
-        if (document.Rules.Count > 0)
-        {
-            builder.AppendLine();
-        }
-
-        string payloadAlias = string.IsNullOrWhiteSpace(document.PayloadAlias)
-            ? "source"
-            : document.PayloadAlias;
-        string schemaKey = string.IsNullOrWhiteSpace(document.SchemaKey)
-            ? "Schema"
-            : document.SchemaKey;
-
-        builder.Append("validate $");
-        builder.Append(payloadAlias.TrimStart('$'));
-        builder.Append(" against ");
-        builder.Append(schemaKey);
-        builder.AppendLine(" {");
+        builder.AppendLine("validate {");
 
         foreach (IValidationAssertion assertion in document.Assertions)
         {

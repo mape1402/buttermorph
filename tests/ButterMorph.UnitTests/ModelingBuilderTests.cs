@@ -39,16 +39,11 @@ public sealed class ModelingBuilderTests
     }
 
     /// <summary>
-    /// Confirms that validation document builder preserves rules and assertion scope.
+    /// Confirms that validation document builder preserves assertions.
     /// </summary>
     [Fact]
-    public void ValidationDocumentBuilderPreservesRulesAndAssertions()
+    public void ValidationDocumentBuilderPreservesAssertions()
     {
-        ValidationRule validation = new()
-        {
-            Path = "Customer.Name",
-            RuleKey = "required"
-        };
         ValidationAssertion assertion = new()
         {
             Expression = ButterMorphModel.Expressions.Boolean(true),
@@ -57,14 +52,9 @@ public sealed class ModelingBuilderTests
         };
 
         IValidationDocument document = ButterMorphModel.CreateValidationDocument()
-            .WithValidationScope("source", "Customer")
-            .WithRule(validation)
             .WithAssertion(assertion)
             .Build();
 
-        Assert.Equal("source", document.PayloadAlias);
-        Assert.Equal("Customer", document.SchemaKey);
-        Assert.Same(validation, Assert.Single(document.Rules));
         Assert.Same(assertion, Assert.Single(document.Assertions));
     }
 

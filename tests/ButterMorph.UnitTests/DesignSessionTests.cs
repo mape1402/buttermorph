@@ -97,7 +97,7 @@ public sealed class DesignSessionTests
 
         IValidationOperationResult validationResult = session.ImportDsl(
             """
-            validate $source against Order {
+            validate {
               assert gt($source.quantity, 10): "Quantity must be greater than 10"
             }
             """);
@@ -110,7 +110,8 @@ public sealed class DesignSessionTests
             """);
 
         Assert.True(validationResult.Succeeded);
-        Assert.Contains("validate $source against Order", dsl, System.StringComparison.Ordinal);
+        Assert.Contains("validate {", dsl, System.StringComparison.Ordinal);
+        Assert.DoesNotContain("against", dsl, System.StringComparison.Ordinal);
         Assert.False(mappingResult.Succeeded);
         Assert.Contains(mappingResult.Diagnostics, diagnostic => diagnostic.Code == "BVDG002");
     }

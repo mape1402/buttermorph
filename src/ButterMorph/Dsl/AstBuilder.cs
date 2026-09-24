@@ -21,7 +21,7 @@ internal sealed class AstBuilder
     internal IDslDocument Build(DocumentNode node)
     {
         bool hasMappings = node.Assignments.Count > 0;
-        bool hasValidations = node.Validations.Count > 0 || node.ValidationAssertions.Count > 0;
+        bool hasValidations = node.HasValidationBlock || node.ValidationAssertions.Count > 0;
 
         if (hasMappings && hasValidations)
         {
@@ -57,18 +57,7 @@ internal sealed class AstBuilder
     private IValidationDocument BuildValidationDocument(DocumentNode node)
     {
         IValidationDocumentBuilder builder = ButterMorphModel.CreateValidationDocument()
-            .WithDefinition(_definition)
-            .WithValidationScope(node.ValidationPayloadAlias, node.ValidationSchemaKey);
-
-        foreach (ValidationNode validation in node.Validations)
-        {
-            builder.WithRule(new ValidationRule
-            {
-                Path = validation.Path,
-                RuleKey = validation.RuleKey,
-                Arguments = BuildExpressions(validation.Arguments)
-            });
-        }
+            .WithDefinition(_definition);
 
         foreach (ValidationAssertionNode assertion in node.ValidationAssertions)
         {

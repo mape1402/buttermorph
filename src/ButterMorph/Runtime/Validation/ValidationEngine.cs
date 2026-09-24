@@ -5,16 +5,10 @@ using System.Collections.Generic;
 using ButterMorph.Abstractions;
 
 /// <summary>
-/// Executes validation rules and schemas against internal structure graphs.
+/// Executes validation assertions and schemas against internal structure graphs.
 /// </summary>
 public sealed class ValidationEngine : IValidationEngine
 {
-    // Resolves validation paths from the graph root.
-    private readonly IPathResolver _pathResolver;
-
-    // Provides rule behavior registered by consumers or higher layers.
-    private readonly IValidationRuleRegistry _ruleRegistry;
-
     // Validates payloads against schemas when requested.
     private readonly ISchemaValidator _schemaValidator;
 
@@ -27,8 +21,8 @@ public sealed class ValidationEngine : IValidationEngine
     /// <summary>
     /// Initializes a new instance of the <see cref="ValidationEngine"/> class.
     /// </summary>
-    /// <param name="pathResolver">The path resolver.</param>
-    /// <param name="ruleRegistry">The validation rule registry.</param>
+    /// <param name="pathResolver">Reserved for constructor compatibility with existing service registrations.</param>
+    /// <param name="ruleRegistry">Reserved for constructor compatibility with existing service registrations.</param>
     public ValidationEngine(IPathResolver pathResolver, IValidationRuleRegistry ruleRegistry)
         : this(pathResolver, ruleRegistry, null, null, null)
     {
@@ -37,8 +31,8 @@ public sealed class ValidationEngine : IValidationEngine
     /// <summary>
     /// Initializes a new instance of the <see cref="ValidationEngine"/> class.
     /// </summary>
-    /// <param name="pathResolver">The path resolver.</param>
-    /// <param name="ruleRegistry">The validation rule registry.</param>
+    /// <param name="pathResolver">Reserved for constructor compatibility with existing service registrations.</param>
+    /// <param name="ruleRegistry">Reserved for constructor compatibility with existing service registrations.</param>
     /// <param name="schemaValidator">The schema validator.</param>
     /// <param name="expressionEvaluator">The expression evaluator.</param>
     /// <param name="executionContextFactory">The execution context factory.</param>
@@ -49,18 +43,6 @@ public sealed class ValidationEngine : IValidationEngine
         ITransformationExpressionEvaluator expressionEvaluator,
         IExecutionContextFactory executionContextFactory)
     {
-        if (pathResolver is null)
-        {
-            throw new InvalidOperationException("A path resolver must be registered before executing validations.");
-        }
-
-        if (ruleRegistry is null)
-        {
-            throw new InvalidOperationException("A validation rule registry must be registered before executing validations.");
-        }
-
-        _pathResolver = pathResolver;
-        _ruleRegistry = ruleRegistry;
         _schemaValidator = schemaValidator;
         _expressionEvaluator = expressionEvaluator;
         _executionContextFactory = executionContextFactory;
@@ -78,20 +60,22 @@ public sealed class ValidationEngine : IValidationEngine
 
         if (!scope.HasValidationDocument && request.Schema == null)
         {
-            diagnostics.Add(CreateDiagnostic("BMVL001", "Validation request definition must implement IValidationDocument.", string.Empty));
+            diagnostics.Add(CreateDiagnostic("BMVL001", "Validation request must include a schema or an IValidationDocument definition.", string.Empty));
             return CreateResult(diagnostics);
         }
 
-        IStructureGraph graph = ResolveGraph(request, scope.PayloadAlias);
-        IStructureSchema schema = ResolveSchema(request, scope.SchemaKey);
+        string payloadAlias = ResolvePayloadAlias(request.PayloadAlias, string.Empty);
+        IStructureGraph graph = ResolveGraph(request, payloadAlias);
 
-        if (schema != null)
+        if (request.Schema != null)
         {
-            ValidateSchema(request, graph, schema, scope.PayloadAlias, diagnostics);
-        }
-        else if (!string.IsNullOrWhiteSpace(scope.SchemaKey))
-        {
-            diagnostics.Add(CreateDiagnostic("BMVL007", $"Validation schema '{scope.SchemaKey}' was not found.", scope.SchemaKey));
+            if (graph == null)
+            {
+                diagnostics.Add(CreateDiagnostic("BMVL006", "Validation payload graph is required.", string.Empty));
+                return CreateResult(diagnostics);
+            }
+
+            ValidateSchema(request, graph, request.Schema, payloadAlias, diagnostics);
         }
 
         if (!scope.HasValidationDocument)
@@ -99,20 +83,7 @@ public sealed class ValidationEngine : IValidationEngine
             return CreateResult(diagnostics);
         }
 
-        bool graphRequired = schema != null || scope.Rules.Count > 0;
-
-        if (graph == null && graphRequired)
-        {
-            diagnostics.Add(CreateDiagnostic("BMVL006", "Validation payload graph is required.", string.Empty));
-            return CreateResult(diagnostics);
-        }
-
-        foreach (IValidationRule rule in scope.Rules)
-        {
-            ValidateRule(graph.Root, rule, diagnostics);
-        }
-
-        ValidateAssertions(graph, scope, request, diagnostics);
+        ValidateAssertions(graph, scope, request, payloadAlias, diagnostics);
 
         return CreateResult(diagnostics);
     }
@@ -143,37 +114,12 @@ public sealed class ValidationEngine : IValidationEngine
         diagnostics.AddRange(schemaResult.Diagnostics);
     }
 
-    // Resolves one rule target and delegates behavior to the registered handler.
-    private void ValidateRule(IStructureNode root, IValidationRule rule, List<DiagnosticEntry> diagnostics)
-    {
-        if (!TryResolvePath(root, rule, diagnostics, out IStructureNode node))
-        {
-            return;
-        }
-
-        IValidationRuleHandler handler;
-
-        try
-        {
-            handler = _ruleRegistry.Resolve(rule.RuleKey);
-        }
-        catch (KeyNotFoundException exception)
-        {
-            diagnostics.Add(CreateDiagnostic("BMVL003", exception.Message, rule.Path));
-            return;
-        }
-
-        ValidationRuleContext context = new()
-        {
-            Rule = rule,
-            Node = node,
-            Path = rule.Path
-        };
-
-        diagnostics.AddRange(handler.Validate(context));
-    }
-
-    private void ValidateAssertions(IStructureGraph graph, ValidationScope scope, ValidationRequest request, List<DiagnosticEntry> diagnostics)
+    private void ValidateAssertions(
+        IStructureGraph graph,
+        ValidationScope scope,
+        ValidationRequest request,
+        string payloadAlias,
+        List<DiagnosticEntry> diagnostics)
     {
         if (scope.Assertions.Count == 0)
         {
@@ -189,19 +135,20 @@ public sealed class ValidationEngine : IValidationEngine
         Dictionary<string, IStructureGraph> sources = new(request.Sources, StringComparer.Ordinal);
         if (graph != null)
         {
-            sources[scope.PayloadAlias] = graph;
+            sources[payloadAlias] = graph;
         }
 
         IExecutionContext executionContext = _executionContextFactory.Create(sources);
         Dictionary<string, IStructureNode> aliases = new(StringComparer.Ordinal);
-        if (graph != null)
+
+        foreach (KeyValuePair<string, IStructureGraph> source in sources)
         {
-            aliases[scope.PayloadAlias] = graph.Root;
+            aliases[source.Key] = source.Value.Root;
         }
 
         foreach (IValidationAssertion assertion in scope.Assertions)
         {
-            ValidateAssertion(assertion, executionContext, aliases, scope.PayloadAlias, diagnostics);
+            ValidateAssertion(assertion, executionContext, aliases, payloadAlias, diagnostics);
         }
     }
 
@@ -242,23 +189,6 @@ public sealed class ValidationEngine : IValidationEngine
         }
     }
 
-    // Resolves the rule path and converts navigation failures into diagnostics.
-    private bool TryResolvePath(IStructureNode root, IValidationRule rule, List<DiagnosticEntry> diagnostics, out IStructureNode node)
-    {
-        node = root;
-
-        try
-        {
-            node = _pathResolver.Resolve(root, rule.Path);
-            return true;
-        }
-        catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
-        {
-            diagnostics.Add(CreateDiagnostic("BMVL002", exception.Message, rule.Path));
-            return false;
-        }
-    }
-
     // Creates a validation result from accumulated diagnostics.
     private static ValidationResult CreateResult(IReadOnlyCollection<DiagnosticEntry> diagnostics)
     {
@@ -276,9 +206,6 @@ public sealed class ValidationEngine : IValidationEngine
             return new ValidationScope
             {
                 HasValidationDocument = true,
-                PayloadAlias = ResolvePayloadAlias(validationDocument.PayloadAlias, request.PayloadAlias),
-                SchemaKey = validationDocument.SchemaKey,
-                Rules = validationDocument.Rules,
                 Assertions = validationDocument.Assertions
             };
         }
@@ -286,9 +213,6 @@ public sealed class ValidationEngine : IValidationEngine
         return new ValidationScope
         {
             HasValidationDocument = false,
-            PayloadAlias = ResolvePayloadAlias(request.PayloadAlias, string.Empty),
-            SchemaKey = string.Empty,
-            Rules = [],
             Assertions = []
         };
     }
@@ -303,21 +227,6 @@ public sealed class ValidationEngine : IValidationEngine
         if (request.Sources.TryGetValue(payloadAlias, out IStructureGraph graph))
         {
             return graph;
-        }
-
-        return null;
-    }
-
-    private static IStructureSchema ResolveSchema(ValidationRequest request, string schemaKey)
-    {
-        if (request.Schema != null)
-        {
-            return request.Schema;
-        }
-
-        if (!string.IsNullOrWhiteSpace(schemaKey) && request.Schemas.TryGetValue(schemaKey, out IStructureSchema schema))
-        {
-            return schema;
         }
 
         return null;
@@ -387,12 +296,6 @@ public sealed class ValidationEngine : IValidationEngine
     private sealed class ValidationScope
     {
         internal bool HasValidationDocument { get; set; }
-
-        internal string PayloadAlias { get; set; } = "source";
-
-        internal string SchemaKey { get; set; } = string.Empty;
-
-        internal IReadOnlyCollection<IValidationRule> Rules { get; set; } = [];
 
         internal IReadOnlyCollection<IValidationAssertion> Assertions { get; set; } = [];
     }

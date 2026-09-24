@@ -81,52 +81,12 @@ internal sealed class SyntaxAnalyzer
 
     private void ParseValidation(DocumentNode document)
     {
-        if (Check(TokenKind.LeftBrace))
-        {
-            ParseValidationBlock(document);
-            return;
-        }
-
-        ParseAssertionValidationBlock(document);
+        ParseValidationBlock(document);
     }
 
     private void ParseValidationBlock(DocumentNode document)
     {
-        Consume(TokenKind.LeftBrace, "Expected validate block start.");
-
-        while (!Check(TokenKind.RightBrace) && !IsAtEnd())
-        {
-            Token path = ConsumePathLike("Expected validation path.");
-            Consume(TokenKind.Colon, "Expected ':' after validation path.");
-            Token rule = Consume(TokenKind.Identifier, "Expected validation rule key.");
-            ValidationNode node = new()
-            {
-                Path = path.Value,
-                RuleKey = rule.Value
-            };
-
-            if (Match(TokenKind.LeftParen))
-            {
-                ParseArguments(node.Arguments);
-                Consume(TokenKind.RightParen, "Expected validation argument list end.");
-            }
-
-            document.Validations.Add(node);
-            Match(TokenKind.Comma);
-        }
-
-        Consume(TokenKind.RightBrace, "Expected validate block end.");
-    }
-
-    private void ParseAssertionValidationBlock(DocumentNode document)
-    {
-        Token payload = ConsumePathLike("Expected validation payload alias.");
-        ConsumeIdentifier("against", "Expected 'against' in validation declaration.");
-        Token schema = ConsumePathLike("Expected validation schema key.");
-
-        document.ValidationPayloadAlias = NormalizePayloadAlias(payload.Value);
-        document.ValidationSchemaKey = schema.Value;
-
+        document.HasValidationBlock = true;
         Consume(TokenKind.LeftBrace, "Expected validate block start.");
 
         while (!Check(TokenKind.RightBrace) && !IsAtEnd())
@@ -398,16 +358,6 @@ internal sealed class SyntaxAnalyzer
         throw Error(Current, message);
     }
 
-    private Token ConsumePathLike(string message)
-    {
-        if (Check(TokenKind.Path) || Check(TokenKind.Identifier))
-        {
-            return Advance();
-        }
-
-        throw Error(Current, message);
-    }
-
     private void ConsumeIdentifier(string value, string message)
     {
         Token token = Consume(TokenKind.Identifier, message);
@@ -482,16 +432,6 @@ internal sealed class SyntaxAnalyzer
         }
 
         return $"{prefix}.{name}";
-    }
-
-    private static string NormalizePayloadAlias(string value)
-    {
-        if (value.StartsWith("$", StringComparison.Ordinal))
-        {
-            return value[1..];
-        }
-
-        return value;
     }
 
     private static string FindFirstPath(AstNode node)

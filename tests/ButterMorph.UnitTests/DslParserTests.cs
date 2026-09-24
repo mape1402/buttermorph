@@ -9,7 +9,6 @@ using ButterMorph.Execution;
 using ButterMorph.Functions;
 using ButterMorph.Navigation;
 using ButterMorph.Transformation;
-using ButterMorph.Validation;
 
 /// <summary>
 /// Verifies shape-neutral DSL parsing behavior.
@@ -134,32 +133,6 @@ public sealed class DslParserTests
     }
 
     /// <summary>
-    /// Confirms that validation declarations preserve typed arguments.
-    /// </summary>
-    [Fact]
-    public void ParseCreatesValidationRules()
-    {
-        IValidationDocument document = ParseValidation(
-            """
-            validate {
-              Customer.Name: required
-              Customer.Age: min(18)
-              Customer.Email: format("email")
-            }
-            """);
-
-        Assert.Equal(3, document.Rules.Count);
-        IValidationRule minRule = document.Rules.ElementAt(1);
-        IValidationRule formatRule = document.Rules.ElementAt(2);
-
-        Assert.Equal("min", minRule.RuleKey);
-        Assert.Single(minRule.Arguments);
-        AssertLiteral(minRule.Arguments.First(), "Number", "18", false);
-        Assert.Equal("format", formatRule.RuleKey);
-        AssertLiteral(formatRule.Arguments.First(), "String", "email", false);
-    }
-
-    /// <summary>
     /// Confirms that explicit validation assertions are parsed.
     /// </summary>
     [Fact]
@@ -167,7 +140,7 @@ public sealed class DslParserTests
     {
         IValidationDocument document = ParseValidation(
             """
-            validate $source against Order {
+            validate {
               assert gt($source.quantity, 10): "Quantity must be greater than 10"
             }
             """);
@@ -175,11 +148,24 @@ public sealed class DslParserTests
         IValidationAssertion assertion = Assert.Single(document.Assertions);
         IFunctionCallExpression expression = Assert.IsAssignableFrom<IFunctionCallExpression>(assertion.Expression);
 
-        Assert.Equal("source", document.PayloadAlias);
-        Assert.Equal("Order", document.SchemaKey);
         Assert.Equal("gt", expression.FunctionKey);
         Assert.Equal("$source.quantity", assertion.Path);
         Assert.Equal("Quantity must be greater than 10", assertion.Message);
+    }
+
+    /// <summary>
+    /// Confirms that empty validation documents keep their document type.
+    /// </summary>
+    [Fact]
+    public void ParseCreatesEmptyValidationDocument()
+    {
+        IValidationDocument document = ParseValidation(
+            """
+            validate {
+            }
+            """);
+
+        Assert.Empty(document.Assertions);
     }
 
     /// <summary>
@@ -195,7 +181,7 @@ public sealed class DslParserTests
             }
 
             validate {
-              Name: required
+              assert exists($source.Name)
             }
             """));
 
@@ -217,6 +203,38 @@ public sealed class DslParserTests
 
         Assert.Contains("Line", exception.Message, System.StringComparison.Ordinal);
         Assert.Contains("column", exception.Message, System.StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that old validation scopes are rejected.
+    /// </summary>
+    [Fact]
+    public void ParseRejectsScopedValidationDeclarations()
+    {
+        FormatException exception = Assert.Throws<FormatException>(() => ParseValidation(
+            """
+            validate $source against Order {
+              assert gt($source.quantity, 10)
+            }
+            """));
+
+        Assert.Contains("Expected validate block start", exception.Message, System.StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that field-level schema rules are not accepted in validation documents.
+    /// </summary>
+    [Fact]
+    public void ParseRejectsFieldValidationRules()
+    {
+        FormatException exception = Assert.Throws<FormatException>(() => ParseValidation(
+            """
+            validate {
+              Customer.Name: required
+            }
+            """));
+
+        Assert.Contains("Expected validation assertion", exception.Message, System.StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -259,37 +277,6 @@ public sealed class DslParserTests
         Assert.True(result.Succeeded);
         Assert.Equal("Ada Lovelace", fullName.Value.RawValue);
         Assert.Equal("A1", orderId.Value.RawValue);
-    }
-
-    /// <summary>
-    /// Confirms that validation handlers receive parsed arguments.
-    /// </summary>
-    [Fact]
-    public void ValidationEngineReceivesParsedRuleArguments()
-    {
-        CapturingValidationRuleHandler handler = new();
-        ValidationRuleRegistry registry = new();
-        registry.Register("min", handler);
-        ValidationEngine engine = new(new PathResolver(), registry);
-        IValidationDocument document = ParseValidation(
-            """
-            validate {
-              Customer.Name: min(2)
-            }
-            """);
-
-        ValidationResult result = engine.Validate(new ValidationRequest
-        {
-            SourceGraph = NavigationTestGraphFactory.CreateCustomerGraph(),
-            Definition = new ValidationDocument
-            {
-                Rules = document.Rules
-            }
-        });
-
-        Assert.True(result.IsValid);
-        Assert.Single(handler.CapturedRule.Arguments);
-        AssertLiteral(handler.CapturedRule.Arguments.First(), "Number", "2", false);
     }
 
     // Parses DSL content into a transformation document.

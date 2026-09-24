@@ -22,16 +22,9 @@ public interface IValidationDesignSession
     /// <summary>
     /// Replaces the current validation document.
     /// </summary>
-    /// <param name="payloadAlias">The payload alias used by scoped assertions.</param>
-    /// <param name="schemaKey">The schema key used by scoped assertions.</param>
-    /// <param name="rules">The validation rules.</param>
     /// <param name="assertions">The validation assertions.</param>
     /// <returns>The operation result.</returns>
-    IValidationOperationResult ReplaceDocument(
-        string payloadAlias,
-        string schemaKey,
-        IReadOnlyCollection<IValidationRule> rules,
-        IReadOnlyCollection<IValidationAssertion> assertions);
+    IValidationOperationResult ReplaceDocument(IReadOnlyCollection<IValidationAssertion> assertions);
 
     /// <summary>
     /// Imports validation DSL content into the current session.

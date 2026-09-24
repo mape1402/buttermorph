@@ -87,8 +87,6 @@ public sealed class DslExporterTests
     {
         IValidationDocument document = new ValidationDocument
         {
-            PayloadAlias = "source",
-            SchemaKey = "Order",
             Assertions =
             [
                 new ValidationAssertion
@@ -111,7 +109,8 @@ public sealed class DslExporterTests
         string dsl = new ValidationDslExporter().Export(document);
         IValidationDocument parsed = ParseValidation(dsl);
 
-        Assert.Contains("validate $source against Order", dsl, System.StringComparison.Ordinal);
+        Assert.Contains("validate {", dsl, System.StringComparison.Ordinal);
+        Assert.DoesNotContain("against", dsl, System.StringComparison.Ordinal);
         Assert.Contains("assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", dsl, System.StringComparison.Ordinal);
         Assert.Single(parsed.Assertions);
     }
@@ -197,26 +196,39 @@ public sealed class DslExporterTests
     }
 
     /// <summary>
-    /// Confirms that validation DSL exports and parses back into a validation document.
+    /// Confirms that validation DSL exports and parses assertions back into a validation document.
     /// </summary>
     [Fact]
-    public void ValidationExportRoundtripPreservesRules()
+    public void ValidationExportRoundtripPreservesAssertions()
     {
         IValidationDocument document = new ValidationDocument
         {
-            Rules =
+            Assertions =
             [
-                CreateRule("Customer.Display", "required", []),
-                CreateRule("Customer.Display", "min", [CreateNumber("2")])
+                new ValidationAssertion
+                {
+                    Expression = new FunctionCallExpression
+                    {
+                        FunctionKey = "gte",
+                        Arguments =
+                        [
+                            CreatePath("$source.Customer.Display"),
+                            CreateNumber("2")
+                        ]
+                    },
+                    Message = "Display must be at least two.",
+                    Path = "$source.Customer.Display"
+                }
             ]
         };
 
         string dsl = new ValidationDslExporter().Export(document);
         IValidationDocument parsed = ParseValidation(dsl);
 
-        Assert.Equal(document.Rules.Count, parsed.Rules.Count);
-        Assert.Equal("min", parsed.Rules.ElementAt(1).RuleKey);
-        Assert.Single(parsed.Rules.ElementAt(1).Arguments);
+        IValidationAssertion assertion = Assert.Single(parsed.Assertions);
+        IFunctionCallExpression expression = Assert.IsAssignableFrom<IFunctionCallExpression>(assertion.Expression);
+        Assert.Equal("gte", expression.FunctionKey);
+        Assert.Equal("Display must be at least two.", assertion.Message);
     }
 
     /// <summary>
@@ -280,17 +292,6 @@ public sealed class DslExporterTests
         {
             SourceExpression = expression,
             TargetPath = targetPath
-        };
-    }
-
-    // Creates a validation rule.
-    private static IValidationRule CreateRule(string path, string ruleKey, IReadOnlyCollection<ITransformationExpression> arguments)
-    {
-        return new ValidationRule
-        {
-            Path = path,
-            RuleKey = ruleKey,
-            Arguments = arguments
         };
     }
 

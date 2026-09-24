@@ -180,44 +180,6 @@
                         <button type="submit">Save validations</button>
                     </div>
 
-                    <section class="bm-validation-scope">
-                        <label>
-                            Payload alias
-                            <input name="PayloadAlias" value="@Model.PayloadAlias" data-validation-input="true" />
-                        </label>
-                        <label>
-                            Schema key
-                            <input name="SchemaKey" value="@Model.SchemaKey" data-validation-input="true" />
-                        </label>
-                    </section>
-
-                    <section class="bm-validation-section">
-                        <div class="bm-validation-section-header">
-                            <h3>Field Rules</h3>
-                            <button type="button" data-add-rule="true">Add rule</button>
-                        </div>
-                        <div class="bm-validation-grid bm-validation-grid-rules" data-rule-list="true">
-                            @foreach (var rule in Model.Rules)
-                            {
-                                <div class="bm-validation-row" data-rule-row="true">
-                                    <label>
-                                        Path
-                                        <input name="RulePaths" value="@rule.Path" placeholder="Customer.Name" data-validation-input="true" />
-                                    </label>
-                                    <label>
-                                        Rule
-                                        <input name="RuleKeys" value="@rule.RuleKey" placeholder="required" data-validation-input="true" />
-                                    </label>
-                                    <label>
-                                        Args
-                                        <input name="RuleArguments" value="@rule.Arguments" placeholder="3, 10" data-validation-input="true" />
-                                    </label>
-                                    <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
-                                </div>
-                            }
-                        </div>
-                    </section>
-
                     <section class="bm-validation-section">
                         <div class="bm-validation-section-header">
                             <h3>Assertions</h3>
@@ -271,24 +233,6 @@
             </section>
         </section>
     </main>
-
-    <template data-rule-template="true">
-        <div class="bm-validation-row" data-rule-row="true">
-            <label>
-                Path
-                <input name="RulePaths" placeholder="Customer.Name" data-validation-input="true" />
-            </label>
-            <label>
-                Rule
-                <input name="RuleKeys" placeholder="required" data-validation-input="true" />
-            </label>
-            <label>
-                Args
-                <input name="RuleArguments" placeholder="3, 10" data-validation-input="true" />
-            </label>
-            <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
-        </div>
-    </template>
 
     <template data-assertion-template="true">
         <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true">

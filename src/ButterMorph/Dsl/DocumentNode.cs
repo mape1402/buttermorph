@@ -5,11 +5,7 @@ internal sealed class DocumentNode : AstNode
 {
     internal List<AssignmentNode> Assignments { get; } = [];
 
-    internal List<ValidationNode> Validations { get; } = [];
-
-    internal string ValidationPayloadAlias { get; set; } = "source";
-
-    internal string ValidationSchemaKey { get; set; } = string.Empty;
+    internal bool HasValidationBlock { get; set; }
 
     internal List<ValidationAssertionNode> ValidationAssertions { get; } = [];
 

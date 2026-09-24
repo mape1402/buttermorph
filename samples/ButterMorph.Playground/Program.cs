@@ -244,7 +244,7 @@ app.MapPost("/playground/validate-rules/{contextKey}", async (
 
     sourceJson = await ResolvePostedSources(request, sourceJson);
     IValidationDocument document = validationLoadResult.InitialDocument;
-    int validationCount = document.Rules.Count + document.Assertions.Count;
+    int validationCount = document.Assertions.Count;
 
     if (validationStore.TryGet(contextKey, out PlaygroundValidationSave save))
     {
@@ -255,7 +255,6 @@ app.MapPost("/playground/validate-rules/{contextKey}", async (
     PlaygroundExecutionResult validationResult = ValidateValidationDocumentScenario(
         contextKey,
         sourceJson,
-        mappingLoadResult.SourceSchemas,
         document,
         validationCount,
         engine);
@@ -358,7 +357,7 @@ public partial class Program
       <h2>Execution</h2>
       <div class="execution-actions">
         <button type="button" class="secondary" data-validate-schema disabled>Validate schema</button>
-        <button type="button" class="secondary" data-validate-rules disabled>Validate rules</button>
+        <button type="button" class="secondary" data-validate-rules disabled>Validate document</button>
         <button type="button" data-execute disabled>Execute</button>
       </div>
       <div class="meta">
@@ -593,10 +592,10 @@ public partial class Program
       document.querySelector("[data-execution-panel]").hidden = false;
       document.querySelector("[data-execution-context]").textContent = result.contextKey || selectedContext;
       document.querySelector("[data-execution-time]").textContent = result.executedAt || "Not validated";
-      document.querySelector("[data-execution-status]").textContent = result.succeeded ? "Validation rules passed" : "Validation rules failed";
+      document.querySelector("[data-execution-status]").textContent = result.succeeded ? "Validation document passed" : "Validation document failed";
       document.querySelector("[data-output-json]").value = "";
       renderSources(result.sources || {});
-      document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n") || (result.succeeded ? "Validation rules passed" : "");
+      document.querySelector("[data-execution-diagnostics]").textContent = (result.diagnostics || []).join("\\n") || (result.succeeded ? "Validation document passed" : "");
     }
     function renderSources(sources) {
       const sourceContainer = document.querySelector("[data-source-output]");
@@ -801,7 +800,6 @@ public partial class Program
     private static PlaygroundExecutionResult ValidateValidationDocumentScenario(
         string contextKey,
         IReadOnlyDictionary<string, string> sourceJson,
-        IReadOnlyDictionary<string, IStructureSchema> sourceSchemas,
         IValidationDocument document,
         int validationCount,
         IButterMorphEngine engine)
@@ -826,15 +824,9 @@ public partial class Program
             }
         }
 
-        Dictionary<string, IStructureSchema> schemas = CreateSchemaLookup(sourceSchemas);
-        string payloadAlias = ResolvePayloadAlias(document.PayloadAlias);
-        sources.TryGetValue(payloadAlias, out IStructureGraph payloadGraph);
         ValidationResult result = engine.Validate(new ValidationRequest
         {
-            SourceGraph = payloadGraph,
-            PayloadAlias = payloadAlias,
             Sources = sources,
-            Schemas = schemas,
             Definition = document
         });
         diagnostics.AddRange(result.Diagnostics);
@@ -929,17 +921,6 @@ public partial class Program
         }
 
         return schemas;
-    }
-
-    // Resolves a normalized payload alias.
-    private static string ResolvePayloadAlias(string payloadAlias)
-    {
-        if (string.IsNullOrWhiteSpace(payloadAlias))
-        {
-            return "source";
-        }
-
-        return payloadAlias.Trim().TrimStart('$');
     }
 
     // Creates a host diagnostic entry.
