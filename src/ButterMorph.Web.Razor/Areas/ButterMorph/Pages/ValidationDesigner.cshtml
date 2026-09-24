@@ -1,0 +1,311 @@
+@page "/buttermorph/validations/designer"
+@model ButterMorph.Web.Razor.ValidationDesignerModel
+@{
+    Layout = null;
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>ButterMorph Validation Designer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css?v=codemirror-5-65-16" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=validation-designer-1" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/validation-designer.js?v=validation-designer-1"></script>
+</head>
+<body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
+    <main class="bm-workbench bm-validation-workbench"
+          data-active-view="@Model.ActiveView"
+          data-left-dock-mode="pinned"
+          data-host-save-completed="@Model.HostSaveCompleted.ToString().ToLowerInvariant()"
+          data-host-context-key="@Model.SavedContextKey"
+          data-host-return-url="@Model.SafeReturnUrl">
+        <header class="bm-topbar">
+            <div>
+                <p class="bm-kicker">ButterMorph</p>
+                <h1>Validation Designer</h1>
+            </div>
+            <div class="bm-view-toggle" role="group" aria-label="Designer view">
+                <button type="button" class="bm-view-button" data-view="Visual">Visual Designer</button>
+                <button type="button" class="bm-view-button" data-view="Dsl">DSL</button>
+            </div>
+        </header>
+
+        <section class="bm-message-box @(((string.IsNullOrWhiteSpace(Model.Message) || Model.Message == "Ready.") && Model.Diagnostics.Count == 0) ? "bm-message-hidden" : string.Empty)" data-message-box="true">
+            <span data-message-text="true">@Model.Message</span>
+            @if (Model.Diagnostics.Count > 0)
+            {
+                <strong data-diagnostics-count="true">@Model.Diagnostics.Count diagnostics</strong>
+            }
+            else
+            {
+                <strong data-diagnostics-count="true">Ready</strong>
+            }
+            <button type="button" class="bm-message-action" data-message-dsl="true" hidden>Open DSL</button>
+            <button type="button" class="bm-message-close" data-message-close="true">&times;</button>
+        </section>
+
+        <section class="bm-workspace">
+            <aside class="bm-left-dock" data-left-dock="true">
+                <div class="bm-dock-tabs" role="tablist" aria-label="Validation designer tool windows">
+                    <button type="button"
+                            class="bm-dock-tab"
+                            data-dock-tab="sources"
+                            role="tab"
+                            aria-selected="true"
+                            title="Sources">
+                        Sources
+                    </button>
+                    <button type="button"
+                            class="bm-dock-tab"
+                            data-dock-tab="functions"
+                            role="tab"
+                            aria-selected="false"
+                            title="Functions">
+                        Functions
+                    </button>
+                </div>
+
+                <div class="bm-dock-panel-host" data-dock-panel-host="true">
+                    <section class="bm-dock-panel bm-toolbox" data-dock-panel="sources" tabindex="-1">
+                        <div class="bm-dock-titlebar bm-panel-title">
+                            <h2>Sources</h2>
+                            <button type="button" class="bm-dock-pin bm-toolbox-pin" data-dock-pin="sources" data-pin-state="pinned" aria-pressed="true" title="Auto hide panel"><span class="bm-pin-icon" aria-hidden="true"></span></button>
+                        </div>
+
+                        <div class="bm-dock-content bm-toolbox-content">
+                            @if (Model.SourceSchemas.Count == 0)
+                            {
+                                <p class="bm-empty">No sources loaded.</p>
+                            }
+
+                            <div class="bm-source-list">
+                                @foreach (var source in Model.SourceSchemas)
+                                {
+                                    <article class="bm-source-card">
+                                        <details class="bm-source-group">
+                                            <summary class="bm-source-group-header">
+                                                <span class="bm-source-title-wrap">
+                                                    <span class="bm-node-name bm-source-title" tabindex="0">@source.DisplayName</span>
+                                                    <span class="bm-source-tooltip" role="tooltip">
+                                                        <span><strong>Id</strong><span>@source.Key</span></span>
+                                                        @if (!string.IsNullOrWhiteSpace(source.Description))
+                                                        {
+                                                            <span><strong>Description</strong><span>@source.Description</span></span>
+                                                        }
+                                                        @if (source.Tags.Count > 0)
+                                                        {
+                                                            <span><strong>Tags</strong><span>@string.Join(", ", source.Tags)</span></span>
+                                                        }
+                                                        <span><strong>Schema</strong><span>@source.SchemaKey · v@source.Version</span></span>
+                                                        @if (!string.IsNullOrWhiteSpace(source.Topic))
+                                                        {
+                                                            <span><strong>Topic</strong><span>@source.Topic</span></span>
+                                                        }
+                                                    </span>
+                                                </span>
+                                                <span class="bm-source-badge">Source</span>
+                                            </summary>
+                                            <div class="bm-source-tree">
+                                                @foreach (var child in source.Root.Children)
+                                                {
+                                                    <partial name="_SourceNode" model="child" />
+                                                }
+                                            </div>
+                                        </details>
+                                    </article>
+                                }
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="bm-dock-panel bm-function-toolbox" data-dock-panel="functions" tabindex="-1" hidden>
+                        <div class="bm-dock-titlebar bm-panel-title">
+                            <h2>Functions</h2>
+                            <button type="button" class="bm-dock-pin bm-toolbox-pin" data-dock-pin="functions" data-pin-state="pinned" aria-pressed="true" title="Auto hide panel"><span class="bm-pin-icon" aria-hidden="true"></span></button>
+                        </div>
+
+                        <div class="bm-dock-content bm-function-content">
+                            <div class="bm-function-search">
+                                <input type="search" placeholder="Search functions" data-function-search="true" aria-label="Search functions" />
+                            </div>
+
+                            @if (Model.FunctionCategories.Count == 0)
+                            {
+                                <p class="bm-empty">No functions registered.</p>
+                            }
+
+                            <div class="bm-function-list">
+                                @foreach (var category in Model.FunctionCategories)
+                                {
+                                    <details class="bm-function-group">
+                                        <summary class="bm-function-group-header">
+                                            <span>@category.Name</span>
+                                            <span>@category.Functions.Count</span>
+                                        </summary>
+                                        <div class="bm-function-group-items">
+                                            @foreach (var function in category.Functions)
+                                            {
+                                                <button type="button"
+                                                        class="bm-function-item"
+                                                        draggable="true"
+                                                        data-function-template="@function.Template"
+                                                        data-function-search-text="@function.Category @function.Key @function.DisplayName @function.Description"
+                                                        title="@function.Description">
+                                                    <span class="bm-function-key">@function.Key</span>
+                                                    <span class="bm-function-kind">@function.ValueKind</span>
+                                                    <span class="bm-function-template">@function.Template</span>
+                                                </button>
+                                            }
+                                        </div>
+                                    </details>
+                                }
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+
+            <section class="bm-designer-surface" data-view-panel="Visual">
+                <form method="post" asp-page-handler="SaveValidationDocument" class="bm-validation-form" data-validation-form="true">
+                    @Html.AntiForgeryToken()
+                    <div class="bm-canvas-header">
+                        <div>
+                            <h2>Validation document</h2>
+                        </div>
+                        <button type="submit">Save validations</button>
+                    </div>
+
+                    <section class="bm-validation-scope">
+                        <label>
+                            Payload alias
+                            <input name="PayloadAlias" value="@Model.PayloadAlias" data-validation-input="true" />
+                        </label>
+                        <label>
+                            Schema key
+                            <input name="SchemaKey" value="@Model.SchemaKey" data-validation-input="true" />
+                        </label>
+                    </section>
+
+                    <section class="bm-validation-section">
+                        <div class="bm-validation-section-header">
+                            <h3>Field Rules</h3>
+                            <button type="button" data-add-rule="true">Add rule</button>
+                        </div>
+                        <div class="bm-validation-grid bm-validation-grid-rules" data-rule-list="true">
+                            @foreach (var rule in Model.Rules)
+                            {
+                                <div class="bm-validation-row" data-rule-row="true">
+                                    <label>
+                                        Path
+                                        <input name="RulePaths" value="@rule.Path" placeholder="Customer.Name" data-validation-input="true" />
+                                    </label>
+                                    <label>
+                                        Rule
+                                        <input name="RuleKeys" value="@rule.RuleKey" placeholder="required" data-validation-input="true" />
+                                    </label>
+                                    <label>
+                                        Args
+                                        <input name="RuleArguments" value="@rule.Arguments" placeholder="3, 10" data-validation-input="true" />
+                                    </label>
+                                    <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+                                </div>
+                            }
+                        </div>
+                    </section>
+
+                    <section class="bm-validation-section">
+                        <div class="bm-validation-section-header">
+                            <h3>Assertions</h3>
+                            <button type="button" data-add-assertion="true">Add assertion</button>
+                        </div>
+                        <div class="bm-validation-grid" data-assertion-list="true">
+                            @foreach (var assertion in Model.Assertions)
+                            {
+                                <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true">
+                                    <label>
+                                        Expression
+                                        <input class="bm-expression-input" name="AssertionExpressions" value="@assertion.Expression" placeholder="gt($source.quantity, 10)" data-validation-input="true" />
+                                    </label>
+                                    <label>
+                                        Message
+                                        <input name="AssertionMessages" value="@assertion.Message" placeholder="Quantity must be greater than 10" data-validation-input="true" />
+                                    </label>
+                                    <label>
+                                        Path
+                                        <input name="AssertionPaths" value="@assertion.Path" placeholder="$source.quantity" data-validation-input="true" />
+                                    </label>
+                                    <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                </form>
+            </section>
+
+            <section class="bm-designer-surface bm-dsl-surface" data-view-panel="Dsl">
+                <form method="post" class="bm-dsl-form">
+                    @Html.AntiForgeryToken()
+                    <div class="bm-canvas-header">
+                        <div>
+                            <h2>Validation DSL</h2>
+                        </div>
+                    </div>
+                    <input type="hidden" name="ActiveView" value="Dsl" />
+                    <textarea name="DslContent" rows="28" data-dsl-editor="true">@Model.DslContent</textarea>
+                    <section class="bm-dsl-diagnostics-panel" data-dsl-diagnostics-panel="true">
+                        <button type="button" class="bm-dsl-diagnostics-header" data-dsl-diagnostics-toggle="true" aria-expanded="true">
+                            <span>Errors</span>
+                            <strong data-dsl-diagnostics-count="true">0</strong>
+                        </button>
+                        <div class="bm-dsl-diagnostics-body" data-dsl-diagnostics-body="true">
+                            <div class="bm-dsl-diagnostics-empty" data-dsl-diagnostics-empty="true">No DSL diagnostics</div>
+                            <div class="bm-dsl-diagnostics-list" data-dsl-diagnostics-list="true"></div>
+                        </div>
+                    </section>
+                </form>
+            </section>
+        </section>
+    </main>
+
+    <template data-rule-template="true">
+        <div class="bm-validation-row" data-rule-row="true">
+            <label>
+                Path
+                <input name="RulePaths" placeholder="Customer.Name" data-validation-input="true" />
+            </label>
+            <label>
+                Rule
+                <input name="RuleKeys" placeholder="required" data-validation-input="true" />
+            </label>
+            <label>
+                Args
+                <input name="RuleArguments" placeholder="3, 10" data-validation-input="true" />
+            </label>
+            <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+        </div>
+    </template>
+
+    <template data-assertion-template="true">
+        <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true">
+            <label>
+                Expression
+                <input class="bm-expression-input" name="AssertionExpressions" placeholder="gt($source.quantity, 10)" data-validation-input="true" />
+            </label>
+            <label>
+                Message
+                <input name="AssertionMessages" placeholder="Quantity must be greater than 10" data-validation-input="true" />
+            </label>
+            <label>
+                Path
+                <input name="AssertionPaths" placeholder="$source.quantity" data-validation-input="true" />
+            </label>
+            <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+        </div>
+    </template>
+</body>
+</html>

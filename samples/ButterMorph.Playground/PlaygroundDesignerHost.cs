@@ -5,10 +5,16 @@ using ButterMorph.Web.Razor;
 /// <summary>
 /// Provides contextual playground data for the embedded designer.
 /// </summary>
-internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
+internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost, IButterMorphValidationDesignerHost
 {
     // Stores mapping saves for the playground shell.
     private readonly PlaygroundMappingStore _mappingStore;
+
+    // Stores validation document saves for the playground shell.
+    private readonly PlaygroundValidationStore _validationStore;
+
+    // Exports validation documents for playground previews.
+    private readonly IValidationDslExporter _validationDslExporter;
 
     // Context value for the customer order scenario.
     private const string ComplexContext = "complex";
@@ -23,9 +29,16 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
     /// Initializes a new instance of the <see cref="PlaygroundDesignerHost"/> class.
     /// </summary>
     /// <param name="mappingStore">The mapping save store.</param>
-    public PlaygroundDesignerHost(PlaygroundMappingStore mappingStore)
+    /// <param name="validationStore">The validation save store.</param>
+    /// <param name="validationDslExporter">The validation DSL exporter.</param>
+    public PlaygroundDesignerHost(
+        PlaygroundMappingStore mappingStore,
+        PlaygroundValidationStore validationStore,
+        IValidationDslExporter validationDslExporter)
     {
         _mappingStore = mappingStore;
+        _validationStore = validationStore;
+        _validationDslExporter = validationDslExporter;
     }
 
     /// <summary>
@@ -41,6 +54,21 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         }
 
         return Task.FromResult(new ButterMorphDesignerLoadResult());
+    }
+
+    /// <summary>
+    /// Loads schemas and an initial validation document for a known playground context.
+    /// </summary>
+    /// <param name="request">The load request sent by the validation designer.</param>
+    /// <returns>The validation designer load result.</returns>
+    public Task<ButterMorphValidationDesignerLoadResult> Load(ButterMorphValidationDesignerLoadRequest request)
+    {
+        if (TryCreateValidationLoadResult(request.ContextKey, out ButterMorphValidationDesignerLoadResult result))
+        {
+            return Task.FromResult(result);
+        }
+
+        return Task.FromResult(new ButterMorphValidationDesignerLoadResult());
     }
 
     /// <summary>
@@ -100,6 +128,36 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
 
         result = new ButterMorphDesignerLoadResult();
         return false;
+    }
+
+    /// <summary>
+    /// Attempts to create the validation designer load result for a prepared scenario.
+    /// </summary>
+    /// <param name="contextKey">The scenario context key.</param>
+    /// <param name="result">The created validation load result.</param>
+    /// <returns><see langword="true"/> when the scenario exists.</returns>
+    public bool TryCreateValidationLoadResult(string contextKey, out ButterMorphValidationDesignerLoadResult result)
+    {
+        if (!TryCreateLoadResult(contextKey, out ButterMorphDesignerLoadResult mappingResult))
+        {
+            result = new ButterMorphValidationDesignerLoadResult();
+            return false;
+        }
+
+        IValidationDocument document = CreateValidationDocument(contextKey);
+
+        if (_validationStore.TryGet(contextKey, out PlaygroundValidationSave save))
+        {
+            document = save.Document;
+        }
+
+        result = new ButterMorphValidationDesignerLoadResult
+        {
+            SourceSchemas = mappingResult.SourceSchemas,
+            SourceMetadata = mappingResult.SourceMetadata,
+            InitialDocument = document
+        };
+        return true;
     }
 
     /// <summary>
@@ -231,6 +289,77 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         });
     }
 
+    /// <summary>
+    /// Accepts the saved validation document from the validation designer host flow.
+    /// </summary>
+    /// <param name="request">The save request sent by the validation designer.</param>
+    /// <returns>The validation designer save result.</returns>
+    public Task<ButterMorphValidationDesignerSaveResult> Save(ButterMorphValidationDesignerSaveRequest request)
+    {
+        if (!IsPreparedScenario(request.ContextKey))
+        {
+            return Task.FromResult(new ButterMorphValidationDesignerSaveResult
+            {
+                Succeeded = true,
+                Message = "Validations saved."
+            });
+        }
+
+        int validationCount = request.Document.Rules.Count + request.Document.Assertions.Count;
+        _validationStore.Save(new PlaygroundValidationSave
+        {
+            ContextKey = request.ContextKey,
+            DslContent = request.DslContent,
+            Document = request.Document,
+            SavedAt = DateTimeOffset.UtcNow.ToString("O"),
+            ValidationCount = validationCount
+        });
+
+        return Task.FromResult(new ButterMorphValidationDesignerSaveResult
+        {
+            Succeeded = true,
+            Message = "Validation document received by playground host for " + request.ContextKey + "."
+        });
+    }
+
+    /// <summary>
+    /// Creates a validation view for a prepared scenario.
+    /// </summary>
+    /// <param name="contextKey">The scenario context key.</param>
+    /// <returns>The validation view.</returns>
+    public PlaygroundValidationView CreateValidationView(string contextKey)
+    {
+        if (!TryCreateValidationLoadResult(contextKey, out ButterMorphValidationDesignerLoadResult loadResult))
+        {
+            return new PlaygroundValidationView
+            {
+                ContextKey = contextKey,
+                DisplayName = "Unknown scenario"
+            };
+        }
+
+        IValidationDocument document = loadResult.InitialDocument;
+        string savedAt = string.Empty;
+        string dslContent = _validationDslExporter.Export(document);
+        int validationCount = document.Rules.Count + document.Assertions.Count;
+
+        if (_validationStore.TryGet(contextKey, out PlaygroundValidationSave save))
+        {
+            dslContent = save.DslContent;
+            savedAt = save.SavedAt;
+            validationCount = save.ValidationCount;
+        }
+
+        return new PlaygroundValidationView
+        {
+            ContextKey = contextKey,
+            DisplayName = ResolveScenarioDisplayName(contextKey),
+            DslContent = dslContent,
+            SavedAt = savedAt,
+            ValidationCount = validationCount
+        };
+    }
+
     // Determines whether a context is owned by the playground host.
     private static bool IsPreparedScenario(string contextKey)
     {
@@ -245,6 +374,94 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         }
 
         return string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Creates a prepared validation document for a scenario.
+    private static IValidationDocument CreateValidationDocument(string contextKey)
+    {
+        if (string.Equals(contextKey, InvoiceContext, StringComparison.OrdinalIgnoreCase))
+        {
+            return new ValidationDocument
+            {
+                PayloadAlias = "invoice",
+                SchemaKey = "invoice",
+                Assertions =
+                [
+                    Assertion(
+                        "Invoice total must equal subtotal plus tax.",
+                        "$invoice.Header.Total",
+                        FunctionExpression("eq",
+                            Path("$invoice.Header.Total"),
+                            FunctionExpression("add", Path("$invoice.Header.Subtotal"), Path("$invoice.Header.Tax")))),
+                    Assertion(
+                        "Payment amount must match invoice total.",
+                        "$payment.Payment.Amount",
+                        FunctionExpression("eq", Path("$payment.Payment.Amount"), Path("$invoice.Header.Total"))),
+                    Assertion(
+                        "Invoice line quantity must be greater than zero.",
+                        "$invoice.Lines[0].Quantity",
+                        FunctionExpression("gt", Path("$invoice.Lines[0].Quantity"), Number("0")))
+                ]
+            };
+        }
+
+        if (string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase))
+        {
+            return new ValidationDocument
+            {
+                PayloadAlias = "ticket",
+                SchemaKey = "ticket",
+                Assertions =
+                [
+                    Assertion(
+                        "Ticket subject must contain at least three characters.",
+                        "$ticket.Ticket.Subject",
+                        FunctionExpression("gte", FunctionExpression("length", Path("$ticket.Ticket.Subject")), Number("3"))),
+                    Assertion(
+                        "Device warranty must be active.",
+                        "$asset.Warranty.Status",
+                        FunctionExpression("eq", Path("$asset.Warranty.Status"), Text("Active")))
+                ]
+            };
+        }
+
+        return new ValidationDocument
+        {
+            PayloadAlias = "orders",
+            SchemaKey = "orders",
+            Assertions =
+            [
+                Assertion(
+                    "Latest order total must be greater than zero.",
+                    "$orders.Orders[0].Total",
+                    FunctionExpression("gt", Path("$orders.Orders[0].Total"), Number("0"))),
+                Assertion(
+                    "Customer id is required.",
+                    "$customer.Identity.Id",
+                    FunctionExpression("exists", Path("$customer.Identity.Id")))
+            ]
+        };
+    }
+
+    // Resolves a display name for a prepared scenario.
+    private static string ResolveScenarioDisplayName(string contextKey)
+    {
+        if (string.Equals(contextKey, ComplexContext, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Customer order mapping";
+        }
+
+        if (string.Equals(contextKey, InvoiceContext, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Invoice accounting mapping";
+        }
+
+        if (string.Equals(contextKey, SupportContext, StringComparison.OrdinalIgnoreCase))
+        {
+            return "Support case mapping";
+        }
+
+        return contextKey;
     }
 
     // Creates sample JSON for the customer order scenario.
@@ -1035,6 +1252,27 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
         };
     }
 
+    // Creates a function call expression.
+    private static ITransformationExpression FunctionExpression(string functionKey, params ITransformationExpression[] arguments)
+    {
+        return new FunctionCallExpression
+        {
+            FunctionKey = functionKey,
+            Arguments = arguments
+        };
+    }
+
+    // Creates a validation assertion.
+    private static IValidationAssertion Assertion(string message, string path, ITransformationExpression expression)
+    {
+        return new ValidationAssertion
+        {
+            Expression = expression,
+            Message = message,
+            Path = path
+        };
+    }
+
     // Creates a text literal expression.
     private static ITransformationExpression Text(string value)
     {
@@ -1043,6 +1281,20 @@ internal sealed class PlaygroundDesignerHost : IButterMorphDesignerHost
             Value = new ScalarValue
             {
                 DataType = "String",
+                RawValue = value,
+                IsNull = false
+            }
+        };
+    }
+
+    // Creates a numeric literal expression.
+    private static ITransformationExpression Number(string value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "Number",
                 RawValue = value,
                 IsNull = false
             }

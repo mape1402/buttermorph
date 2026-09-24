@@ -39,6 +39,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage home = await client.GetAsync("/buttermorph");
         HttpResponseMessage schemas = await client.GetAsync("/buttermorph/schemas");
         HttpResponseMessage designer = await client.GetAsync("/buttermorph/designer");
+        HttpResponseMessage validationDesigner = await client.GetAsync("/buttermorph/validations/designer");
         HttpResponseMessage schemaDesigner = await client.GetAsync("/buttermorph/schema-designer");
         HttpResponseMessage schemaTypeDesigner = await client.GetAsync("/buttermorph/schema-types/designer");
         HttpResponseMessage metadataFieldDesigner = await client.GetAsync("/buttermorph/metadata-fields/designer");
@@ -48,6 +49,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
         Assert.Equal(HttpStatusCode.OK, schemas.StatusCode);
         Assert.Equal(HttpStatusCode.OK, designer.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, validationDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, schemaDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, schemaTypeDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, metadataFieldDesigner.StatusCode);
@@ -92,6 +94,30 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("--bm-schema-primary:#123456", payloadDesignerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-schema-bg:#abcdef", payloadDesignerHtml, StringComparison.Ordinal);
         Assert.Contains("buttermorph-theme.js", payloadDesignerHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the validation designer renders independently from the mapping designer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerRendersSeparateValidationDocumentEditor()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/validations/designer?context=invoice");
+
+        Assert.Contains("Validation Designer", html, StringComparison.Ordinal);
+        Assert.Contains("Save validations", html, StringComparison.Ordinal);
+        Assert.Contains("data-rule-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-assertion-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("gt($invoice.Lines[0].Quantity, 0)", html, StringComparison.Ordinal);
+        Assert.Contains("eq($payment.Payment.Amount, $invoice.Header.Total)", html, StringComparison.Ordinal);
+        Assert.Contains("Invoice source", html, StringComparison.Ordinal);
+        Assert.Contains("data-function-template=\"gte(argument0, argument1)\"", html, StringComparison.Ordinal);
+        Assert.Contains("validation-designer.js", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Output schema", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Save mappings", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -367,12 +393,16 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("ButterMorph host playground", html, StringComparison.Ordinal);
         Assert.Contains("/playground/scenarios", html, StringComparison.Ordinal);
         Assert.Contains("/playground/mappings/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/validations/", html, StringComparison.Ordinal);
         Assert.Contains("/playground/execute/", html, StringComparison.Ordinal);
-        Assert.Contains("/playground/validate/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/validate-schema/", html, StringComparison.Ordinal);
+        Assert.Contains("/playground/validate-rules/", html, StringComparison.Ordinal);
         Assert.Contains("/playground/schema-scenarios", html, StringComparison.Ordinal);
         Assert.Contains("/playground/schemas/", html, StringComparison.Ordinal);
         Assert.Contains("data-edit", html, StringComparison.Ordinal);
-        Assert.Contains("data-validate", html, StringComparison.Ordinal);
+        Assert.Contains("data-edit-validation", html, StringComparison.Ordinal);
+        Assert.Contains("data-validate-schema", html, StringComparison.Ordinal);
+        Assert.Contains("data-validate-rules", html, StringComparison.Ordinal);
         Assert.Contains("data-execute", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-tab=\"type\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-tab=\"field\"", html, StringComparison.Ordinal);
@@ -381,7 +411,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-edit-schema", html, StringComparison.Ordinal);
         Assert.Contains("data-delete-schema", html, StringComparison.Ordinal);
         Assert.Contains("ButterMorphDesignerSaved", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphValidationDesignerSaved", html, StringComparison.Ordinal);
         Assert.Contains("/buttermorph/designer\" + queryMarker + \"context=", html, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/validations/designer\" + queryMarker + \"context=", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-host.js", html, StringComparison.Ordinal);
         Assert.Contains("window.ButterMorphHost.openFrame", html, StringComparison.Ordinal);
         Assert.Contains("/playground-schema.js", html, StringComparison.Ordinal);
@@ -426,6 +458,67 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-execution-panel", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json", html, StringComparison.Ordinal);
         Assert.Contains("full host result", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the playground validates schemas and validation documents through separate actions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task PlaygroundValidationActionsRunSeparately()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        HttpResponseMessage validRulesResponse = await client.PostAsync("/playground/validate-rules/invoice", null);
+        string validRulesJson = await validRulesResponse.Content.ReadAsStringAsync();
+        using JsonDocument validRulesDocument = JsonDocument.Parse(validRulesJson);
+
+        Assert.True(validRulesDocument.RootElement.GetProperty("succeeded").GetBoolean());
+
+        FormUrlEncodedContent invalidSchemaContent = new(
+        [
+            new KeyValuePair<string, string>("SourceKeys", "invoice"),
+            new KeyValuePair<string, string>("SourceJsonValues", """
+            {
+              "Header": {
+                "InvoiceNumber": "INV-2026-001",
+                "IssuedOn": "2026-06-18T10:30:00",
+                "Currency": "MXN",
+                "Subtotal": 1200.00,
+                "Tax": 192.00
+              }
+            }
+            """)
+        ]);
+        HttpResponseMessage invalidSchemaResponse = await client.PostAsync("/playground/validate-schema/invoice", invalidSchemaContent);
+        string invalidSchemaJson = await invalidSchemaResponse.Content.ReadAsStringAsync();
+        using JsonDocument invalidSchemaDocument = JsonDocument.Parse(invalidSchemaJson);
+
+        Assert.False(invalidSchemaDocument.RootElement.GetProperty("succeeded").GetBoolean());
+
+        FormUrlEncodedContent invalidRulesContent = new(
+        [
+            new KeyValuePair<string, string>("SourceKeys", "payment"),
+            new KeyValuePair<string, string>("SourceJsonValues", """
+            {
+              "Payment": {
+                "Reference": "PAY-7788",
+                "PaidOn": "2026-06-19T09:15:00",
+                "Method": "Wire",
+                "Amount": 100.00
+              },
+              "Bank": {
+                "Account": "0123456789",
+                "AuthorizationCode": "AUTH-5521"
+              }
+            }
+            """)
+        ]);
+        HttpResponseMessage invalidRulesResponse = await client.PostAsync("/playground/validate-rules/invoice", invalidRulesContent);
+        string invalidRulesJson = await invalidRulesResponse.Content.ReadAsStringAsync();
+        using JsonDocument invalidRulesDocument = JsonDocument.Parse(invalidRulesJson);
+
+        Assert.False(invalidRulesDocument.RootElement.GetProperty("succeeded").GetBoolean());
     }
 
     /// <summary>
