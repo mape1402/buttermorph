@@ -16,7 +16,7 @@ public sealed class ValidationForEachDisplayModel
     public string Alias { get; set; } = "item";
 
     /// <summary>
-    /// Gets or sets the nested assertion.
+    /// Gets or sets the nested assertions.
     /// </summary>
-    public ValidationAssertionDisplayModel Assertion { get; set; } = new();
+    public IReadOnlyCollection<ValidationAssertionDisplayModel> Assertions { get; set; } = [];
 }

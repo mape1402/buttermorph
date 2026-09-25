@@ -187,8 +187,7 @@
                                 <button type="button" data-add-field-rule="true">Add field rule</button>
                                 <button type="button" data-add-group-assertion="true">Add group assertion</button>
                                 <button type="button" data-add-when-assertion="true">Add when assertion</button>
-                                <button type="button" data-add-foreach-field-rule="true">Add foreach field rule</button>
-                                <button type="button" data-add-foreach-assertion="true">Add foreach assertion</button>
+                                <button type="button" data-add-foreach="true">Add foreach</button>
                             </div>
                         </div>
                         <div class="bm-validation-grid" data-assertion-list="true">
@@ -340,10 +339,10 @@
                         <div class="bm-validation-grid" data-foreach-list="true">
                             @foreach (var rule in Model.ForEachRules)
                             {
-                                <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="@(rule.Assertion.Kind == "Simple" ? "simple" : "advanced")">
-                                    <input type="hidden" name="ForEachAssertionKinds" value="@rule.Assertion.Kind" data-foreach-kind="true" data-validation-input="true" />
+                                <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true">
+                                    <input type="hidden" name="ForEachRuleCounts" value="@rule.Assertions.Count" data-foreach-rule-count="true" data-validation-input="true" />
                                     <div class="bm-validation-row-top bm-foreach-row-top">
-                                        <div class="bm-validation-row-kind">@(rule.Assertion.Kind == "Simple" ? "For each field rule" : "For each assertion")</div>
+                                        <div class="bm-validation-row-kind">For each</div>
                                         <label>
                                             For each
                                             <input name="ForEachSources" value="@rule.SourceExpression" data-foreach-source="true" data-validation-input="true" />
@@ -352,47 +351,164 @@
                                             As
                                             <input name="ForEachAliases" value="@rule.Alias" data-foreach-alias="true" data-validation-input="true" />
                                         </label>
-                                        <label>
-                                            Error message
-                                            <input name="ForEachAssertionMessages" value="@rule.Assertion.Message" data-validation-input="true" />
-                                        </label>
                                         <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
                                     </div>
-                                    <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="@(rule.Assertion.RequiresValue ? "true" : "false")" hidden="@(rule.Assertion.Kind != "Simple")">
-                                        <label>
-                                            Field to validate
-                                            <input name="ForEachSimpleFieldPaths" value="@rule.Assertion.FieldPath" data-foreach-field="true" data-validation-input="true" />
-                                        </label>
-                                        <label>
-                                            Rule
-                                            <select name="ForEachSimpleOperators" data-foreach-operator="true" data-validation-input="true">
-                                                <option value="exists" selected="@(rule.Assertion.Operator == "exists" ? "selected" : null)">required / exists</option>
-                                                <option value="notEmpty" selected="@(rule.Assertion.Operator == "notEmpty" ? "selected" : null)">not empty</option>
-                                                <option value="isEmpty" selected="@(rule.Assertion.Operator == "isEmpty" ? "selected" : null)">is empty</option>
-                                                <option value="eq" selected="@(rule.Assertion.Operator == "eq" ? "selected" : null)">equals</option>
-                                                <option value="neq" selected="@(rule.Assertion.Operator == "neq" ? "selected" : null)">not equals</option>
-                                                <option value="gt" selected="@(rule.Assertion.Operator == "gt" ? "selected" : null)">greater than</option>
-                                                <option value="gte" selected="@(rule.Assertion.Operator == "gte" ? "selected" : null)">greater or equal</option>
-                                                <option value="lt" selected="@(rule.Assertion.Operator == "lt" ? "selected" : null)">less than</option>
-                                                <option value="lte" selected="@(rule.Assertion.Operator == "lte" ? "selected" : null)">less or equal</option>
-                                                <option value="contains" selected="@(rule.Assertion.Operator == "contains" ? "selected" : null)">contains</option>
-                                                <option value="startsWith" selected="@(rule.Assertion.Operator == "startsWith" ? "selected" : null)">starts with</option>
-                                                <option value="endsWith" selected="@(rule.Assertion.Operator == "endsWith" ? "selected" : null)">ends with</option>
-                                                <option value="regexMatch" selected="@(rule.Assertion.Operator == "regexMatch" ? "selected" : null)">matches regex</option>
-                                            </select>
-                                        </label>
-                                        <label data-foreach-value-wrapper="true" hidden="@(!rule.Assertion.RequiresValue ? "hidden" : null)">
-                                            Value
-                                            <input name="ForEachSimpleValues" value="@rule.Assertion.Value" data-foreach-value="true" data-validation-input="true" />
-                                        </label>
+                                    <div class="bm-foreach-rules" data-foreach-rule-section="true">
+                                        <div class="bm-foreach-rules-header">
+                                            <h4>Rules for each item</h4>
+                                            <div class="bm-foreach-actions">
+                                                <button type="button" data-add-foreach-child-field-rule="true">Add field rule</button>
+                                                <button type="button" data-add-foreach-child-group-assertion="true">Add group assertion</button>
+                                                <button type="button" data-add-foreach-child-when-assertion="true">Add when assertion</button>
+                                            </div>
+                                        </div>
+                                        <div class="bm-validation-grid bm-foreach-child-list" data-foreach-child-list="true">
+                                            @foreach (var assertion in rule.Assertions)
+                                            {
+                                                <div class="bm-validation-row bm-validation-row-assertion bm-validation-row-foreach-child" data-foreach-child-row="true" data-rule-kind="@(assertion.Kind == "Simple" ? "simple" : "advanced")">
+                                                    <input type="hidden" name="ForEachChildAssertionKinds" value="@assertion.Kind" data-foreach-child-kind="true" data-validation-input="true" />
+                                                    <div class="bm-validation-row-top">
+                                                        <div class="bm-validation-row-kind">@(assertion.Kind == "Simple" ? "Field rule" : "Assertion")</div>
+                                                        <label>
+                                                            Error message
+                                                            <input name="ForEachChildAssertionMessages" value="@assertion.Message" data-validation-input="true" />
+                                                        </label>
+                                                        <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+                                                    </div>
+                                                    <div class="bm-simple-rule-panel" data-simple-rule-panel="true" data-value-visible="@(assertion.RequiresValue ? "true" : "false")" hidden="@(assertion.Kind != "Simple")">
+                                                        <label>
+                                                            Field to validate
+                                                            <input name="ForEachChildSimpleFieldPaths" value="@assertion.FieldPath" data-simple-field="true" data-validation-input="true" />
+                                                        </label>
+                                                        <label>
+                                                            Rule
+                                                            <select name="ForEachChildSimpleOperators" data-simple-operator="true" data-validation-input="true">
+                                                                <option value="exists" selected="@(assertion.Operator == "exists" ? "selected" : null)">required / exists</option>
+                                                                <option value="notEmpty" selected="@(assertion.Operator == "notEmpty" ? "selected" : null)">not empty</option>
+                                                                <option value="isEmpty" selected="@(assertion.Operator == "isEmpty" ? "selected" : null)">is empty</option>
+                                                                <option value="eq" selected="@(assertion.Operator == "eq" ? "selected" : null)">equals</option>
+                                                                <option value="neq" selected="@(assertion.Operator == "neq" ? "selected" : null)">not equals</option>
+                                                                <option value="gt" selected="@(assertion.Operator == "gt" ? "selected" : null)">greater than</option>
+                                                                <option value="gte" selected="@(assertion.Operator == "gte" ? "selected" : null)">greater or equal</option>
+                                                                <option value="lt" selected="@(assertion.Operator == "lt" ? "selected" : null)">less than</option>
+                                                                <option value="lte" selected="@(assertion.Operator == "lte" ? "selected" : null)">less or equal</option>
+                                                                <option value="contains" selected="@(assertion.Operator == "contains" ? "selected" : null)">contains</option>
+                                                                <option value="startsWith" selected="@(assertion.Operator == "startsWith" ? "selected" : null)">starts with</option>
+                                                                <option value="endsWith" selected="@(assertion.Operator == "endsWith" ? "selected" : null)">ends with</option>
+                                                                <option value="regexMatch" selected="@(assertion.Operator == "regexMatch" ? "selected" : null)">matches regex</option>
+                                                            </select>
+                                                        </label>
+                                                        <label data-simple-value-wrapper="true" hidden="@(!assertion.RequiresValue ? "hidden" : null)">
+                                                            Value
+                                                            <input name="ForEachChildSimpleValues" value="@assertion.Value" data-simple-value="true" data-validation-input="true" />
+                                                        </label>
+                                                        <input type="hidden" name="ForEachChildAssertionExpressions" value="@assertion.Expression" data-foreach-child-expression-output="true" data-validation-input="true" />
+                                                    </div>
+                                                    <div class="bm-complex-assertion-panel" data-complex-assertion-panel="true" hidden="@(assertion.Kind == "Simple")">
+                                                        <details class="bm-condition-builder" data-condition-builder="true" open>
+                                                            <summary>Build validation</summary>
+                                                            <div class="bm-condition-builder-body">
+                                                                <label class="bm-condition-mode" hidden>
+                                                                    Pattern
+                                                                    <select data-builder-mode="true">
+                                                                        <option value="group">Group assertion</option>
+                                                                        <option value="when">When assertion</option>
+                                                                    </select>
+                                                                </label>
+                                                                <div data-builder-panel="group">
+                                                                    <div class="bm-condition-group" data-condition-group="true">
+                                                                        <div class="bm-condition-group-header">
+                                                                            <label>
+                                                                                Combine
+                                                                                <select data-group-operator="true">
+                                                                                    <option value="and">All conditions</option>
+                                                                                    <option value="or">Any condition</option>
+                                                                                </select>
+                                                                            </label>
+                                                                            <div class="bm-condition-actions">
+                                                                                <button type="button" data-add-condition="true">Add condition</button>
+                                                                                <button type="button" data-add-group="true">Add group</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="bm-condition-list" data-condition-list="true">
+                                                                            <div class="bm-condition-row" data-condition-row="true">
+                                                                                <input data-condition-left="true" />
+                                                                                <select data-condition-operator="true">
+                                                                                    <option value="exists">required / exists</option>
+                                                                                    <option value="notEmpty">not empty</option>
+                                                                                    <option value="isEmpty">is empty</option>
+                                                                                    <option value="eq">equals</option>
+                                                                                    <option value="neq">not equals</option>
+                                                                                    <option value="gt">greater than</option>
+                                                                                    <option value="gte">greater or equal</option>
+                                                                                    <option value="lt">less than</option>
+                                                                                    <option value="lte">less or equal</option>
+                                                                                    <option value="contains">contains</option>
+                                                                                    <option value="startsWith">starts with</option>
+                                                                                    <option value="endsWith">ends with</option>
+                                                                                    <option value="regexMatch">matches regex</option>
+                                                                                </select>
+                                                                                <input data-condition-right="true" />
+                                                                                <button type="button" data-remove-condition="true">Remove</button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div data-builder-panel="when" hidden>
+                                                                    <section class="bm-condition-branch" data-when-branch="condition">
+                                                                        <h4>When</h4>
+                                                                        <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
+                                                                            <div class="bm-condition-group-header">
+                                                                                <label>
+                                                                                    Combine
+                                                                                    <select data-group-operator="true">
+                                                                                        <option value="and">All conditions</option>
+                                                                                        <option value="or">Any condition</option>
+                                                                                    </select>
+                                                                                </label>
+                                                                                <div class="bm-condition-actions">
+                                                                                    <button type="button" data-add-condition="true">Add condition</button>
+                                                                                    <button type="button" data-add-group="true">Add group</button>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="bm-condition-list" data-condition-list="true"></div>
+                                                                        </div>
+                                                                    </section>
+                                                                    <div class="bm-condition-branch-actions">
+                                                                        <button type="button" data-show-when-branch="else">Add otherwise</button>
+                                                                    </div>
+                                                                    <section class="bm-condition-branch" data-when-branch="then">
+                                                                        <h4>Then</h4>
+                                                                        <div class="bm-validation-slot" data-validation-slot="then" data-allow-when="true">
+                                                                            <div class="bm-validation-slot-actions">
+                                                                                <button type="button" data-set-slot-node="field">Use field rule</button>
+                                                                                <button type="button" data-set-slot-node="group">Use group</button>
+                                                                                <button type="button" data-set-slot-node="when">Use nested when</button>
+                                                                            </div>
+                                                                            <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
+                                                                        </div>
+                                                                    </section>
+                                                                    <section class="bm-condition-branch" data-when-branch="else" hidden>
+                                                                        <h4>Otherwise</h4>
+                                                                        <div class="bm-validation-slot" data-validation-slot="else" data-allow-when="true" data-optional-slot="true">
+                                                                            <div class="bm-validation-slot-actions">
+                                                                                <button type="button" data-set-slot-node="field">Use field rule</button>
+                                                                                <button type="button" data-set-slot-node="group">Use group</button>
+                                                                                <button type="button" data-set-slot-node="when">Use nested when</button>
+                                                                                <button type="button" data-clear-slot="true">Clear otherwise</button>
+                                                                            </div>
+                                                                            <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
+                                                                        </div>
+                                                                    </section>
+                                                                </div>
+                                                            </div>
+                                                        </details>
+                                                        <textarea class="bm-expression-input bm-hidden-expression-store" rows="1" data-foreach-child-complex-expression-editor="true" data-validation-input="true" hidden>@assertion.Expression</textarea>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
                                     </div>
-                                    <div class="bm-complex-assertion-panel" data-foreach-complex-panel="true" hidden="@(rule.Assertion.Kind == "Simple")">
-                                        <label>
-                                            Expression
-                                            <textarea class="bm-expression-input" rows="3" data-foreach-expression="true" data-validation-input="true">@rule.Assertion.Expression</textarea>
-                                        </label>
-                                    </div>
-                                    <input type="hidden" name="ForEachAssertionExpressions" value="@rule.Assertion.Expression" data-foreach-expression-output="true" data-validation-input="true" />
                                 </div>
                             }
                         </div>
@@ -570,10 +686,10 @@
     </template>
 
     <template data-foreach-template="true">
-        <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="simple">
-            <input type="hidden" name="ForEachAssertionKinds" value="Simple" data-foreach-kind="true" data-validation-input="true" />
+        <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true">
+            <input type="hidden" name="ForEachRuleCounts" value="0" data-foreach-rule-count="true" data-validation-input="true" />
             <div class="bm-validation-row-top bm-foreach-row-top">
-                <div class="bm-validation-row-kind">For each field rule</div>
+                <div class="bm-validation-row-kind">For each</div>
                 <label>
                     For each
                     <input name="ForEachSources" data-foreach-source="true" data-validation-input="true" />
@@ -582,47 +698,19 @@
                     As
                     <input name="ForEachAliases" value="item" data-foreach-alias="true" data-validation-input="true" />
                 </label>
-                <label>
-                    Error message
-                    <input name="ForEachAssertionMessages" data-validation-input="true" />
-                </label>
                 <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
             </div>
-            <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="false">
-                <label>
-                    Field to validate
-                    <input name="ForEachSimpleFieldPaths" data-foreach-field="true" data-validation-input="true" />
-                </label>
-                <label>
-                    Rule
-                    <select name="ForEachSimpleOperators" data-foreach-operator="true" data-validation-input="true">
-                        <option value="exists">required / exists</option>
-                        <option value="notEmpty">not empty</option>
-                        <option value="isEmpty">is empty</option>
-                        <option value="eq">equals</option>
-                        <option value="neq">not equals</option>
-                        <option value="gt">greater than</option>
-                        <option value="gte">greater or equal</option>
-                        <option value="lt">less than</option>
-                        <option value="lte">less or equal</option>
-                        <option value="contains">contains</option>
-                        <option value="startsWith">starts with</option>
-                        <option value="endsWith">ends with</option>
-                        <option value="regexMatch">matches regex</option>
-                    </select>
-                </label>
-                <label data-foreach-value-wrapper="true" hidden>
-                    Value
-                    <input name="ForEachSimpleValues" data-foreach-value="true" data-validation-input="true" />
-                </label>
+            <div class="bm-foreach-rules" data-foreach-rule-section="true">
+                <div class="bm-foreach-rules-header">
+                    <h4>Rules for each item</h4>
+                    <div class="bm-foreach-actions">
+                        <button type="button" data-add-foreach-child-field-rule="true">Add field rule</button>
+                        <button type="button" data-add-foreach-child-group-assertion="true">Add group assertion</button>
+                        <button type="button" data-add-foreach-child-when-assertion="true">Add when assertion</button>
+                    </div>
+                </div>
+                <div class="bm-validation-grid bm-foreach-child-list" data-foreach-child-list="true"></div>
             </div>
-            <div class="bm-complex-assertion-panel" data-foreach-complex-panel="true" hidden>
-                <label>
-                    Expression
-                    <textarea class="bm-expression-input" rows="3" data-foreach-expression="true" data-validation-input="true"></textarea>
-                </label>
-            </div>
-            <input type="hidden" name="ForEachAssertionExpressions" data-foreach-expression-output="true" data-validation-input="true" />
         </div>
     </template>
 

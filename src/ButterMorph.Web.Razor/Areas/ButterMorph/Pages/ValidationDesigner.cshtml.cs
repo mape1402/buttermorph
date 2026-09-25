@@ -124,40 +124,46 @@ public sealed class ValidationDesignerModel : PageModel
     public List<string> ForEachAliases { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach assertion kinds.
+    /// Gets or sets posted foreach child rule counts.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachAssertionKinds { get; set; } = [];
+    public List<string> ForEachRuleCounts { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach simple field paths.
+    /// Gets or sets posted foreach child assertion kinds.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachSimpleFieldPaths { get; set; } = [];
+    public List<string> ForEachChildAssertionKinds { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach simple operators.
+    /// Gets or sets posted foreach child simple field paths.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachSimpleOperators { get; set; } = [];
+    public List<string> ForEachChildSimpleFieldPaths { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach simple values.
+    /// Gets or sets posted foreach child simple operators.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachSimpleValues { get; set; } = [];
+    public List<string> ForEachChildSimpleOperators { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach assertion expressions.
+    /// Gets or sets posted foreach child simple values.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachAssertionExpressions { get; set; } = [];
+    public List<string> ForEachChildSimpleValues { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets posted foreach assertion messages.
+    /// Gets or sets posted foreach child assertion expressions.
     /// </summary>
     [BindProperty]
-    public List<string> ForEachAssertionMessages { get; set; } = [];
+    public List<string> ForEachChildAssertionExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach child assertion messages.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachChildAssertionMessages { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the DSL editor content.
@@ -531,48 +537,35 @@ public sealed class ValidationDesignerModel : PageModel
         {
             CountPostedValues(ForEachSources),
             CountPostedValues(ForEachAliases),
-            CountPostedValues(ForEachAssertionKinds),
-            CountPostedValues(ForEachSimpleFieldPaths),
-            CountPostedValues(ForEachSimpleOperators),
-            CountPostedValues(ForEachSimpleValues),
-            CountPostedValues(ForEachAssertionExpressions),
-            CountPostedValues(ForEachAssertionMessages)
+            CountPostedValues(ForEachRuleCounts)
         }.Max();
+        int childOffset = 0;
 
         for (int index = 0; index < count; index++)
         {
             string source = GetPostedValue(ForEachSources, index).Trim();
-            string alias = ResolveAlias(GetPostedValue(ForEachAliases, index));
-            string kind = NormalizeAssertionKind(GetPostedValue(ForEachAssertionKinds, index));
-            string message = GetPostedValue(ForEachAssertionMessages, index).Trim();
-            string expression = GetPostedValue(ForEachAssertionExpressions, index).Trim();
+            string postedAlias = GetPostedValue(ForEachAliases, index);
+            string alias = ResolveAlias(postedAlias);
+            int childCount = ReadPostedCount(ForEachRuleCounts, index);
+            int blockDiagnosticStart = diagnostics.Count;
+            bool hasChildInput = false;
+            List<string> assertionLines = [];
 
-            if (string.Equals(kind, "Simple", StringComparison.Ordinal))
+            for (int childIndex = 0; childIndex < childCount; childIndex++)
             {
-                string fieldPath = GetPostedValue(ForEachSimpleFieldPaths, index).Trim();
-                string operatorKey = NormalizeSimpleOperator(GetPostedValue(ForEachSimpleOperators, index));
-                string value = GetPostedValue(ForEachSimpleValues, index).Trim();
-
-                if (string.IsNullOrWhiteSpace(source) && string.IsNullOrWhiteSpace(fieldPath) && string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(message))
+                if (TryBuildPostedForEachAssertionLine(childOffset, diagnostics, out string assertionLine, out bool childHasInput))
                 {
-                    continue;
+                    assertionLines.Add(assertionLine);
                 }
 
-                if (string.IsNullOrWhiteSpace(fieldPath))
-                {
-                    diagnostics.Add(CreateDiagnostic("BVDG011", "Foreach validation field is required.", source));
-                    continue;
-                }
-
-                if (RequiresSimpleValue(operatorKey) && string.IsNullOrWhiteSpace(value))
-                {
-                    diagnostics.Add(CreateDiagnostic("BVDG012", "Foreach validation value is required.", fieldPath));
-                    continue;
-                }
-
-                expression = BuildSimpleAssertionExpression(fieldPath, operatorKey, value);
+                hasChildInput = hasChildInput || childHasInput;
+                childOffset++;
             }
-            else if (string.IsNullOrWhiteSpace(source) && string.IsNullOrWhiteSpace(expression) && string.IsNullOrWhiteSpace(message))
+
+            bool aliasChanged = !string.IsNullOrWhiteSpace(postedAlias) &&
+                !string.Equals(postedAlias.Trim(), "item", StringComparison.Ordinal);
+            bool hasBlockInput = !string.IsNullOrWhiteSpace(source) || aliasChanged || hasChildInput;
+            if (!hasBlockInput)
             {
                 continue;
             }
@@ -583,9 +576,14 @@ public sealed class ValidationDesignerModel : PageModel
                 continue;
             }
 
-            if (string.IsNullOrWhiteSpace(expression))
+            if (assertionLines.Count == 0 && diagnostics.Count == blockDiagnosticStart)
             {
-                diagnostics.Add(CreateDiagnostic("BVDG014", "Foreach assertion expression is required.", source));
+                diagnostics.Add(CreateDiagnostic("BVDG016", "Foreach must include at least one validation rule.", source));
+                continue;
+            }
+
+            if (diagnostics.Count > blockDiagnosticStart)
+            {
                 continue;
             }
 
@@ -594,7 +592,7 @@ public sealed class ValidationDesignerModel : PageModel
                 IValidationDocument document = ParseValidationDocument(
                     "validate {" + Environment.NewLine +
                     "  foreach " + source + " as " + alias + " {" + Environment.NewLine +
-                    "    assert " + expression + ": " + WriteString(string.IsNullOrWhiteSpace(message) ? "Validation assertion failed." : message) + Environment.NewLine +
+                    string.Join(Environment.NewLine, assertionLines.Select(line => "    " + line)) + Environment.NewLine +
                     "  }" + Environment.NewLine +
                     "}");
                 statements.Add(document.Statements.OfType<IValidationForEach>().First());
@@ -604,6 +602,66 @@ public sealed class ValidationDesignerModel : PageModel
                 diagnostics.Add(CreateDiagnostic("BVDG015", exception.Message, source));
             }
         }
+    }
+
+    // Creates one posted foreach child assertion DSL line.
+    private bool TryBuildPostedForEachAssertionLine(
+        int index,
+        List<DiagnosticEntry> diagnostics,
+        out string assertionLine,
+        out bool hasInput)
+    {
+        assertionLine = string.Empty;
+        string kind = NormalizeAssertionKind(GetPostedValue(ForEachChildAssertionKinds, index));
+        string message = GetPostedValue(ForEachChildAssertionMessages, index).Trim();
+        string expression = GetPostedValue(ForEachChildAssertionExpressions, index).Trim();
+
+        if (string.Equals(kind, "Simple", StringComparison.Ordinal))
+        {
+            string fieldPath = GetPostedValue(ForEachChildSimpleFieldPaths, index).Trim();
+            string operatorKey = NormalizeSimpleOperator(GetPostedValue(ForEachChildSimpleOperators, index));
+            string value = GetPostedValue(ForEachChildSimpleValues, index).Trim();
+            hasInput = !string.IsNullOrWhiteSpace(fieldPath) ||
+                !string.IsNullOrWhiteSpace(value) ||
+                !string.IsNullOrWhiteSpace(message);
+
+            if (!hasInput)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(fieldPath))
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG011", "Foreach validation field is required.", string.Empty));
+                return false;
+            }
+
+            if (RequiresSimpleValue(operatorKey) && string.IsNullOrWhiteSpace(value))
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG012", "Foreach validation value is required.", fieldPath));
+                return false;
+            }
+
+            expression = BuildSimpleAssertionExpression(fieldPath, operatorKey, value);
+        }
+        else
+        {
+            hasInput = !string.IsNullOrWhiteSpace(expression) || !string.IsNullOrWhiteSpace(message);
+
+            if (!hasInput)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG014", "Foreach assertion expression is required.", string.Empty));
+                return false;
+            }
+        }
+
+        assertionLine = "assert " + expression + ": " + WriteString(string.IsNullOrWhiteSpace(message) ? "Validation assertion failed." : message);
+        return true;
     }
 
     // Saves posted validation assertions.
@@ -783,15 +841,12 @@ public sealed class ValidationDesignerModel : PageModel
 
         foreach (IValidationForEach forEach in document.Statements.OfType<IValidationForEach>())
         {
-            foreach (IValidationAssertion assertion in forEach.Statements.OfType<IValidationAssertion>())
+            rows.Add(new ValidationForEachDisplayModel
             {
-                rows.Add(new ValidationForEachDisplayModel
-                {
-                    SourceExpression = ExportExpressionText(forEach.SourceExpression),
-                    Alias = ResolveAlias(forEach.ItemAlias),
-                    Assertion = CreateAssertionDisplay(assertion)
-                });
-            }
+                SourceExpression = ExportExpressionText(forEach.SourceExpression),
+                Alias = ResolveAlias(forEach.ItemAlias),
+                Assertions = forEach.Statements.OfType<IValidationAssertion>().Select(CreateAssertionDisplay).ToArray()
+            });
         }
 
         return rows;
@@ -1401,6 +1456,15 @@ public sealed class ValidationDesignerModel : PageModel
     private static int CountPostedValues(IReadOnlyCollection<string> values)
     {
         return values?.Count ?? 0;
+    }
+
+    // Reads a posted count value.
+    private static int ReadPostedCount(IReadOnlyList<string> values, int index)
+    {
+        string text = GetPostedValue(values, index);
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int count)
+            ? Math.Max(0, count)
+            : 0;
     }
 
     // Creates an error diagnostic.
