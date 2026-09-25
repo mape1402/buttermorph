@@ -656,11 +656,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function getExpressionOutput(row) {
-    return row ? row.querySelector("[data-expression-output='true']") : null;
+    return row ? row.querySelector("[data-expression-output='true'], [data-foreach-child-expression-output='true']") : null;
   }
 
   function getComplexExpressionEditor(row) {
-    return row ? row.querySelector("[data-complex-expression-editor='true']") : null;
+    return row ? row.querySelector("[data-complex-expression-editor='true'], [data-foreach-child-complex-expression-editor='true']") : null;
   }
 
   function updateSimpleValueVisibility(row) {
@@ -699,7 +699,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setAssertionKind(row) {
-    const kind = row ? row.querySelector("[data-assertion-kind='true']") : null;
+    const kind = row ? row.querySelector("[data-assertion-kind='true'], [data-foreach-child-kind='true']") : null;
     const simplePanel = row ? row.querySelector("[data-simple-rule-panel='true']") : null;
     const complexPanel = row ? row.querySelector("[data-complex-assertion-panel='true']") : null;
     const kindLabel = row ? row.querySelector(".bm-validation-row-kind") : null;
@@ -840,7 +840,7 @@ document.addEventListener("DOMContentLoaded", function () {
       ensureValidationSlotHasNode(getWhenSlot(whenPanel, "then"), "field");
     }
     ensureConditionBuilderControls(builder);
-    updateAssertionKindLabel(builder.closest("[data-assertion-row='true']"));
+    updateAssertionKindLabel(builder.closest("[data-assertion-row='true'], [data-foreach-child-row='true']"));
   }
 
   function ensureConditionListHasRow(list) {
@@ -871,7 +871,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!row) {
       return;
     }
-    const kind = row.querySelector("[data-assertion-kind='true']");
+    const kind = row.querySelector("[data-assertion-kind='true'], [data-foreach-child-kind='true']");
     const kindLabel = row.querySelector(".bm-validation-row-kind");
     if (!kind || !kindLabel || kind.value === "Simple") {
       return;
@@ -978,7 +978,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updateBuilderExpression(builder) {
-    const row = builder.closest("[data-assertion-row='true']");
+    const row = builder.closest("[data-assertion-row='true'], [data-foreach-child-row='true']");
     const editor = getComplexExpressionEditor(row);
     const output = getExpressionOutput(row);
     const mode = builder.querySelector("[data-builder-mode='true']");
@@ -1019,7 +1019,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function syncAssertionRow(row) {
-    const kind = row.querySelector("[data-assertion-kind='true']");
+    const kind = row.querySelector("[data-assertion-kind='true'], [data-foreach-child-kind='true']");
     if (kind && kind.value === "Simple") {
       updateSimpleExpression(row);
       return;
@@ -1031,53 +1031,21 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-assertion-row='true']").forEach(syncAssertionRow);
   }
 
-  function getForEachExpressionOutput(row) {
-    return row ? row.querySelector("[data-foreach-expression-output='true']") : null;
-  }
-
-  function updateForEachValueVisibility(row) {
-    const operator = row ? row.querySelector("[data-foreach-operator='true']") : null;
-    const wrapper = row ? row.querySelector("[data-foreach-value-wrapper='true']") : null;
-    const panel = row ? row.querySelector("[data-foreach-simple-panel='true']") : null;
-    if (!operator || !wrapper) {
-      return;
-    }
-    const needsValue = simpleOperatorNeedsValue(operator.value);
-    wrapper.hidden = !needsValue;
-    if (panel) {
-      panel.setAttribute("data-value-visible", needsValue ? "true" : "false");
-    }
-  }
-
   function syncForEachRow(row) {
-    const kind = row ? row.querySelector("[data-foreach-kind='true']") : null;
-    const simplePanel = row ? row.querySelector("[data-foreach-simple-panel='true']") : null;
-    const complexPanel = row ? row.querySelector("[data-foreach-complex-panel='true']") : null;
-    const kindLabel = row ? row.querySelector(".bm-validation-row-kind") : null;
-    const output = getForEachExpressionOutput(row);
-    if (!kind || !simplePanel || !complexPanel || !output) {
+    if (!row) {
       return;
     }
-    const isSimple = kind.value === "Simple";
-    row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
-    if (kindLabel) {
-      kindLabel.textContent = isSimple ? "For each field rule" : "For each assertion";
-    }
-    simplePanel.hidden = !isSimple;
-    complexPanel.hidden = isSimple;
-    if (isSimple) {
-      const field = row.querySelector("[data-foreach-field='true']");
-      const operator = row.querySelector("[data-foreach-operator='true']");
-      const value = row.querySelector("[data-foreach-value='true']");
-      updateForEachValueVisibility(row);
-      output.value = buildSimpleExpression(
-        field ? field.value.trim() : "",
-        operator ? operator.value : "exists",
-        value ? value.value.trim() : "");
+    row.querySelectorAll("[data-foreach-child-row='true']").forEach(syncAssertionRow);
+    updateForEachRuleCount(row);
+  }
+
+  function updateForEachRuleCount(row) {
+    const count = row ? row.querySelector("[data-foreach-rule-count='true']") : null;
+    const list = row ? row.querySelector("[data-foreach-child-list='true']") : null;
+    if (!count || !list) {
       return;
     }
-    const expression = row.querySelector("[data-foreach-expression='true']");
-    output.value = expression ? expression.value.trim() : "";
+    count.value = list.querySelectorAll("[data-foreach-child-row='true']").length.toString();
   }
 
   function syncAllForEachRows() {
@@ -1088,7 +1056,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!row) {
       return;
     }
-    syncForEachRow(row);
+    row.querySelectorAll("[data-foreach-child-row='true']").forEach(initializeAssertionRow);
+    updateForEachRuleCount(row);
   }
 
   function initializeAssertionRow(row) {
@@ -1119,28 +1088,88 @@ document.addEventListener("DOMContentLoaded", function () {
     return row;
   }
 
-  function configureNewForEachRow(kind) {
-    const row = cloneTemplate("[data-foreach-template='true']", "[data-foreach-list='true']");
-    const kindInput = row ? row.querySelector("[data-foreach-kind='true']") : null;
+  function renameForEachChildFields(row) {
+    if (!row) {
+      return;
+    }
+    row.classList.add("bm-validation-row-foreach-child");
+    row.removeAttribute("data-assertion-row");
+    row.setAttribute("data-foreach-child-row", "true");
+
+    const kind = row.querySelector("[data-assertion-kind='true']");
+    if (kind) {
+      kind.name = "ForEachChildAssertionKinds";
+      kind.removeAttribute("data-assertion-kind");
+      kind.setAttribute("data-foreach-child-kind", "true");
+    }
+
+    row.querySelectorAll("[name='AssertionMessages']").forEach(function (input) {
+      input.name = "ForEachChildAssertionMessages";
+    });
+    row.querySelectorAll("[name='SimpleFieldPaths']").forEach(function (input) {
+      input.name = "ForEachChildSimpleFieldPaths";
+    });
+    row.querySelectorAll("[name='SimpleOperators']").forEach(function (input) {
+      input.name = "ForEachChildSimpleOperators";
+    });
+    row.querySelectorAll("[name='SimpleValues']").forEach(function (input) {
+      input.name = "ForEachChildSimpleValues";
+    });
+    row.querySelectorAll("[name='AssertionExpressions']").forEach(function (input) {
+      input.name = "ForEachChildAssertionExpressions";
+    });
+
+    const output = row.querySelector("[data-expression-output='true']");
+    if (output) {
+      output.removeAttribute("data-expression-output");
+      output.setAttribute("data-foreach-child-expression-output", "true");
+    }
+
+    const editor = row.querySelector("[data-complex-expression-editor='true']");
+    if (editor) {
+      editor.removeAttribute("data-complex-expression-editor");
+      editor.setAttribute("data-foreach-child-complex-expression-editor", "true");
+    }
+  }
+
+  function configureNewForEachChildRow(foreachRow, kind, builderMode) {
+    const list = foreachRow ? foreachRow.querySelector("[data-foreach-child-list='true']") : null;
+    const row = cloneTemplateElement("[data-assertion-template='true']");
+    if (!row || !list) {
+      return null;
+    }
+    renameForEachChildFields(row);
+    list.appendChild(row);
+    const kindInput = row.querySelector("[data-foreach-child-kind='true']");
+    const modeInput = row.querySelector("[data-builder-mode='true']");
     if (kindInput) {
       kindInput.value = kind === "Complex" ? "Complex" : "Simple";
     }
+    if (modeInput) {
+      modeInput.value = builderMode === "when" ? "when" : "group";
+    }
+    initializeAssertionRow(row);
+    updateForEachRuleCount(foreachRow);
+    return row;
+  }
+
+  function configureNewForEachRow() {
+    const row = cloneTemplate("[data-foreach-template='true']", "[data-foreach-list='true']");
     initializeForEachRow(row);
+    configureNewForEachChildRow(row, "Simple", "group");
     return row;
   }
 
   function updateExpressionOwners(input) {
-    const foreachRow = input.closest("[data-foreach-row='true']");
-    if (foreachRow) {
-      syncForEachRow(foreachRow);
-      return;
-    }
-
-    const row = input.closest("[data-assertion-row='true']");
+    const row = input.closest("[data-assertion-row='true'], [data-foreach-child-row='true']");
     if (!row) {
+      const foreachRow = input.closest("[data-foreach-row='true']");
+      if (foreachRow) {
+        updateForEachRuleCount(foreachRow);
+      }
       return;
     }
-    if (input.matches("[data-complex-expression-editor='true']")) {
+    if (input.matches("[data-complex-expression-editor='true'], [data-foreach-child-complex-expression-editor='true']")) {
       syncComplexExpression(row);
     }
     if (input.matches("[data-simple-field='true'], [data-simple-operator='true'], [data-simple-value='true']")) {
@@ -1158,6 +1187,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (builder) {
       updateBuilderExpression(builder);
     }
+    updateForEachRuleCount(row.closest("[data-foreach-row='true']"));
   }
 
   function readDroppedExpression(event) {
@@ -1174,7 +1204,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!target || !target.closest) {
       return null;
     }
-    const input = target.closest("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-complex-expression-editor='true'], [data-foreach-source='true'], [data-foreach-field='true'], [data-foreach-value='true'], [data-foreach-expression='true']");
+    const input = target.closest("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-complex-expression-editor='true'], [data-foreach-child-complex-expression-editor='true'], [data-foreach-source='true']");
     if (!input || !document.contains(input) || input.type === "hidden" || input.disabled) {
       return null;
     }
@@ -1303,28 +1333,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   document.addEventListener("change", function (event) {
-    if (event.target.matches("[data-assertion-kind='true']")) {
-      const row = event.target.closest("[data-assertion-row='true']");
+    if (event.target.matches("[data-assertion-kind='true'], [data-foreach-child-kind='true']")) {
+      const row = event.target.closest("[data-assertion-row='true'], [data-foreach-child-row='true']");
       setAssertionKind(row);
-      scheduleVisualSync();
-      return;
-    }
-    if (event.target.matches("[data-foreach-kind='true'], [data-foreach-operator='true']")) {
-      const row = event.target.closest("[data-foreach-row='true']");
-      syncForEachRow(row);
-      if (event.target.matches("[data-foreach-operator='true']") && simpleOperatorNeedsValue(event.target.value)) {
-        const valueInput = row ? row.querySelector("[data-foreach-value='true']") : null;
-        if (valueInput && valueInput.value.length === 0) {
-          valueInput.focus();
-        }
-      }
       scheduleVisualSync();
       return;
     }
     if (event.target.matches("[data-simple-operator='true'], [data-builder-mode='true'], [data-group-operator='true'], [data-condition-operator='true']")) {
       updateExpressionOwners(event.target);
       if (event.target.matches("[data-simple-operator='true']") && simpleOperatorNeedsValue(event.target.value)) {
-        const row = event.target.closest("[data-assertion-row='true']");
+        const row = event.target.closest("[data-assertion-row='true'], [data-foreach-child-row='true']");
         const valueInput = row ? row.querySelector("[data-simple-value='true']") : null;
         if (valueInput && valueInput.value.length === 0) {
           valueInput.focus();
@@ -1363,7 +1381,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (event.target.matches(".bm-expression-input")) {
       activeExpressionInput = event.target;
     }
-    if (event.target.matches("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-foreach-source='true'], [data-foreach-field='true'], [data-foreach-value='true']")) {
+    if (event.target.matches("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-foreach-source='true']")) {
       activeBuilderInput = event.target;
     }
   });
@@ -1380,12 +1398,26 @@ document.addEventListener("DOMContentLoaded", function () {
       configureNewAssertionRow("Complex", "when");
       return;
     }
-    if (event.target.matches("[data-add-foreach-field-rule='true'], [data-add-foreach='true']")) {
-      configureNewForEachRow("Simple");
+    if (event.target.matches("[data-add-foreach='true']")) {
+      configureNewForEachRow();
       return;
     }
-    if (event.target.matches("[data-add-foreach-assertion='true']")) {
-      configureNewForEachRow("Complex");
+    if (event.target.matches("[data-add-foreach-child-field-rule='true']")) {
+      const foreachRow = event.target.closest("[data-foreach-row='true']");
+      configureNewForEachChildRow(foreachRow, "Simple", "group");
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-add-foreach-child-group-assertion='true']")) {
+      const foreachRow = event.target.closest("[data-foreach-row='true']");
+      configureNewForEachChildRow(foreachRow, "Complex", "group");
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-add-foreach-child-when-assertion='true']")) {
+      const foreachRow = event.target.closest("[data-foreach-row='true']");
+      configureNewForEachChildRow(foreachRow, "Complex", "when");
+      scheduleVisualSync();
       return;
     }
     if (event.target.matches("[data-add-condition='true']")) {
@@ -1506,7 +1538,9 @@ document.addEventListener("DOMContentLoaded", function () {
     if (event.target.matches("[data-remove-row='true']")) {
       const row = event.target.closest(".bm-validation-row");
       if (row) {
+        const foreachRow = row.closest("[data-foreach-row='true']");
         row.remove();
+        updateForEachRuleCount(foreachRow);
         scheduleVisualSync();
       }
       return;
@@ -1595,7 +1629,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateExpressionOwners(activeExpressionInput);
         return;
       }
-      if (canWriteToInput(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true'], [data-foreach-value='true']")) {
+      if (canWriteToInput(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true']")) {
         if (hasTextSelection(activeBuilderInput)) {
           insertIntoExpressionInput(activeBuilderInput, template, true);
         } else {

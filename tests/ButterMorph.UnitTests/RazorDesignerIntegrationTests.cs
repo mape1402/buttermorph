@@ -113,9 +113,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("Add field rule", html, StringComparison.Ordinal);
         Assert.Contains("Add group assertion", html, StringComparison.Ordinal);
         Assert.Contains("Add when assertion", html, StringComparison.Ordinal);
-        Assert.Contains("Add foreach field rule", html, StringComparison.Ordinal);
-        Assert.Contains("Add foreach assertion", html, StringComparison.Ordinal);
+        Assert.Contains("Add foreach", html, StringComparison.Ordinal);
+        Assert.Contains("Rules for each item", html, StringComparison.Ordinal);
         Assert.Contains("data-assertion-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-foreach-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-foreach-child-list=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("gt($invoice.Lines[0].Quantity, 0)", html, StringComparison.Ordinal);
         Assert.Contains("eq($payment.Payment.Amount, $invoice.Header.Total)", html, StringComparison.Ordinal);
         Assert.Contains("Invoice source", html, StringComparison.Ordinal);
@@ -136,6 +138,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-insert-logic", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Simple field rule", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Complex assertion", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Add foreach field rule", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Add foreach assertion", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-foreach-expression=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-add-when=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain(">Type<", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Field Rules", html, StringComparison.Ordinal);
@@ -264,12 +269,13 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                 new KeyValuePair<string, string>("__RequestVerificationToken", token),
                 new KeyValuePair<string, string>("ForEachSources", "$invoice.Lines"),
                 new KeyValuePair<string, string>("ForEachAliases", "item"),
-                new KeyValuePair<string, string>("ForEachAssertionKinds", "Simple"),
-                new KeyValuePair<string, string>("ForEachSimpleFieldPaths", "$item.Quantity"),
-                new KeyValuePair<string, string>("ForEachSimpleOperators", "gt"),
-                new KeyValuePair<string, string>("ForEachSimpleValues", "0"),
-                new KeyValuePair<string, string>("ForEachAssertionExpressions", string.Empty),
-                new KeyValuePair<string, string>("ForEachAssertionMessages", "Line quantity must be greater than zero.")
+                new KeyValuePair<string, string>("ForEachRuleCounts", "1"),
+                new KeyValuePair<string, string>("ForEachChildAssertionKinds", "Simple"),
+                new KeyValuePair<string, string>("ForEachChildSimpleFieldPaths", "$item.Quantity"),
+                new KeyValuePair<string, string>("ForEachChildSimpleOperators", "gt"),
+                new KeyValuePair<string, string>("ForEachChildSimpleValues", "0"),
+                new KeyValuePair<string, string>("ForEachChildAssertionExpressions", string.Empty),
+                new KeyValuePair<string, string>("ForEachChildAssertionMessages", "Line quantity must be greater than zero.")
             ]));
         string json = await response.Content.ReadAsStringAsync();
         IValidationForEach forEach = Assert.IsAssignableFrom<IValidationForEach>(Assert.Single(host.LastSaveRequest.Document.Statements));
@@ -280,6 +286,80 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Single(forEach.Statements);
         Assert.Contains("foreach $invoice.Lines as item", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
         Assert.Contains("assert gt($item.Quantity, 0): \"Line quantity must be greater than zero.\"", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that a visual foreach block saves multiple child rules into one foreach statement.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerSavesForEachBlockWithMultipleChildRules()
+    {
+        FakeButterMorphValidationDesignerHost host = new();
+        HttpClient client = CreateValidationHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=validation-foreach-block-save");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=validation-foreach-block-save&handler=SaveValidationDocument",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ForEachSources", "$invoice.Lines"),
+                new KeyValuePair<string, string>("ForEachAliases", "line"),
+                new KeyValuePair<string, string>("ForEachRuleCounts", "2"),
+                new KeyValuePair<string, string>("ForEachChildAssertionKinds", "Simple"),
+                new KeyValuePair<string, string>("ForEachChildSimpleFieldPaths", "$line.Quantity"),
+                new KeyValuePair<string, string>("ForEachChildSimpleOperators", "gt"),
+                new KeyValuePair<string, string>("ForEachChildSimpleValues", "0"),
+                new KeyValuePair<string, string>("ForEachChildAssertionExpressions", string.Empty),
+                new KeyValuePair<string, string>("ForEachChildAssertionMessages", "Line quantity must be greater than zero."),
+                new KeyValuePair<string, string>("ForEachChildAssertionKinds", "Complex"),
+                new KeyValuePair<string, string>("ForEachChildSimpleFieldPaths", string.Empty),
+                new KeyValuePair<string, string>("ForEachChildSimpleOperators", "exists"),
+                new KeyValuePair<string, string>("ForEachChildSimpleValues", string.Empty),
+                new KeyValuePair<string, string>("ForEachChildAssertionExpressions", "when(eq($line.Type, \"Special\"), gt($line.Amount, 10))"),
+                new KeyValuePair<string, string>("ForEachChildAssertionMessages", "Special line amount must be greater than 10.")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        IValidationForEach forEach = Assert.IsAssignableFrom<IValidationForEach>(Assert.Single(host.LastSaveRequest.Document.Statements));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal("line", forEach.ItemAlias);
+        Assert.Equal(2, forEach.Statements.Count);
+        Assert.Contains("foreach $invoice.Lines as line", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+        Assert.Contains("assert gt($line.Quantity, 0): \"Line quantity must be greater than zero.\"", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+        Assert.Contains("assert when(eq($line.Type, \"Special\"), gt($line.Amount, 10), true): \"Special line amount must be greater than 10.\"", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that a foreach block with a source but no child rules is rejected.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerRejectsForEachWithoutChildRules()
+    {
+        FakeButterMorphValidationDesignerHost host = new();
+        HttpClient client = CreateValidationHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=validation-empty-foreach-save");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=validation-empty-foreach-save&handler=SaveValidationDocument",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ForEachSources", "$invoice.Lines"),
+                new KeyValuePair<string, string>("ForEachAliases", "item"),
+                new KeyValuePair<string, string>("ForEachRuleCounts", "0")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, host.SaveCalls);
+        Assert.Contains("Foreach must include at least one validation rule.", json, StringComparison.Ordinal);
     }
 
     /// <summary>

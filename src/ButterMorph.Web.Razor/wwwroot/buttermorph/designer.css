@@ -2313,7 +2313,7 @@ li.CodeMirror-hint-active {
 }
 
 .bm-foreach-row-top {
-  grid-template-columns: minmax(134px, 0.55fr) minmax(220px, 1fr) minmax(80px, 120px) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(104px, 0.24fr) minmax(260px, 1fr) minmax(92px, 130px) auto;
 }
 
 .bm-validation-row-kind {
@@ -2601,6 +2601,63 @@ li.CodeMirror-hint-active {
   color: #7f1d1d;
 }
 
+.bm-foreach-rules {
+  background-color: #fbfcff;
+  border: 1px solid #e5e9f5;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.48rem;
+  padding: 0.5rem;
+}
+
+.bm-foreach-rules-header {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.bm-foreach-rules-header h4 {
+  color: #2f3654;
+  font-size: 0.76rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.bm-foreach-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  justify-content: flex-end;
+}
+
+.bm-foreach-actions button {
+  background-color: #eef2ff;
+  border-color: #d8defc;
+  color: #3730a3;
+  font-size: 0.72rem;
+  font-weight: 750;
+  min-height: 28px;
+  padding: 0.2rem 0.55rem;
+}
+
+.bm-foreach-actions button:hover {
+  background-color: #e0e7ff;
+  border-color: #adbafb;
+}
+
+.bm-foreach-child-list {
+  counter-reset: validation-rule;
+  gap: 0.42rem;
+}
+
+.bm-validation-row-foreach-child {
+  box-shadow: none;
+  padding-bottom: 0.44rem;
+  padding-top: 0.44rem;
+}
+
 .bm-validation-section-actions button {
   background-color: #eef2ff;
   border-color: #cfd7ff;
@@ -2658,6 +2715,7 @@ li.CodeMirror-hint-active {
 body[data-bm-theme-mode="dark"] .bm-validation-section,
 body[data-bm-theme-mode="dark"] .bm-validation-row,
 body[data-bm-theme-mode="dark"] .bm-condition-group,
+body[data-bm-theme-mode="dark"] .bm-foreach-rules,
 body[data-bm-theme-mode="dark"] .bm-validation-slot {
   background-color: var(--bm-surface);
   border-color: var(--bm-border);
