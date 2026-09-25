@@ -29,4 +29,9 @@ public sealed class ArrayProjectionDisplayModel
     /// Gets or sets field expressions by relative item field path.
     /// </summary>
     public IReadOnlyDictionary<string, string> FieldExpressions { get; set; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Gets or sets visual mapping states by relative item field path.
+    /// </summary>
+    public IReadOnlyDictionary<string, ConditionalMappingDisplayModel> FieldMappings { get; set; } = new Dictionary<string, ConditionalMappingDisplayModel>();
 }

@@ -13,11 +13,11 @@ internal static class SchemaTreeDisplayBuilder
 
     internal static SchemaTreeDisplayNode BuildTarget(
         ISchemaTreeNode root,
-        IReadOnlyDictionary<string, string> expressions,
+        IReadOnlyDictionary<string, ConditionalMappingDisplayModel> mappings,
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics,
         IReadOnlyDictionary<string, ArrayProjectionDisplayModel> projections)
     {
-        return BuildNode(root, string.Empty, false, expressions, diagnostics, projections, new ArrayProjectionDisplayModel());
+        return BuildNode(root, string.Empty, false, mappings, diagnostics, projections, new ArrayProjectionDisplayModel());
     }
 
     private static SchemaTreeDisplayNode BuildNode(
@@ -26,14 +26,24 @@ internal static class SchemaTreeDisplayBuilder
         bool isSource,
         IReadOnlyDictionary<string, string> expressions)
     {
-        return BuildNode(node, sourceKey, isSource, expressions, new Dictionary<string, IReadOnlyCollection<string>>(), new Dictionary<string, ArrayProjectionDisplayModel>(), new ArrayProjectionDisplayModel());
+        Dictionary<string, ConditionalMappingDisplayModel> mappings = new(StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, string> expression in expressions)
+        {
+            mappings[expression.Key] = new ConditionalMappingDisplayModel
+            {
+                Expression = expression.Value
+            };
+        }
+
+        return BuildNode(node, sourceKey, isSource, mappings, new Dictionary<string, IReadOnlyCollection<string>>(), new Dictionary<string, ArrayProjectionDisplayModel>(), new ArrayProjectionDisplayModel());
     }
 
     private static SchemaTreeDisplayNode BuildNode(
         ISchemaTreeNode node,
         string sourceKey,
         bool isSource,
-        IReadOnlyDictionary<string, string> expressions,
+        IReadOnlyDictionary<string, ConditionalMappingDisplayModel> mappings,
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> diagnostics,
         IReadOnlyDictionary<string, ArrayProjectionDisplayModel> projections,
         ArrayProjectionDisplayModel projectionContext)
@@ -61,14 +71,14 @@ internal static class SchemaTreeDisplayBuilder
 
         foreach (ISchemaTreeNode child in node.Children)
         {
-            children.Add(BuildNode(child, sourceKey, isSource, expressions, diagnostics, projections, activeProjection));
+            children.Add(BuildNode(child, sourceKey, isSource, mappings, diagnostics, projections, activeProjection));
         }
 
-        string expression = string.Empty;
+        ConditionalMappingDisplayModel mapping = new();
 
-        if (expressions.TryGetValue(path, out string storedExpression))
+        if (mappings.TryGetValue(path, out ConditionalMappingDisplayModel storedMapping))
         {
-            expression = storedExpression;
+            mapping = storedMapping;
         }
 
         bool isTemplateField = !isSource && node.Kind == SchemaNodeKind.Scalar && !string.IsNullOrWhiteSpace(activeProjection.TargetPath) && path.StartsWith(activeProjection.TargetPath + "[0].", StringComparison.Ordinal);
@@ -78,9 +88,16 @@ internal static class SchemaTreeDisplayBuilder
         {
             projectionFieldPath = path[(activeProjection.TargetPath.Length + 4)..];
 
-            if (activeProjection.FieldExpressions.TryGetValue(projectionFieldPath, out string storedFieldExpression))
+            if (activeProjection.FieldMappings.TryGetValue(projectionFieldPath, out ConditionalMappingDisplayModel storedFieldMapping))
             {
-                expression = storedFieldExpression;
+                mapping = storedFieldMapping;
+            }
+            else if (activeProjection.FieldExpressions.TryGetValue(projectionFieldPath, out string storedFieldExpression))
+            {
+                mapping = new ConditionalMappingDisplayModel
+                {
+                    Expression = storedFieldExpression
+                };
             }
         }
 
@@ -101,7 +118,11 @@ internal static class SchemaTreeDisplayBuilder
             Children = children,
             IsExpanded = true,
             CanDrag = isSource && (node.Kind == SchemaNodeKind.Scalar || node.Kind == SchemaNodeKind.Array),
-            Expression = expression,
+            Expression = mapping.Expression,
+            MappingMode = mapping.Mode,
+            ConditionalConditionExpression = mapping.ConditionExpression,
+            ConditionalThenExpression = mapping.ThenExpression,
+            ConditionalElseExpression = mapping.ElseExpression,
             Placeholder = CreatePlaceholder(path),
             Diagnostics = nodeDiagnostics,
             IsArrayProjection = isArrayProjection,

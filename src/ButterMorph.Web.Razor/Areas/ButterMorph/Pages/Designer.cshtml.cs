@@ -95,10 +95,34 @@ public sealed class DesignerModel : PageModel
     public List<string> TargetPaths { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets posted mapping editor modes.
+    /// </summary>
+    [BindProperty]
+    public List<string> MappingModes { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets posted expression values.
     /// </summary>
     [BindProperty]
     public List<string> Expressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted conditional mapping conditions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ConditionalConditions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted conditional mapping true branches.
+    /// </summary>
+    [BindProperty]
+    public List<string> ConditionalThenExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted conditional mapping false branches.
+    /// </summary>
+    [BindProperty]
+    public List<string> ConditionalElseExpressions { get; set; } = [];
 
     /// <summary>
     /// Gets or sets posted projection target paths.
@@ -141,6 +165,30 @@ public sealed class DesignerModel : PageModel
     /// </summary>
     [BindProperty]
     public List<string> ProjectionFieldExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field mapping modes.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldModes { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field conditional conditions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldConditions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field conditional true branches.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldThenExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted projection field conditional false branches.
+    /// </summary>
+    [BindProperty]
+    public List<string> ProjectionFieldElseExpressions { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the source technical id.
@@ -750,7 +798,7 @@ public sealed class DesignerModel : PageModel
             sourceNodes.AddRange(CreateSourceNodes(schemaPair.Key, SchemaTreeFlattener.Flatten(explored)));
         }
 
-        Dictionary<string, string> expressions = CreateExpressionDictionary(document);
+        Dictionary<string, ConditionalMappingDisplayModel> mappingDetails = CreateMappingDisplayDictionary(document);
         Dictionary<string, ArrayProjectionDisplayModel> projections = CreateProjectionDictionary(document);
         Dictionary<string, IReadOnlyCollection<string>> diagnostics = CreateDiagnosticDictionary(Diagnostics);
         SourceNodes = sourceNodes;
@@ -759,7 +807,7 @@ public sealed class DesignerModel : PageModel
         TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
         TargetFields = CreateTargetFields(TargetNodes, Mappings);
-        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), expressions, diagnostics, projections);
+        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), mappingDetails, diagnostics, projections);
 
         if (string.IsNullOrWhiteSpace(DslContent))
         {
@@ -1110,7 +1158,12 @@ public sealed class DesignerModel : PageModel
 
         foreach (ITransformationMapping mapping in document.Mappings)
         {
-            expressions[mapping.TargetPath] = ExportExpression(mapping);
+            ConditionalMappingDisplayModel displayMapping = CreateMappingDisplay(mapping.SourceExpression);
+            expressions[mapping.TargetPath] = displayMapping.Expression;
+            expressions[CreateMappingKey(mapping.TargetPath, "mode")] = displayMapping.Mode;
+            expressions[CreateConditionalKey(mapping.TargetPath, "condition")] = displayMapping.ConditionExpression;
+            expressions[CreateConditionalKey(mapping.TargetPath, "then")] = displayMapping.ThenExpression;
+            expressions[CreateConditionalKey(mapping.TargetPath, "else")] = displayMapping.ElseExpression;
 
             if (mapping.SourceExpression is ICollectionProjectionExpression projectionExpression)
             {
@@ -1119,6 +1172,38 @@ public sealed class DesignerModel : PageModel
         }
 
         return expressions;
+    }
+
+    // Creates a target path to visual mapping state lookup.
+    private Dictionary<string, ConditionalMappingDisplayModel> CreateMappingDisplayDictionary(ITransformationDocument document)
+    {
+        Dictionary<string, ConditionalMappingDisplayModel> mappings = new(StringComparer.Ordinal);
+
+        foreach (ITransformationMapping mapping in document.Mappings)
+        {
+            mappings[mapping.TargetPath] = CreateMappingDisplay(mapping.SourceExpression);
+        }
+
+        return mappings;
+    }
+
+    // Creates visual mapping state from a transformation expression.
+    private ConditionalMappingDisplayModel CreateMappingDisplay(ITransformationExpression expression)
+    {
+        ConditionalMappingDisplayModel displayMapping = new()
+        {
+            Expression = ExportExpressionValue(expression)
+        };
+
+        if (expression is IConditionalExpression conditionalExpression)
+        {
+            displayMapping.Mode = "conditional";
+            displayMapping.ConditionExpression = ExportExpressionValue(conditionalExpression.Condition);
+            displayMapping.ThenExpression = ExportExpressionValue(conditionalExpression.ThenExpression);
+            displayMapping.ElseExpression = ExportExpressionValue(conditionalExpression.ElseExpression);
+        }
+
+        return displayMapping;
     }
 
     // Creates array projection display data by target array path.
@@ -1134,11 +1219,12 @@ public sealed class DesignerModel : PageModel
             }
 
             Dictionary<string, string> fieldExpressions = new(StringComparer.Ordinal);
+            Dictionary<string, ConditionalMappingDisplayModel> fieldMappings = new(StringComparer.Ordinal);
             string advancedExpression = string.Empty;
 
             if (projectionExpression.BodyExpression is IObjectExpression mapExpression)
             {
-                AddProjectionFieldExpressions(string.Empty, mapExpression, fieldExpressions);
+                AddProjectionFieldExpressions(string.Empty, mapExpression, fieldExpressions, fieldMappings);
             }
             else
             {
@@ -1151,7 +1237,8 @@ public sealed class DesignerModel : PageModel
                 SourceExpression = ExportExpressionValue(projectionExpression.SourceExpression),
                 Alias = ResolveAlias(projectionExpression.ItemAlias),
                 AdvancedExpression = advancedExpression,
-                FieldExpressions = fieldExpressions
+                FieldExpressions = fieldExpressions,
+                FieldMappings = fieldMappings
             };
         }
 
@@ -1162,7 +1249,8 @@ public sealed class DesignerModel : PageModel
     private void AddProjectionFieldExpressions(
         string prefix,
         IObjectExpression mapExpression,
-        Dictionary<string, string> expressions)
+        Dictionary<string, string> expressions,
+        Dictionary<string, ConditionalMappingDisplayModel> mappings)
     {
         foreach (IObjectPropertyExpression property in mapExpression.Properties)
         {
@@ -1170,11 +1258,13 @@ public sealed class DesignerModel : PageModel
 
             if (property.Expression is IObjectExpression childMapExpression)
             {
-                AddProjectionFieldExpressions(fieldPath, childMapExpression, expressions);
+                AddProjectionFieldExpressions(fieldPath, childMapExpression, expressions, mappings);
                 continue;
             }
 
-            expressions[fieldPath] = ExportExpressionValue(property.Expression);
+            ConditionalMappingDisplayModel displayMapping = CreateMappingDisplay(property.Expression);
+            expressions[fieldPath] = displayMapping.Expression;
+            mappings[fieldPath] = displayMapping;
         }
     }
 
@@ -1214,6 +1304,13 @@ public sealed class DesignerModel : PageModel
             }
 
             expressions[CreateProjectionFieldKey(targetPath, fieldPath)] = ExportExpressionValue(property.Expression);
+
+            ConditionalMappingDisplayModel displayMapping = CreateMappingDisplay(property.Expression);
+            string fieldKeyPrefix = CreateProjectionFieldKey(targetPath, fieldPath);
+            expressions[CreateMappingKey(fieldKeyPrefix, "mode")] = displayMapping.Mode;
+            expressions[CreateConditionalKey(fieldKeyPrefix, "condition")] = displayMapping.ConditionExpression;
+            expressions[CreateConditionalKey(fieldKeyPrefix, "then")] = displayMapping.ThenExpression;
+            expressions[CreateConditionalKey(fieldKeyPrefix, "else")] = displayMapping.ElseExpression;
         }
     }
 
@@ -1221,12 +1318,11 @@ public sealed class DesignerModel : PageModel
     private IReadOnlyCollection<DiagnosticEntry> SavePostedMappings()
     {
         List<DiagnosticEntry> diagnostics = [];
-        int count = Math.Min(TargetPaths.Count, Expressions.Count);
 
-        for (int index = 0; index < count; index++)
+        for (int index = 0; index < TargetPaths.Count; index++)
         {
             string targetPath = TargetPaths[index];
-            string expressionText = Expressions[index];
+            string expressionText = ResolvePostedMappingExpression(index, targetPath, diagnostics);
             Session.RemoveMapping(targetPath);
 
             if (string.IsNullOrWhiteSpace(expressionText))
@@ -1247,6 +1343,23 @@ public sealed class DesignerModel : PageModel
         return diagnostics;
     }
 
+    // Resolves one posted field mapping into a DSL expression.
+    private string ResolvePostedMappingExpression(int index, string targetPath, List<DiagnosticEntry> diagnostics)
+    {
+        string mode = ResolveMappingMode(GetPostedValue(MappingModes, index));
+
+        if (!string.Equals(mode, "conditional", StringComparison.Ordinal))
+        {
+            return GetPostedValue(Expressions, index);
+        }
+
+        string condition = GetPostedValue(ConditionalConditions, index);
+        string thenExpression = GetPostedValue(ConditionalThenExpressions, index);
+        string elseExpression = GetPostedValue(ConditionalElseExpressions, index);
+
+        return BuildConditionalExpression(condition, thenExpression, elseExpression, targetPath, diagnostics);
+    }
+
     // Saves posted array projection editors as single target array mappings.
     private void SavePostedProjections(List<DiagnosticEntry> diagnostics)
     {
@@ -1256,7 +1369,7 @@ public sealed class DesignerModel : PageModel
             string sourceExpression = GetPostedValue(ProjectionSources, index);
             string alias = ResolveAlias(GetPostedValue(ProjectionAliases, index));
             string advancedExpression = GetPostedValue(ProjectionAdvancedExpressions, index);
-            Dictionary<string, string> fieldExpressions = GetPostedProjectionFields(targetPath);
+            Dictionary<string, string> fieldExpressions = GetPostedProjectionFields(targetPath, diagnostics);
 
             Session.RemoveMapping(targetPath);
 
@@ -1288,20 +1401,19 @@ public sealed class DesignerModel : PageModel
     }
 
     // Gets posted projection field expressions for a target array.
-    private Dictionary<string, string> GetPostedProjectionFields(string targetPath)
+    private Dictionary<string, string> GetPostedProjectionFields(string targetPath, List<DiagnosticEntry> diagnostics)
     {
         Dictionary<string, string> fields = new(StringComparer.Ordinal);
-        int count = Math.Min(ProjectionFieldArrayPaths.Count, Math.Min(ProjectionFieldPaths.Count, ProjectionFieldExpressions.Count));
 
-        for (int index = 0; index < count; index++)
+        for (int index = 0; index < ProjectionFieldArrayPaths.Count; index++)
         {
             if (!string.Equals(ProjectionFieldArrayPaths[index], targetPath, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string fieldPath = ProjectionFieldPaths[index];
-            string expression = ProjectionFieldExpressions[index];
+            string fieldPath = GetPostedValue(ProjectionFieldPaths, index);
+            string expression = ResolvePostedProjectionFieldExpression(index, targetPath, diagnostics);
 
             if (string.IsNullOrWhiteSpace(fieldPath) || string.IsNullOrWhiteSpace(expression))
             {
@@ -1312,6 +1424,54 @@ public sealed class DesignerModel : PageModel
         }
 
         return fields;
+    }
+
+    // Resolves one posted projection field mapping into a DSL expression.
+    private string ResolvePostedProjectionFieldExpression(int index, string targetPath, List<DiagnosticEntry> diagnostics)
+    {
+        string mode = ResolveMappingMode(GetPostedValue(ProjectionFieldModes, index));
+
+        if (!string.Equals(mode, "conditional", StringComparison.Ordinal))
+        {
+            return GetPostedValue(ProjectionFieldExpressions, index);
+        }
+
+        return BuildConditionalExpression(
+            GetPostedValue(ProjectionFieldConditions, index),
+            GetPostedValue(ProjectionFieldThenExpressions, index),
+            GetPostedValue(ProjectionFieldElseExpressions, index),
+            targetPath,
+            diagnostics);
+    }
+
+    // Builds a conditional expression text from visual editor parts.
+    private static string BuildConditionalExpression(
+        string condition,
+        string thenExpression,
+        string elseExpression,
+        string path,
+        List<DiagnosticEntry> diagnostics)
+    {
+        if (string.IsNullOrWhiteSpace(condition) && string.IsNullOrWhiteSpace(thenExpression) && string.IsNullOrWhiteSpace(elseExpression))
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(condition))
+        {
+            diagnostics.Add(CreateDiagnostic("BMWR002", "Conditional mapping condition is required.", path));
+            return string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(thenExpression))
+        {
+            diagnostics.Add(CreateDiagnostic("BMWR003", "Conditional mapping value is required.", path));
+            return string.Empty;
+        }
+
+        string resolvedElse = string.IsNullOrWhiteSpace(elseExpression) ? "null" : elseExpression.Trim();
+
+        return "when(" + condition.Trim() + ", " + thenExpression.Trim() + ", " + resolvedElse + ")";
     }
 
     // Renders projection body content for DSL import.
@@ -1506,6 +1666,18 @@ public sealed class DesignerModel : PageModel
         return targetPath + "::projection::field::" + fieldPath;
     }
 
+    // Creates the composite key for mapping mode inputs.
+    private static string CreateMappingKey(string targetPath, string part)
+    {
+        return targetPath + "::mapping::" + part;
+    }
+
+    // Creates the composite key for conditional mapping part inputs.
+    private static string CreateConditionalKey(string targetPath, string part)
+    {
+        return targetPath + "::conditional::" + part;
+    }
+
     // Creates a dotted field path without leading separators.
     private static string CreateFieldPath(string prefix, string name)
     {
@@ -1526,6 +1698,17 @@ public sealed class DesignerModel : PageModel
         }
 
         return alias;
+    }
+
+    // Resolves a supported visual mapping mode.
+    private static string ResolveMappingMode(string mode)
+    {
+        if (string.Equals(mode, "conditional", StringComparison.OrdinalIgnoreCase))
+        {
+            return "conditional";
+        }
+
+        return "basic";
     }
 
     // Gets a posted value by index without throwing for uneven lists.

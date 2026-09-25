@@ -49,10 +49,14 @@
 }
 else
 {
+    bool isConditional = string.Equals(Model.MappingMode, "conditional", StringComparison.OrdinalIgnoreCase);
+    string syncPath = Model.IsArrayTemplateField ? Model.ProjectionTargetPath + "::projection::field::" + Model.ProjectionFieldPath : Model.Path;
+
     <div class="bm-target-field @(Model.IsArrayTemplateField ? "bm-array-template-field" : string.Empty)"
          data-drop-target="true"
          data-array-source="@Model.ProjectionSourceExpression"
-         data-array-alias="@Model.ProjectionAlias">
+         data-array-alias="@Model.ProjectionAlias"
+         data-mapping-editor="true">
         <div class="bm-target-label">
             <strong>@Model.Name</strong>
             <span>@Model.DataType</span>
@@ -61,19 +65,54 @@ else
         {
             <input type="hidden" name="ProjectionFieldArrayPaths" value="@Model.ProjectionTargetPath" />
             <input type="hidden" name="ProjectionFieldPaths" value="@Model.ProjectionFieldPath" />
+            <input type="hidden" name="ProjectionFieldModes" value="@Model.MappingMode" data-mapping-mode-hidden="true" />
         }
         else
         {
             <input type="hidden" name="TargetPaths" value="@Model.Path" />
+            <input type="hidden" name="MappingModes" value="@Model.MappingMode" data-mapping-mode-hidden="true" />
         }
-        <div class="bm-expression-shell">
+        <div class="bm-mapping-editor-header">
+            <select class="bm-mapping-mode-select"
+                    data-target-path="@(syncPath + "::mapping::mode")"
+                    data-mapping-mode-select="true"
+                    aria-label="Mapping type">
+                <option value="basic" selected="@(!isConditional)">Mapping</option>
+                <option value="conditional" selected="@isConditional">Conditional</option>
+            </select>
+            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">&times;</button>
+        </div>
+        <div class="bm-mapping-panel" data-mapping-panel="basic" hidden="@isConditional">
             <input class="bm-expression-input"
                    name="@(Model.IsArrayTemplateField ? "ProjectionFieldExpressions" : "Expressions")"
                    value="@Model.Expression"
-                   placeholder="@Model.Placeholder"
-                   data-target-path="@(Model.IsArrayTemplateField ? Model.ProjectionTargetPath + "::projection::field::" + Model.ProjectionFieldPath : Model.Path)"
+                   data-basic-expression="true"
+                   data-target-path="@syncPath"
                    title="@Model.Path" />
-            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">&times;</button>
+        </div>
+        <div class="bm-conditional-panel" data-mapping-panel="conditional" hidden="@(!isConditional)">
+            <label>
+                <span>If</span>
+                <input class="bm-expression-input"
+                       name="@(Model.IsArrayTemplateField ? "ProjectionFieldConditions" : "ConditionalConditions")"
+                       value="@Model.ConditionalConditionExpression"
+                       data-target-path="@(syncPath + "::conditional::condition")" />
+            </label>
+            <label>
+                <span>Map</span>
+                <input class="bm-expression-input"
+                       name="@(Model.IsArrayTemplateField ? "ProjectionFieldThenExpressions" : "ConditionalThenExpressions")"
+                       value="@Model.ConditionalThenExpression"
+                       data-conditional-then="true"
+                       data-target-path="@(syncPath + "::conditional::then")" />
+            </label>
+            <label>
+                <span>Else</span>
+                <input class="bm-expression-input"
+                       name="@(Model.IsArrayTemplateField ? "ProjectionFieldElseExpressions" : "ConditionalElseExpressions")"
+                       value="@Model.ConditionalElseExpression"
+                       data-target-path="@(syncPath + "::conditional::else")" />
+            </label>
         </div>
         @if (Model.Diagnostics.Count > 0)
         {
