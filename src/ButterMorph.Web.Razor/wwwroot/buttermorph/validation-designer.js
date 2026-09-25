@@ -789,6 +789,33 @@ document.addEventListener("DOMContentLoaded", function () {
     builder.querySelectorAll("[data-builder-panel]").forEach(function (panel) {
       panel.hidden = panel.getAttribute("data-builder-panel") !== activeMode;
     });
+    if (activeMode === "when") {
+      ensureConditionListHasRow(getDirectChild(builder.querySelector("[data-when-part='condition']"), "[data-condition-list='true']"));
+    }
+    updateWhenBranchActions(builder);
+  }
+
+  function ensureConditionListHasRow(list) {
+    if (!list || getDirectChild(list, "[data-condition-row='true'], [data-condition-group='true']")) {
+      return null;
+    }
+    return addConditionToList(list);
+  }
+
+  function isWhenBranchEnabled(group) {
+    const branch = group ? group.closest("[data-when-branch]") : null;
+    return !branch || !branch.hidden;
+  }
+
+  function updateWhenBranchActions(builder) {
+    if (!builder) {
+      return;
+    }
+    builder.querySelectorAll("[data-show-when-branch]").forEach(function (button) {
+      const branchName = button.getAttribute("data-show-when-branch");
+      const branch = branchName ? builder.querySelector("[data-when-branch='" + branchName + "']") : null;
+      button.hidden = !branch || !branch.hidden;
+    });
   }
 
   function updateBuilderExpression(builder) {
@@ -802,11 +829,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const conditionGroup = builder.querySelector("[data-when-part='condition']");
       const thenGroup = builder.querySelector("[data-when-part='then']");
       const elseGroup = builder.querySelector("[data-when-part='else']");
-      const condition = readConditionGroupExpression(conditionGroup) || "true";
-      const thenExpression = readConditionGroupExpression(thenGroup) || "true";
-      const elseExpression = readConditionGroupExpression(elseGroup) || "true";
-      if (condition !== "true" || thenExpression !== "true" || elseExpression !== "true") {
-        expression = "when(" + condition + ", " + thenExpression + ", " + elseExpression + ")";
+      const condition = readConditionGroupExpression(conditionGroup);
+      const thenEnabled = isWhenBranchEnabled(thenGroup);
+      const elseEnabled = isWhenBranchEnabled(elseGroup);
+      const thenExpression = thenEnabled ? readConditionGroupExpression(thenGroup) : "";
+      const elseExpression = elseEnabled ? readConditionGroupExpression(elseGroup) : "";
+      if (condition.length > 0 && (thenEnabled || elseEnabled)) {
+        expression = "when(" + condition + ", " + (thenExpression || "true") + ", " + (elseExpression || "true") + ")";
+      } else {
+        expression = condition;
       }
     } else {
       expression = readConditionGroupExpression(findPanelRootGroup(builder.querySelector("[data-builder-panel='group']")));
@@ -859,6 +890,9 @@ document.addEventListener("DOMContentLoaded", function () {
     row.querySelectorAll("[data-condition-operator='true']").forEach(function (operator) {
       const conditionRow = operator.closest("[data-condition-row='true']");
       updateConditionValueVisibility(conditionRow);
+    });
+    row.querySelectorAll("[data-condition-builder='true']").forEach(function (builder) {
+      updateBuilderPanels(builder);
     });
   }
 
@@ -1112,6 +1146,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
       updateBuilderExpression(event.target.closest("[data-condition-builder='true']"));
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-show-when-branch]")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const branchName = event.target.getAttribute("data-show-when-branch");
+      const branch = builder && branchName ? builder.querySelector("[data-when-branch='" + branchName + "']") : null;
+      if (branch) {
+        branch.hidden = false;
+        ensureConditionListHasRow(branch.querySelector("[data-condition-list='true']"));
+        const firstInput = branch.querySelector("[data-condition-left='true']");
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+      updateWhenBranchActions(builder);
+      updateBuilderExpression(builder);
       scheduleVisualSync();
       return;
     }
