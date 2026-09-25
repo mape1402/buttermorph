@@ -703,14 +703,14 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!mappings) {
       return;
     }
-    document.querySelectorAll(".bm-expression-input, .bm-mapping-mode-select").forEach(function (input) {
+    document.querySelectorAll(".bm-expression-input, [data-mapping-mode-hidden='true']").forEach(function (input) {
       const targetPath = input.getAttribute("data-target-path");
       if (!targetPath) {
         return;
       }
       if (mappings[targetPath] !== undefined) {
         input.value = mappings[targetPath];
-      } else if (input.classList.contains("bm-mapping-mode-select")) {
+      } else if (input.hasAttribute("data-mapping-mode-hidden")) {
         input.value = "basic";
       } else {
         input.value = "";
@@ -959,8 +959,8 @@ document.addEventListener("DOMContentLoaded", function () {
     scheduleVisualSync();
   }
   function getMappingEditorMode(editor) {
-    const select = editor ? editor.querySelector("[data-mapping-mode-select='true']") : null;
-    return select && select.value === "conditional" ? "conditional" : "basic";
+    const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
+    return hidden && hidden.value === "conditional" ? "conditional" : "basic";
   }
   function refreshMappingEditor(editor) {
     if (!editor) {
@@ -979,6 +979,10 @@ document.addEventListener("DOMContentLoaded", function () {
       } else {
         panel.setAttribute("hidden", "hidden");
       }
+    });
+    editor.querySelectorAll("[data-enable-conditional-mapping], [data-use-basic-mapping]").forEach(function (button) {
+      const enablesConditional = button.hasAttribute("data-enable-conditional-mapping");
+      button.hidden = enablesConditional ? mode === "conditional" : mode !== "conditional";
     });
   }
   function refreshAllMappingEditors() {
@@ -1102,11 +1106,24 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     input.addEventListener("input", scheduleVisualSync);
   });
-  document.querySelectorAll("[data-mapping-mode-select='true']").forEach(function (select) {
-    select.addEventListener("change", function () {
-      const editor = select.closest("[data-mapping-editor='true']");
-      if (select.value === "conditional") {
-        seedConditionalMapping(editor);
+  document.querySelectorAll("[data-enable-conditional-mapping='true']").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const editor = button.closest("[data-mapping-editor='true']");
+      const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
+      if (hidden) {
+        hidden.value = "conditional";
+      }
+      seedConditionalMapping(editor);
+      refreshMappingEditor(editor);
+      scheduleVisualSync();
+    });
+  });
+  document.querySelectorAll("[data-use-basic-mapping='true']").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const editor = button.closest("[data-mapping-editor='true']");
+      const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
+      if (hidden) {
+        hidden.value = "basic";
       }
       refreshMappingEditor(editor);
       scheduleVisualSync();

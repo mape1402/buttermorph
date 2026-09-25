@@ -65,21 +65,34 @@ else
         {
             <input type="hidden" name="ProjectionFieldArrayPaths" value="@Model.ProjectionTargetPath" />
             <input type="hidden" name="ProjectionFieldPaths" value="@Model.ProjectionFieldPath" />
-            <input type="hidden" name="ProjectionFieldModes" value="@Model.MappingMode" data-mapping-mode-hidden="true" />
+            <input type="hidden"
+                   name="ProjectionFieldModes"
+                   value="@Model.MappingMode"
+                   data-target-path="@(syncPath + "::mapping::mode")"
+                   data-mapping-mode-hidden="true" />
         }
         else
         {
             <input type="hidden" name="TargetPaths" value="@Model.Path" />
-            <input type="hidden" name="MappingModes" value="@Model.MappingMode" data-mapping-mode-hidden="true" />
+            <input type="hidden"
+                   name="MappingModes"
+                   value="@Model.MappingMode"
+                   data-target-path="@(syncPath + "::mapping::mode")"
+                   data-mapping-mode-hidden="true" />
         }
         <div class="bm-mapping-editor-header">
-            <select class="bm-mapping-mode-select"
-                    data-target-path="@(syncPath + "::mapping::mode")"
-                    data-mapping-mode-select="true"
-                    aria-label="Mapping type">
-                <option value="basic" selected="@(!isConditional)">Mapping</option>
-                <option value="conditional" selected="@isConditional">Conditional</option>
-            </select>
+            <button type="button"
+                    class="bm-mapping-toggle"
+                    data-enable-conditional-mapping="true"
+                    hidden="@isConditional">
+                Conditional
+            </button>
+            <button type="button"
+                    class="bm-mapping-toggle"
+                    data-use-basic-mapping="true"
+                    hidden="@(!isConditional)">
+                Basic
+            </button>
             <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">&times;</button>
         </div>
         <div class="bm-mapping-panel" data-mapping-panel="basic" hidden="@isConditional">

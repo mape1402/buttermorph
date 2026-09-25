@@ -702,11 +702,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const kind = row ? row.querySelector("[data-assertion-kind='true']") : null;
     const simplePanel = row ? row.querySelector("[data-simple-rule-panel='true']") : null;
     const complexPanel = row ? row.querySelector("[data-complex-assertion-panel='true']") : null;
+    const kindLabel = row ? row.querySelector(".bm-validation-row-kind") : null;
     if (!kind || !simplePanel || !complexPanel) {
       return;
     }
     const isSimple = kind.value === "Simple";
     row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
+    if (kindLabel) {
+      kindLabel.textContent = isSimple ? "Field rule" : "Assertion";
+    }
     simplePanel.hidden = !isSimple;
     complexPanel.hidden = isSimple;
     if (isSimple) {
@@ -829,10 +833,24 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     root.querySelectorAll("[data-condition-group='true']").forEach(function (group) {
+      const branch = group.closest("[data-when-branch]");
+      const canAddNestedIf = branch &&
+        !branch.hidden &&
+        (branch.getAttribute("data-when-branch") === "then" || branch.getAttribute("data-when-branch") === "else");
       const header = getDirectChild(group, ".bm-condition-group-header");
       const actions = header ? header.querySelector(".bm-condition-actions") : null;
       const addGroup = actions ? actions.querySelector("[data-add-group='true']") : null;
-      if (!actions || actions.querySelector("[data-add-when='true']")) {
+      const existingAddIf = actions ? actions.querySelector("[data-add-when='true']") : null;
+      if (!actions) {
+        return;
+      }
+      if (!canAddNestedIf) {
+        if (existingAddIf) {
+          existingAddIf.remove();
+        }
+        return;
+      }
+      if (existingAddIf) {
         return;
       }
       const button = createBuilderButton("Add if", "data-add-when");
@@ -1017,12 +1035,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const kind = row ? row.querySelector("[data-foreach-kind='true']") : null;
     const simplePanel = row ? row.querySelector("[data-foreach-simple-panel='true']") : null;
     const complexPanel = row ? row.querySelector("[data-foreach-complex-panel='true']") : null;
+    const kindLabel = row ? row.querySelector(".bm-validation-row-kind") : null;
     const output = getForEachExpressionOutput(row);
     if (!kind || !simplePanel || !complexPanel || !output) {
       return;
     }
     const isSimple = kind.value === "Simple";
     row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
+    if (kindLabel) {
+      kindLabel.textContent = isSimple ? "For each field rule" : "For each assertion";
+    }
     simplePanel.hidden = !isSimple;
     complexPanel.hidden = isSimple;
     if (isSimple) {
@@ -1063,6 +1085,26 @@ document.addEventListener("DOMContentLoaded", function () {
     row.querySelectorAll("[data-condition-builder='true']").forEach(function (builder) {
       updateBuilderPanels(builder);
     });
+  }
+
+  function configureNewAssertionRow(kind) {
+    const row = cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
+    const kindInput = row ? row.querySelector("[data-assertion-kind='true']") : null;
+    if (kindInput) {
+      kindInput.value = kind === "Complex" ? "Complex" : "Simple";
+    }
+    initializeAssertionRow(row);
+    return row;
+  }
+
+  function configureNewForEachRow(kind) {
+    const row = cloneTemplate("[data-foreach-template='true']", "[data-foreach-list='true']");
+    const kindInput = row ? row.querySelector("[data-foreach-kind='true']") : null;
+    if (kindInput) {
+      kindInput.value = kind === "Complex" ? "Complex" : "Simple";
+    }
+    initializeForEachRow(row);
+    return row;
   }
 
   function updateExpressionOwners(input) {
@@ -1304,12 +1346,20 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   document.addEventListener("click", function (event) {
-    if (event.target.matches("[data-add-assertion='true']")) {
-      initializeAssertionRow(cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']"));
+    if (event.target.matches("[data-add-field-rule='true']")) {
+      configureNewAssertionRow("Simple");
       return;
     }
-    if (event.target.matches("[data-add-foreach='true']")) {
-      initializeForEachRow(cloneTemplate("[data-foreach-template='true']", "[data-foreach-list='true']"));
+    if (event.target.matches("[data-add-assertion='true']")) {
+      configureNewAssertionRow("Complex");
+      return;
+    }
+    if (event.target.matches("[data-add-foreach-field-rule='true'], [data-add-foreach='true']")) {
+      configureNewForEachRow("Simple");
+      return;
+    }
+    if (event.target.matches("[data-add-foreach-assertion='true']")) {
+      configureNewForEachRow("Complex");
       return;
     }
     if (event.target.matches("[data-add-condition='true']")) {
