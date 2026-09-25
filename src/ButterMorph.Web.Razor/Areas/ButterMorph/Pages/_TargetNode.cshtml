@@ -81,21 +81,13 @@ else
                    data-mapping-mode-hidden="true" />
         }
         <div class="bm-mapping-editor-header">
-            <div class="bm-mapping-mode-switch">
-                <button type="button"
-                        class="bm-mapping-toggle"
-                        data-use-basic-mapping="true"
-                        aria-pressed="@(!isConditional ? "true" : "false")">
-                    Basic
-                </button>
-                <button type="button"
-                        class="bm-mapping-toggle"
-                        data-enable-conditional-mapping="true"
-                        aria-pressed="@(isConditional ? "true" : "false")">
-                    Conditional
-                </button>
-            </div>
-            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">&times;</button>
+            <button type="button"
+                    class="bm-mapping-toggle"
+                    data-toggle-mapping-mode="true"
+                    aria-label="Switch mapping mode">
+                @(isConditional ? "Basic" : "Conditional")
+            </button>
+            <button type="button" class="bm-clear-mapping" aria-label="Clear mapping">Clear</button>
         </div>
         <div class="bm-mapping-panel" data-mapping-panel="basic" hidden="@isConditional">
             <input class="bm-expression-input"
@@ -167,9 +159,9 @@ else
                     <h4>Then</h4>
                     <div class="bm-mapping-value-slot" data-mapping-value-slot="then">
                         <div class="bm-mapping-slot-actions">
-                            <button type="button" data-set-mapping-slot-mode="expression">Use expression</button>
-                            <button type="button" data-set-mapping-slot-mode="conditional">Use conditional</button>
-                            <button type="button" data-set-mapping-slot-mode="null">Use null</button>
+                            <button type="button" data-set-mapping-slot-mode="expression">Expression</button>
+                            <button type="button" data-set-mapping-slot-mode="conditional">Conditional</button>
+                            <button type="button" data-set-mapping-slot-mode="null">Null</button>
                         </div>
                         <div class="bm-mapping-slot-expression" data-mapping-slot-panel="expression">
                             <input class="bm-expression-input"
@@ -183,9 +175,9 @@ else
                     <h4>Otherwise</h4>
                     <div class="bm-mapping-value-slot" data-mapping-value-slot="else">
                         <div class="bm-mapping-slot-actions">
-                            <button type="button" data-set-mapping-slot-mode="expression">Use expression</button>
-                            <button type="button" data-set-mapping-slot-mode="conditional">Use conditional</button>
-                            <button type="button" data-set-mapping-slot-mode="null">Use null</button>
+                            <button type="button" data-set-mapping-slot-mode="expression">Expression</button>
+                            <button type="button" data-set-mapping-slot-mode="conditional">Conditional</button>
+                            <button type="button" data-set-mapping-slot-mode="null">Null</button>
                         </div>
                         <div class="bm-mapping-slot-expression" data-mapping-slot-panel="expression">
                             <input class="bm-expression-input"

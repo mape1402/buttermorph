@@ -519,7 +519,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   background-color: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius-sm);
@@ -531,8 +532,25 @@ textarea {
   width: 100%;
 }
 
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #5b6380 50%),
+    linear-gradient(135deg, #5b6380 50%, transparent 50%);
+  background-position:
+    calc(100% - 13px) 50%,
+    calc(100% - 8px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  box-shadow: 0 1px 1px rgba(26, 26, 46, 0.04);
+  cursor: pointer;
+  height: 27px;
+  padding: 0.22rem 1.45rem 0.22rem 0.48rem;
+}
+
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--bm-sidebar-accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
   outline: none;
@@ -1154,7 +1172,8 @@ textarea,
   align-items: center;
   display: grid;
   gap: 0.35rem;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto auto;
+  justify-content: start;
 }
 
 .bm-mapping-panel,
@@ -1169,43 +1188,20 @@ textarea,
 }
 
 .bm-mapping-toggle {
-  background-color: #eef2ff;
-  border-color: #cfd7ff;
+  background-color: #f5f7ff;
+  border-color: #d8defc;
   color: #3730a3;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 750;
   min-height: 26px;
   min-width: 0;
-  padding: 0.16rem 0.34rem;
+  padding: 0.16rem 0.46rem;
   white-space: nowrap;
 }
 
 .bm-mapping-toggle:hover {
   background-color: #e0e7ff;
   border-color: #adbafb;
-}
-
-.bm-mapping-mode-switch {
-  align-items: center;
-  background-color: #f4f6ff;
-  border: 1px solid #dbe2f6;
-  border-radius: 7px;
-  display: inline-flex;
-  gap: 0.18rem;
-  padding: 0.15rem;
-}
-
-.bm-mapping-toggle {
-  background-color: transparent;
-  border-color: transparent;
-  color: #48516f;
-}
-
-.bm-mapping-toggle[aria-pressed="true"] {
-  background-color: #ffffff;
-  border-color: #ccd6fb;
-  box-shadow: 0 1px 2px rgba(22, 28, 45, 0.08);
-  color: #312e81;
 }
 
 .bm-conditional-panel {
@@ -1285,9 +1281,9 @@ textarea,
 
 .bm-mapping-condition-actions button,
 .bm-mapping-slot-actions button {
-  background-color: #f5f7ff;
-  border-color: #d8defc;
-  color: #3730a3;
+  background-color: #ffffff;
+  border-color: #d9e0f0;
+  color: #39425f;
   font-size: 0.68rem;
   min-height: 25px;
   padding: 0.15rem 0.42rem;
@@ -1300,8 +1296,8 @@ textarea,
 }
 
 .bm-mapping-slot-actions button[aria-pressed="true"] {
-  background-color: #4338ca;
-  border-color: #4338ca;
+  background-color: #4f46e5;
+  border-color: #4f46e5;
   color: #ffffff;
 }
 
@@ -1314,11 +1310,11 @@ textarea,
   align-items: center;
   display: grid;
   gap: 0.24rem;
-  grid-template-columns: minmax(160px, 1fr) minmax(138px, 0.58fr) minmax(150px, 0.85fr) 30px;
+  grid-template-columns: minmax(160px, 1fr) minmax(138px, 0.58fr) minmax(150px, 0.85fr) auto;
 }
 
 .bm-mapping-condition-row[data-value-visible="false"] {
-  grid-template-columns: minmax(160px, 1fr) minmax(138px, 0.58fr) 30px;
+  grid-template-columns: minmax(160px, 1fr) minmax(138px, 0.58fr) auto;
 }
 
 .bm-mapping-condition-row [data-mapping-condition-right][hidden] {
@@ -1355,19 +1351,17 @@ textarea,
   background-color: #fff7f7;
   border-color: #f2caca;
   color: #9f1d1d;
-  font-size: 0;
+  font-size: 0.66rem;
+  font-weight: 750;
   height: 27px;
   min-height: 27px;
-  padding: 0;
-  width: 30px;
+  padding: 0 0.48rem;
+  width: auto;
 }
 
 .bm-mapping-condition-row [data-remove-mapping-condition]::before,
 .bm-mapping-condition-actions [data-remove-mapping-group]::before {
-  content: "×";
-  font-size: 1rem;
-  font-weight: 800;
-  line-height: 1;
+  content: none;
 }
 
 .bm-mapping-condition-row [data-remove-mapping-condition]:hover,
@@ -1401,9 +1395,11 @@ textarea,
   border-color: rgba(26, 26, 46, 0.12);
   box-shadow: none;
   color: var(--bm-muted);
+  font-size: 0.66rem;
+  font-weight: 750;
   min-height: 26px;
-  min-width: 28px;
-  padding: 0 0.55rem;
+  min-width: 44px;
+  padding: 0 0.5rem;
 }
 
 .bm-clear-mapping:hover {
@@ -2906,7 +2902,6 @@ body[data-bm-theme-mode="dark"] .bm-validation-row,
 body[data-bm-theme-mode="dark"] .bm-condition-group,
 body[data-bm-theme-mode="dark"] .bm-foreach-rules,
 body[data-bm-theme-mode="dark"] .bm-validation-slot,
-body[data-bm-theme-mode="dark"] .bm-mapping-mode-switch,
 body[data-bm-theme-mode="dark"] .bm-mapping-conditional-composer,
 body[data-bm-theme-mode="dark"] .bm-mapping-condition-group,
 body[data-bm-theme-mode="dark"] .bm-mapping-value-slot {

@@ -1480,10 +1480,13 @@ document.addEventListener("DOMContentLoaded", function () {
         panel.setAttribute("hidden", "hidden");
       }
     });
-    editor.querySelectorAll("[data-enable-conditional-mapping], [data-use-basic-mapping]").forEach(function (button) {
-      const enablesConditional = button.hasAttribute("data-enable-conditional-mapping");
-      button.setAttribute("aria-pressed", (enablesConditional ? mode === "conditional" : mode !== "conditional") ? "true" : "false");
-    });
+    const modeToggle = editor.querySelector("[data-toggle-mapping-mode='true']");
+    if (modeToggle) {
+      const isConditional = mode === "conditional";
+      modeToggle.textContent = isConditional ? "Basic" : "Conditional";
+      modeToggle.setAttribute("title", isConditional ? "Switch to basic mapping" : "Switch to conditional mapping");
+      modeToggle.setAttribute("aria-label", isConditional ? "Switch to basic mapping" : "Switch to conditional mapping");
+    }
     if (mode === "conditional") {
       hydrateMappingConditionalPanel(editor);
     }
@@ -1745,30 +1748,23 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   document.addEventListener("click", function (event) {
-    const conditionalButton = event.target.closest("[data-enable-conditional-mapping='true']");
-    if (conditionalButton) {
+    const modeToggle = event.target.closest("[data-toggle-mapping-mode='true']");
+    if (modeToggle) {
       event.preventDefault();
-      const editor = conditionalButton.closest("[data-mapping-editor='true']");
+      const editor = modeToggle.closest("[data-mapping-editor='true']");
       const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
-      if (hidden) {
-        hidden.value = "conditional";
+      const nextMode = getMappingEditorMode(editor) === "conditional" ? "basic" : "conditional";
+      if (nextMode === "basic") {
+        keepConditionalAsBasicExpression(editor);
       }
-      seedConditionalMapping(editor);
+      if (hidden) {
+        hidden.value = nextMode;
+      }
+      if (nextMode === "conditional") {
+        seedConditionalMapping(editor);
+      }
       refreshMappingEditor(editor);
       syncMappingEditor(editor);
-      scheduleVisualSync();
-      return;
-    }
-    const basicButton = event.target.closest("[data-use-basic-mapping='true']");
-    if (basicButton) {
-      event.preventDefault();
-      const editor = basicButton.closest("[data-mapping-editor='true']");
-      const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
-      keepConditionalAsBasicExpression(editor);
-      if (hidden) {
-        hidden.value = "basic";
-      }
-      refreshMappingEditor(editor);
       scheduleVisualSync();
       return;
     }
