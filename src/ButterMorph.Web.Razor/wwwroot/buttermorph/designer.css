@@ -2498,7 +2498,7 @@ li.CodeMirror-hint-active {
   align-items: start;
   display: grid;
   gap: 0.34rem;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .bm-condition-branch h4 {
@@ -2506,15 +2506,17 @@ li.CodeMirror-hint-active {
   font-size: 0.7rem;
   font-weight: 750;
   margin: 0;
-  padding-top: 0.45rem;
+  padding: 0.45rem 0.28rem 0 0;
+  text-align: right;
   text-transform: none;
+  white-space: nowrap;
 }
 
 .bm-condition-branch-actions {
   display: flex;
   gap: 0.28rem;
   justify-content: flex-start;
-  padding-left: 42px;
+  padding-left: 72px;
 }
 
 .bm-condition-branch-actions button {
