@@ -709,7 +709,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const isSimple = kind.value === "Simple";
     row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
     if (kindLabel) {
-      kindLabel.textContent = isSimple ? "Field rule" : "Assertion";
+      const mode = row.querySelector("[data-builder-mode='true']");
+      const editor = getComplexExpressionEditor(row);
+      if (!isSimple && mode && editor && /^when\s*\(/.test(editor.value.trim())) {
+        mode.value = "when";
+      }
+      kindLabel.textContent = isSimple ? "Field rule" : ((mode && mode.value === "when") ? "When assertion" : "Group assertion");
     }
     simplePanel.hidden = !isSimple;
     complexPanel.hidden = isSimple;
@@ -771,8 +776,6 @@ document.addEventListener("DOMContentLoaded", function () {
         expression = readConditionExpression(child);
       } else if (child.matches("[data-condition-group='true']")) {
         expression = readConditionGroupExpression(child);
-      } else if (child.matches("[data-condition-when='true']")) {
-        expression = readConditionWhenExpression(child);
       }
       if (expression.length > 0) {
         parts.push(expression);
@@ -789,14 +792,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function findPanelRootGroup(panel) {
     return panel ? getDirectChild(panel, "[data-condition-group='true']") : null;
-  }
-
-  function createBuilderButton(text, attributeName) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = text;
-    button.setAttribute(attributeName, "true");
-    return button;
   }
 
   function getWhenBranch(scope, branchName) {
@@ -828,60 +823,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return element ? element.closest("[data-condition-when='true'], [data-builder-panel='when']") : null;
   }
 
-  function ensureConditionGroupActionButtons(root) {
-    if (!root || !root.querySelectorAll) {
-      return;
-    }
-    root.querySelectorAll("[data-condition-group='true']").forEach(function (group) {
-      const branch = group.closest("[data-when-branch]");
-      const canAddNestedIf = branch &&
-        !branch.hidden &&
-        (branch.getAttribute("data-when-branch") === "then" || branch.getAttribute("data-when-branch") === "else");
-      const header = getDirectChild(group, ".bm-condition-group-header");
-      const actions = header ? header.querySelector(".bm-condition-actions") : null;
-      const addGroup = actions ? actions.querySelector("[data-add-group='true']") : null;
-      const existingAddIf = actions ? actions.querySelector("[data-add-when='true']") : null;
-      if (!actions) {
-        return;
-      }
-      if (!canAddNestedIf) {
-        if (existingAddIf) {
-          existingAddIf.remove();
-        }
-        return;
-      }
-      if (existingAddIf) {
-        return;
-      }
-      const button = createBuilderButton("Add if", "data-add-when");
-      if (addGroup && addGroup.nextSibling) {
-        actions.insertBefore(button, addGroup.nextSibling);
-      } else {
-        actions.appendChild(button);
-      }
-    });
-  }
-
-  function ensureWhenBranchControls(root) {
-    getWhenScopes(root).forEach(function (scope) {
-      ["then", "else"].forEach(function (branchName) {
-        const group = getWhenBranchGroup(scope, branchName);
-        const header = group ? getDirectChild(group, ".bm-condition-group-header") : null;
-        const actions = header ? header.querySelector(".bm-condition-actions") : null;
-        if (!actions || actions.querySelector("[data-remove-when-branch='" + branchName + "']")) {
-          return;
-        }
-        const button = createBuilderButton("Remove " + branchName, "data-remove-when-branch");
-        button.setAttribute("data-remove-when-branch", branchName);
-        button.className = "bm-condition-branch-remove";
-        actions.appendChild(button);
-      });
-    });
-  }
-
   function ensureConditionBuilderControls(root) {
-    ensureConditionGroupActionButtons(root);
-    ensureWhenBranchControls(root);
     updateWhenBranchActions(root);
   }
 
@@ -895,23 +837,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const whenPanel = builder.querySelector("[data-builder-panel='when']");
       const conditionGroup = getWhenBranchGroup(whenPanel, "condition");
       ensureConditionListHasRow(getDirectChild(conditionGroup, "[data-condition-list='true']"));
+      ensureValidationSlotHasNode(getWhenSlot(whenPanel, "then"), "field");
     }
     ensureConditionBuilderControls(builder);
+    updateAssertionKindLabel(builder.closest("[data-assertion-row='true']"));
   }
 
   function ensureConditionListHasRow(list) {
-    if (!list || getDirectChild(list, "[data-condition-row='true'], [data-condition-group='true'], [data-condition-when='true']")) {
+    if (!list || getDirectChild(list, "[data-condition-row='true'], [data-condition-group='true']")) {
       return null;
     }
     return addConditionToList(list);
-  }
-
-  function isWhenBranchEnabled(group) {
-    if (!group) {
-      return false;
-    }
-    const branch = group ? group.closest("[data-when-branch]") : null;
-    return !branch || !branch.hidden;
   }
 
   function updateWhenBranchActions(root) {
@@ -926,9 +862,99 @@ document.addEventListener("DOMContentLoaded", function () {
       actions.querySelectorAll("[data-show-when-branch]").forEach(function (button) {
         const branchName = button.getAttribute("data-show-when-branch");
         const branch = branchName ? getWhenBranch(scope, branchName) : null;
-        button.hidden = !branch || !branch.hidden;
+        button.hidden = !branch || !branch.hidden || branchName !== "else";
       });
     });
+  }
+
+  function updateAssertionKindLabel(row) {
+    if (!row) {
+      return;
+    }
+    const kind = row.querySelector("[data-assertion-kind='true']");
+    const kindLabel = row.querySelector(".bm-validation-row-kind");
+    if (!kind || !kindLabel || kind.value === "Simple") {
+      return;
+    }
+    const mode = row.querySelector("[data-builder-mode='true']");
+    kindLabel.textContent = mode && mode.value === "when" ? "When assertion" : "Group assertion";
+  }
+
+  function getWhenSlot(scope, branchName) {
+    const branch = getWhenBranch(scope, branchName);
+    return branch ? getDirectChild(branch, "[data-validation-slot='" + branchName + "']") : null;
+  }
+
+  function getValidationSlotBody(slot) {
+    return slot ? getDirectChild(slot, "[data-validation-slot-body='true']") : null;
+  }
+
+  function getValidationSlotNode(slot) {
+    const body = getValidationSlotBody(slot);
+    return body ? getDirectChild(body, "[data-condition-row='true'], [data-condition-group='true'], [data-condition-when='true']") : null;
+  }
+
+  function setValidationSlotNode(slot, nodeType) {
+    const body = getValidationSlotBody(slot);
+    if (!body) {
+      return null;
+    }
+    body.innerHTML = "";
+    let node = null;
+    if (nodeType === "group") {
+      node = cloneTemplateElement("[data-condition-group-template='true']");
+    } else if (nodeType === "when" && slot.getAttribute("data-allow-when") === "true") {
+      node = cloneTemplateElement("[data-condition-when-template='true']");
+    } else {
+      node = cloneTemplateElement("[data-condition-row-template='true']");
+    }
+    if (!node) {
+      return null;
+    }
+    body.appendChild(node);
+    if (node.matches("[data-condition-row='true']")) {
+      updateConditionValueVisibility(node);
+    }
+    if (node.matches("[data-condition-group='true']")) {
+      ensureConditionListHasRow(getDirectChild(node, "[data-condition-list='true']"));
+    }
+    if (node.matches("[data-condition-when='true']")) {
+      ensureConditionBuilderControls(node);
+      ensureConditionListHasRow(getDirectChild(getWhenBranchGroup(node, "condition"), "[data-condition-list='true']"));
+      ensureValidationSlotHasNode(getWhenSlot(node, "then"), "field");
+    }
+    return node;
+  }
+
+  function ensureValidationSlotHasNode(slot, defaultType) {
+    if (!slot || getValidationSlotNode(slot)) {
+      return null;
+    }
+    return setValidationSlotNode(slot, defaultType || "field");
+  }
+
+  function clearValidationSlot(slot) {
+    const body = getValidationSlotBody(slot);
+    if (body) {
+      body.innerHTML = "";
+    }
+  }
+
+  function readValidationSlotExpression(slot) {
+    const node = getValidationSlotNode(slot);
+    if (!node) {
+      return "";
+    }
+    if (node.matches("[data-condition-row='true']")) {
+      return readConditionExpression(node);
+    }
+    if (node.matches("[data-condition-group='true']")) {
+      return readConditionGroupExpression(node);
+    }
+    if (node.matches("[data-condition-when='true']")) {
+      return readConditionWhenExpression(node);
+    }
+    return "";
   }
 
   function readConditionWhenExpression(scope) {
@@ -936,17 +962,19 @@ document.addEventListener("DOMContentLoaded", function () {
       return "";
     }
     const conditionGroup = getWhenBranchGroup(scope, "condition");
-    const thenGroup = getWhenBranchGroup(scope, "then");
-    const elseGroup = getWhenBranchGroup(scope, "else");
+    const thenSlot = getWhenSlot(scope, "then");
+    const elseBranch = getWhenBranch(scope, "else");
+    const elseSlot = getWhenSlot(scope, "else");
     const condition = readConditionGroupExpression(conditionGroup);
-    const thenEnabled = isWhenBranchEnabled(thenGroup);
-    const elseEnabled = isWhenBranchEnabled(elseGroup);
-    const thenExpression = thenEnabled ? readConditionGroupExpression(thenGroup) : "";
-    const elseExpression = elseEnabled ? readConditionGroupExpression(elseGroup) : "";
-    if (condition.length > 0 && (thenEnabled || elseEnabled)) {
-      return "when(" + condition + ", " + (thenExpression || "true") + ", " + (elseExpression || "true") + ")";
+    const thenExpression = readValidationSlotExpression(thenSlot);
+    const elseExpression = elseBranch && !elseBranch.hidden ? readValidationSlotExpression(elseSlot) : "";
+    if (condition.length > 0 && thenExpression.length > 0) {
+      if (elseExpression.length > 0) {
+        return "when(" + condition + ", " + thenExpression + ", " + elseExpression + ")";
+      }
+      return "when(" + condition + ", " + thenExpression + ")";
     }
-    return condition;
+    return "";
   }
 
   function updateBuilderExpression(builder) {
@@ -988,16 +1016,6 @@ document.addEventListener("DOMContentLoaded", function () {
       ensureConditionBuilderControls(group);
     }
     return group;
-  }
-
-  function addWhenToList(list) {
-    const whenNode = cloneTemplateElement("[data-condition-when-template='true']");
-    if (whenNode) {
-      list.appendChild(whenNode);
-      ensureConditionBuilderControls(whenNode);
-      ensureConditionListHasRow(getDirectChild(getWhenBranchGroup(whenNode, "condition"), "[data-condition-list='true']"));
-    }
-    return whenNode;
   }
 
   function syncAssertionRow(row) {
@@ -1087,11 +1105,15 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function configureNewAssertionRow(kind) {
+  function configureNewAssertionRow(kind, builderMode) {
     const row = cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']");
     const kindInput = row ? row.querySelector("[data-assertion-kind='true']") : null;
+    const modeInput = row ? row.querySelector("[data-builder-mode='true']") : null;
     if (kindInput) {
       kindInput.value = kind === "Complex" ? "Complex" : "Simple";
+    }
+    if (modeInput) {
+      modeInput.value = builderMode === "when" ? "when" : "group";
     }
     initializeAssertionRow(row);
     return row;
@@ -1347,11 +1369,15 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.addEventListener("click", function (event) {
     if (event.target.matches("[data-add-field-rule='true']")) {
-      configureNewAssertionRow("Simple");
+      configureNewAssertionRow("Simple", "group");
       return;
     }
-    if (event.target.matches("[data-add-assertion='true']")) {
-      configureNewAssertionRow("Complex");
+    if (event.target.matches("[data-add-group-assertion='true'], [data-add-assertion='true']")) {
+      configureNewAssertionRow("Complex", "group");
+      return;
+    }
+    if (event.target.matches("[data-add-when-assertion='true']")) {
+      configureNewAssertionRow("Complex", "when");
       return;
     }
     if (event.target.matches("[data-add-foreach-field-rule='true'], [data-add-foreach='true']")) {
@@ -1390,21 +1416,6 @@ document.addEventListener("DOMContentLoaded", function () {
       scheduleVisualSync();
       return;
     }
-    if (event.target.matches("[data-add-when='true']")) {
-      const builder = event.target.closest("[data-condition-builder='true']");
-      const group = event.target.closest("[data-condition-group='true']");
-      const list = getDirectChild(group, "[data-condition-list='true']");
-      const whenNode = list ? addWhenToList(list) : null;
-      if (whenNode) {
-        const firstInput = whenNode.querySelector("[data-condition-left='true']");
-        if (firstInput) {
-          firstInput.focus();
-        }
-      }
-      updateBuilderExpression(builder);
-      scheduleVisualSync();
-      return;
-    }
     if (event.target.matches("[data-show-when-branch]")) {
       const builder = event.target.closest("[data-condition-builder='true']");
       const whenScope = getWhenScope(event.target);
@@ -1412,7 +1423,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const branch = branchName ? getWhenBranch(whenScope, branchName) : null;
       if (branch) {
         branch.hidden = false;
-        ensureConditionListHasRow(getDirectChild(getWhenBranchGroup(whenScope, branchName), "[data-condition-list='true']"));
+        ensureValidationSlotHasNode(getWhenSlot(whenScope, branchName), "field");
         const firstInput = branch.querySelector("[data-condition-left='true']");
         if (firstInput) {
           firstInput.focus();
@@ -1427,14 +1438,37 @@ document.addEventListener("DOMContentLoaded", function () {
       const builder = event.target.closest("[data-condition-builder='true']");
       const branch = event.target.closest("[data-when-branch]");
       const whenScope = getWhenScope(event.target);
-      const list = branch ? branch.querySelector("[data-condition-list='true']") : null;
-      if (list) {
-        list.innerHTML = "";
-      }
+      clearValidationSlot(branch ? branch.querySelector("[data-validation-slot]") : null);
       if (branch) {
         branch.hidden = true;
       }
       updateWhenBranchActions(whenScope);
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-set-slot-node]")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const slot = event.target.closest("[data-validation-slot]");
+      const nodeType = event.target.getAttribute("data-set-slot-node") || "field";
+      const node = setValidationSlotNode(slot, nodeType);
+      const firstInput = node ? node.querySelector("[data-condition-left='true']") : null;
+      if (firstInput) {
+        firstInput.focus();
+      }
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-clear-slot='true']")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const slot = event.target.closest("[data-validation-slot]");
+      const branch = slot ? slot.closest("[data-when-branch]") : null;
+      clearValidationSlot(slot);
+      if (branch && slot && slot.getAttribute("data-optional-slot") === "true") {
+        branch.hidden = true;
+        updateWhenBranchActions(getWhenScope(slot));
+      }
       updateBuilderExpression(builder);
       scheduleVisualSync();
       return;

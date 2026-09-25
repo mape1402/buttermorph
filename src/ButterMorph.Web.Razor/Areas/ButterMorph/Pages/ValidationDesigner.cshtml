@@ -185,7 +185,8 @@
                             <h3>Rules</h3>
                             <div class="bm-validation-section-actions">
                                 <button type="button" data-add-field-rule="true">Add field rule</button>
-                                <button type="button" data-add-assertion="true">Add assertion</button>
+                                <button type="button" data-add-group-assertion="true">Add group assertion</button>
+                                <button type="button" data-add-when-assertion="true">Add when assertion</button>
                                 <button type="button" data-add-foreach-field-rule="true">Add foreach field rule</button>
                                 <button type="button" data-add-foreach-assertion="true">Add foreach assertion</button>
                             </div>
@@ -234,13 +235,13 @@
                                     </div>
                                     <div class="bm-complex-assertion-panel" data-complex-assertion-panel="true" hidden="@(assertion.Kind == "Simple")">
                                         <details class="bm-condition-builder" data-condition-builder="true" open>
-                                            <summary>Build conditions</summary>
+                                            <summary>Build validation</summary>
                                             <div class="bm-condition-builder-body">
-                                                <label class="bm-condition-mode">
+                                                <label class="bm-condition-mode" hidden>
                                                     Pattern
                                                     <select data-builder-mode="true">
-                                                        <option value="group">Conditions</option>
-                                                        <option value="when">If / then / else</option>
+                                                        <option value="group">Group assertion</option>
+                                                        <option value="when">When assertion</option>
                                                     </select>
                                                 </label>
                                                 <div data-builder-panel="group">
@@ -284,7 +285,7 @@
                                                 </div>
                                                 <div data-builder-panel="when" hidden>
                                                     <section class="bm-condition-branch" data-when-branch="condition">
-                                                        <h4>If</h4>
+                                                        <h4>When</h4>
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                                             <div class="bm-condition-group-header">
                                                                 <label>
@@ -303,45 +304,29 @@
                                                         </div>
                                                     </section>
                                                     <div class="bm-condition-branch-actions">
-                                                        <button type="button" data-show-when-branch="then">Add then</button>
-                                                        <button type="button" data-show-when-branch="else">Add else</button>
+                                                        <button type="button" data-show-when-branch="else">Add otherwise</button>
                                                     </div>
-                                                    <section class="bm-condition-branch" data-when-branch="then" hidden>
+                                                    <section class="bm-condition-branch" data-when-branch="then">
                                                         <h4>Then</h4>
-                                                        <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
-                                                            <div class="bm-condition-group-header">
-                                                                <label>
-                                                                    Combine
-                                                                    <select data-group-operator="true">
-                                                                        <option value="and">All conditions</option>
-                                                                        <option value="or">Any condition</option>
-                                                                    </select>
-                                                                </label>
-                                                                <div class="bm-condition-actions">
-                                                                    <button type="button" data-add-condition="true">Add condition</button>
-                                                                    <button type="button" data-add-group="true">Add group</button>
-                                                                </div>
+                                                        <div class="bm-validation-slot" data-validation-slot="then" data-allow-when="true">
+                                                            <div class="bm-validation-slot-actions">
+                                                                <button type="button" data-set-slot-node="field">Use field rule</button>
+                                                                <button type="button" data-set-slot-node="group">Use group</button>
+                                                                <button type="button" data-set-slot-node="when">Use nested when</button>
                                                             </div>
-                                                            <div class="bm-condition-list" data-condition-list="true"></div>
+                                                            <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                                                         </div>
                                                     </section>
                                                     <section class="bm-condition-branch" data-when-branch="else" hidden>
-                                                        <h4>Else</h4>
-                                                        <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
-                                                            <div class="bm-condition-group-header">
-                                                                <label>
-                                                                    Combine
-                                                                    <select data-group-operator="true">
-                                                                        <option value="and">All conditions</option>
-                                                                        <option value="or">Any condition</option>
-                                                                    </select>
-                                                                </label>
-                                                                <div class="bm-condition-actions">
-                                                                    <button type="button" data-add-condition="true">Add condition</button>
-                                                                    <button type="button" data-add-group="true">Add group</button>
-                                                                </div>
+                                                        <h4>Otherwise</h4>
+                                                        <div class="bm-validation-slot" data-validation-slot="else" data-allow-when="true" data-optional-slot="true">
+                                                            <div class="bm-validation-slot-actions">
+                                                                <button type="button" data-set-slot-node="field">Use field rule</button>
+                                                                <button type="button" data-set-slot-node="group">Use group</button>
+                                                                <button type="button" data-set-slot-node="when">Use nested when</button>
+                                                                <button type="button" data-clear-slot="true">Clear otherwise</button>
                                                             </div>
-                                                            <div class="bm-condition-list" data-condition-list="true"></div>
+                                                            <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                                                         </div>
                                                     </section>
                                                 </div>
@@ -482,13 +467,13 @@
             </div>
             <div class="bm-complex-assertion-panel" data-complex-assertion-panel="true" hidden>
                 <details class="bm-condition-builder" data-condition-builder="true" open>
-                    <summary>Build conditions</summary>
+                    <summary>Build validation</summary>
                     <div class="bm-condition-builder-body">
-                        <label class="bm-condition-mode">
+                        <label class="bm-condition-mode" hidden>
                             Pattern
                             <select data-builder-mode="true">
-                                <option value="group">Conditions</option>
-                                <option value="when">If / then / else</option>
+                                <option value="group">Group assertion</option>
+                                <option value="when">When assertion</option>
                             </select>
                         </label>
                         <div data-builder-panel="group">
@@ -532,7 +517,7 @@
                         </div>
                         <div data-builder-panel="when" hidden>
                             <section class="bm-condition-branch" data-when-branch="condition">
-                                <h4>If</h4>
+                                <h4>When</h4>
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                     <div class="bm-condition-group-header">
                                         <label>
@@ -551,45 +536,29 @@
                                 </div>
                             </section>
                             <div class="bm-condition-branch-actions">
-                                <button type="button" data-show-when-branch="then">Add then</button>
-                                <button type="button" data-show-when-branch="else">Add else</button>
+                                <button type="button" data-show-when-branch="else">Add otherwise</button>
                             </div>
-                            <section class="bm-condition-branch" data-when-branch="then" hidden>
+                            <section class="bm-condition-branch" data-when-branch="then">
                                 <h4>Then</h4>
-                                <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
-                                    <div class="bm-condition-group-header">
-                                        <label>
-                                            Combine
-                                            <select data-group-operator="true">
-                                                <option value="and">All conditions</option>
-                                                <option value="or">Any condition</option>
-                                            </select>
-                                        </label>
-                                        <div class="bm-condition-actions">
-                                            <button type="button" data-add-condition="true">Add condition</button>
-                                            <button type="button" data-add-group="true">Add group</button>
-                                        </div>
+                                <div class="bm-validation-slot" data-validation-slot="then" data-allow-when="true">
+                                    <div class="bm-validation-slot-actions">
+                                        <button type="button" data-set-slot-node="field">Use field rule</button>
+                                        <button type="button" data-set-slot-node="group">Use group</button>
+                                        <button type="button" data-set-slot-node="when">Use nested when</button>
                                     </div>
-                                    <div class="bm-condition-list" data-condition-list="true"></div>
+                                    <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                                 </div>
                             </section>
                             <section class="bm-condition-branch" data-when-branch="else" hidden>
-                                <h4>Else</h4>
-                                <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
-                                    <div class="bm-condition-group-header">
-                                        <label>
-                                            Combine
-                                            <select data-group-operator="true">
-                                                <option value="and">All conditions</option>
-                                                <option value="or">Any condition</option>
-                                            </select>
-                                        </label>
-                                        <div class="bm-condition-actions">
-                                            <button type="button" data-add-condition="true">Add condition</button>
-                                            <button type="button" data-add-group="true">Add group</button>
-                                        </div>
+                                <h4>Otherwise</h4>
+                                <div class="bm-validation-slot" data-validation-slot="else" data-allow-when="true" data-optional-slot="true">
+                                    <div class="bm-validation-slot-actions">
+                                        <button type="button" data-set-slot-node="field">Use field rule</button>
+                                        <button type="button" data-set-slot-node="group">Use group</button>
+                                        <button type="button" data-set-slot-node="when">Use nested when</button>
+                                        <button type="button" data-clear-slot="true">Clear otherwise</button>
                                     </div>
-                                    <div class="bm-condition-list" data-condition-list="true"></div>
+                                    <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                                 </div>
                             </section>
                         </div>
@@ -724,11 +693,11 @@
     <template data-condition-when-template="true">
         <div class="bm-condition-when" data-condition-when="true">
             <div class="bm-condition-when-header">
-                <strong>If / then / else</strong>
-                <button type="button" data-remove-when="true">Remove if</button>
+                <strong>When</strong>
+                <button type="button" data-remove-when="true">Remove when</button>
             </div>
             <section class="bm-condition-branch" data-when-branch="condition">
-                <h4>If</h4>
+                <h4>When</h4>
                 <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                     <div class="bm-condition-group-header">
                         <label>
@@ -747,45 +716,29 @@
                 </div>
             </section>
             <div class="bm-condition-branch-actions">
-                <button type="button" data-show-when-branch="then">Add then</button>
-                <button type="button" data-show-when-branch="else">Add else</button>
+                <button type="button" data-show-when-branch="else">Add otherwise</button>
             </div>
-            <section class="bm-condition-branch" data-when-branch="then" hidden>
+            <section class="bm-condition-branch" data-when-branch="then">
                 <h4>Then</h4>
-                <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
-                    <div class="bm-condition-group-header">
-                        <label>
-                            Combine
-                            <select data-group-operator="true">
-                                <option value="and">All conditions</option>
-                                <option value="or">Any condition</option>
-                            </select>
-                        </label>
-                        <div class="bm-condition-actions">
-                            <button type="button" data-add-condition="true">Add condition</button>
-                            <button type="button" data-add-group="true">Add group</button>
-                        </div>
+                <div class="bm-validation-slot" data-validation-slot="then" data-allow-when="true">
+                    <div class="bm-validation-slot-actions">
+                        <button type="button" data-set-slot-node="field">Use field rule</button>
+                        <button type="button" data-set-slot-node="group">Use group</button>
+                        <button type="button" data-set-slot-node="when">Use nested when</button>
                     </div>
-                    <div class="bm-condition-list" data-condition-list="true"></div>
+                    <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                 </div>
             </section>
             <section class="bm-condition-branch" data-when-branch="else" hidden>
-                <h4>Else</h4>
-                <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
-                    <div class="bm-condition-group-header">
-                        <label>
-                            Combine
-                            <select data-group-operator="true">
-                                <option value="and">All conditions</option>
-                                <option value="or">Any condition</option>
-                            </select>
-                        </label>
-                        <div class="bm-condition-actions">
-                            <button type="button" data-add-condition="true">Add condition</button>
-                            <button type="button" data-add-group="true">Add group</button>
-                        </div>
+                <h4>Otherwise</h4>
+                <div class="bm-validation-slot" data-validation-slot="else" data-allow-when="true" data-optional-slot="true">
+                    <div class="bm-validation-slot-actions">
+                        <button type="button" data-set-slot-node="field">Use field rule</button>
+                        <button type="button" data-set-slot-node="group">Use group</button>
+                        <button type="button" data-set-slot-node="when">Use nested when</button>
+                        <button type="button" data-clear-slot="true">Clear otherwise</button>
                     </div>
-                    <div class="bm-condition-list" data-condition-list="true"></div>
+                    <div class="bm-validation-slot-body" data-validation-slot-body="true"></div>
                 </div>
             </section>
         </div>

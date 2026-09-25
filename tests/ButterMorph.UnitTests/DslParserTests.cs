@@ -112,6 +112,27 @@ public sealed class DslParserTests
     }
 
     /// <summary>
+    /// Confirms that validation conditionals can omit the otherwise branch.
+    /// </summary>
+    [Fact]
+    public void ParseAllowsValidationConditionalWithoutOtherwise()
+    {
+        IValidationDocument document = ParseValidation(
+            """
+            validate {
+              assert when(eq($source.kind, "A"), eq($source.status, "Ready")): "Status must be ready for A"
+            }
+            """);
+
+        IValidationAssertion assertion = Assert.Single(document.Assertions);
+        IConditionalExpression conditional = Assert.IsAssignableFrom<IConditionalExpression>(assertion.Expression);
+        IScalarLiteralExpression otherwise = Assert.IsAssignableFrom<IScalarLiteralExpression>(conditional.ElseExpression);
+
+        Assert.Equal("Boolean", otherwise.Value.DataType);
+        Assert.Equal("true", otherwise.Value.RawValue);
+    }
+
+    /// <summary>
     /// Confirms that inline map-shaped and ordered expressions are parsed.
     /// </summary>
     [Fact]

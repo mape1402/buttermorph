@@ -193,6 +193,91 @@ public sealed class ValidationEngineTests
     }
 
     /// <summary>
+    /// Confirms that nested when expressions are valid only as complete branches.
+    /// </summary>
+    [Fact]
+    public void ValidateExecutesNestedWhenBranches()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        ValidationRequest request = new()
+        {
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["order"] = ReadJson("{\"type\":\"Priority\",\"total\":1200}"),
+                ["payment"] = ReadJson("{\"amount\":1200}")
+            },
+            Definition = new ValidationDocument
+            {
+                Assertions =
+                [
+                    new ValidationAssertion
+                    {
+                        Expression = new ConditionalExpression
+                        {
+                            Condition = Function("eq", Path("$order.type"), Text("Priority")),
+                            ThenExpression = new ConditionalExpression
+                            {
+                                Condition = Function("gt", Path("$order.total"), Number("1000")),
+                                ThenExpression = Function("eq", Path("$payment.amount"), Path("$order.total")),
+                                ElseExpression = Boolean(true)
+                            },
+                            ElseExpression = Boolean(true)
+                        },
+                        Message = "Priority orders require matching payment.",
+                        Path = "$order.total"
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
+    /// Confirms that logical groups cannot contain when expressions.
+    /// </summary>
+    [Fact]
+    public void ValidateRejectsWhenInsideLogicalGroups()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        ValidationRequest request = new()
+        {
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["order"] = ReadJson("{\"type\":\"Priority\",\"total\":1200}")
+            },
+            Definition = new ValidationDocument
+            {
+                Assertions =
+                [
+                    new ValidationAssertion
+                    {
+                        Expression = Function(
+                            "and",
+                            Function("eq", Path("$order.type"), Text("Priority")),
+                            new ConditionalExpression
+                            {
+                                Condition = Function("gt", Path("$order.total"), Number("1000")),
+                                ThenExpression = Boolean(true),
+                                ElseExpression = Boolean(false)
+                            }),
+                        Message = "Invalid group.",
+                        Path = "$order.total"
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMVL010" && diagnostic.Path == "$order.total");
+    }
+
+    /// <summary>
     /// Confirms that foreach validation statements evaluate every collection item with the item alias.
     /// </summary>
     [Fact]

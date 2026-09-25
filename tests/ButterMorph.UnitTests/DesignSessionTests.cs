@@ -117,6 +117,25 @@ public sealed class DesignSessionTests
     }
 
     /// <summary>
+    /// Confirms that validation sessions reject invalid conditional assertion shapes.
+    /// </summary>
+    [Fact]
+    public void ValidationSessionRejectsWhenInsideLogicalGroups()
+    {
+        IValidationDesignSession session = new ValidationDesignSession(new DslParser(), new ValidationDslExporter());
+
+        IValidationOperationResult result = session.ImportDsl(
+            """
+            validate {
+              assert and(eq($source.a, 1), when(eq($source.b, 2), eq($source.c, 3))): "Invalid group"
+            }
+            """);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMVL010");
+    }
+
+    /// <summary>
     /// Confirms that sessions execute semantic analysis.
     /// </summary>
     [Fact]

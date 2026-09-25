@@ -186,6 +186,15 @@ public sealed class ValidationEngine : IValidationEngine
         string payloadAlias,
         List<DiagnosticEntry> diagnostics)
     {
+        string diagnosticPath = NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths);
+        IReadOnlyCollection<DiagnosticEntry> shapeDiagnostics = ValidationExpressionShapeValidator.ValidateAssertion(assertion, diagnosticPath);
+
+        if (shapeDiagnostics.Count > 0)
+        {
+            diagnostics.AddRange(shapeDiagnostics);
+            return;
+        }
+
         ITransformationExpressionEvaluationResult result;
 
         try
@@ -199,20 +208,20 @@ public sealed class ValidationEngine : IValidationEngine
         }
         catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
         {
-            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
+            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, diagnosticPath));
             return;
         }
 
         if (!result.Succeeded)
         {
-            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation assertion could not be evaluated.", NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
+            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation assertion could not be evaluated.", diagnosticPath));
             diagnostics.AddRange(result.Diagnostics);
             return;
         }
 
         if (!IsTruthyBoolean(result.Result))
         {
-            diagnostics.Add(CreateDiagnostic("BMVL004", assertion.Message, NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
+            diagnostics.Add(CreateDiagnostic("BMVL004", assertion.Message, diagnosticPath));
         }
     }
 

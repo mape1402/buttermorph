@@ -111,7 +111,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("Save validations", html, StringComparison.Ordinal);
         Assert.Contains("Validation rules", html, StringComparison.Ordinal);
         Assert.Contains("Add field rule", html, StringComparison.Ordinal);
-        Assert.Contains("Add assertion", html, StringComparison.Ordinal);
+        Assert.Contains("Add group assertion", html, StringComparison.Ordinal);
+        Assert.Contains("Add when assertion", html, StringComparison.Ordinal);
         Assert.Contains("Add foreach field rule", html, StringComparison.Ordinal);
         Assert.Contains("Add foreach assertion", html, StringComparison.Ordinal);
         Assert.Contains("data-assertion-list=\"true\"", html, StringComparison.Ordinal);
@@ -123,14 +124,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("name=\"AssertionKinds\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"SimpleFieldPaths\"", html, StringComparison.Ordinal);
         Assert.Contains("Field rule", html, StringComparison.Ordinal);
-        Assert.Contains("Assertion", html, StringComparison.Ordinal);
+        Assert.Contains("Group assertion", html, StringComparison.Ordinal);
+        Assert.Contains("When assertion", html, StringComparison.Ordinal);
         Assert.Contains("data-condition-builder=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-builder-mode=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-condition-operator=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-validation-slot=\"then\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-set-slot-node=\"when\"", html, StringComparison.Ordinal);
+        Assert.Contains("Build validation", html, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"AssertionPaths\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-insert-logic", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Simple field rule", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Complex assertion", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-add-when=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain(">Type<", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Field Rules", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-rule-list=\"true\"", html, StringComparison.Ordinal);
@@ -166,6 +172,34 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
         Assert.Contains("assert and(gt($invoice.Header.Total, 0), or(eq($payment.Payment.Method, \"Wire\"), eq($payment.Payment.Method, \"Card\")))", dsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the validation designer reports invalid conditional shapes.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerRejectsWhenInsideLogicalGroups()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=invoice-invalid-when-sync");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=invoice-invalid-when-sync&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("AssertionKinds", "Complex"),
+                new KeyValuePair<string, string>("AssertionExpressions", "and(eq($invoice.Header.Currency, \"MXN\"), when(gt($invoice.Header.Total, 0), eq($payment.Payment.Amount, $invoice.Header.Total)))"),
+                new KeyValuePair<string, string>("AssertionMessages", "Invalid when placement.")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(ReadBoolean(json, "succeeded"));
+        Assert.True(ReadNumber(json, "diagnosticsCount") > 0);
+        Assert.Contains("Validation groups cannot contain when", json, StringComparison.Ordinal);
     }
 
     /// <summary>
