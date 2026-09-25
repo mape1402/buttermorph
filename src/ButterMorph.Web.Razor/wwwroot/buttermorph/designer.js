@@ -703,7 +703,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!mappings) {
       return;
     }
-    document.querySelectorAll(".bm-expression-input, [data-mapping-mode-hidden='true']").forEach(function (input) {
+    document.querySelectorAll(".bm-expression-input, [data-mapping-mode-hidden='true'], [data-conditional-output]").forEach(function (input) {
       const targetPath = input.getAttribute("data-target-path");
       if (!targetPath) {
         return;
@@ -747,6 +747,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   function collectVisualMappings() {
     const form = document.querySelector(".bm-target-form");
+    syncAllMappingEditors();
     return form ? new FormData(form) : new FormData();
   }
   function getDslValue() {
@@ -942,6 +943,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     input.focus();
     activeExpressionInput = input;
+    if (input.closest("[data-mapping-condition-row='true']")) {
+      handleMappingConditionEdited(input);
+    } else {
+      syncMappingEditorFromChild(input);
+    }
     scheduleVisualSync();
   }
   function replaceExpressionInput(input, expressionText, selectFirstArgument) {
@@ -956,11 +962,505 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     input.focus();
     activeExpressionInput = input;
+    if (input.closest("[data-mapping-condition-row='true']")) {
+      handleMappingConditionEdited(input);
+    } else {
+      syncMappingEditorFromChild(input);
+    }
     scheduleVisualSync();
+  }
+  function cloneTemplateElement(selector) {
+    const template = document.querySelector(selector);
+    if (!template) {
+      return null;
+    }
+    return template.content.firstElementChild.cloneNode(true);
   }
   function getMappingEditorMode(editor) {
     const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
     return hidden && hidden.value === "conditional" ? "conditional" : "basic";
+  }
+  function normalizeMappingOperator(operatorKey) {
+    if (operatorKey === "required") {
+      return "exists";
+    }
+    const operators = [
+      "exists",
+      "notEmpty",
+      "isEmpty",
+      "eq",
+      "neq",
+      "gt",
+      "gte",
+      "lt",
+      "lte",
+      "contains",
+      "startsWith",
+      "endsWith",
+      "regexMatch"
+    ];
+    return operators.indexOf(operatorKey) >= 0 ? operatorKey : "exists";
+  }
+  function mappingOperatorNeedsValue(operatorKey) {
+    const normalized = normalizeMappingOperator(operatorKey);
+    return normalized !== "exists" && normalized !== "isEmpty" && normalized !== "notEmpty";
+  }
+  function isDslValueExpression(value) {
+    const text = (value || "").trim();
+    if (text.length === 0) {
+      return false;
+    }
+    if (text.charAt(0) === "$" ||
+      (text.charAt(0) === "\"" && text.charAt(text.length - 1) === "\"") ||
+      (text.charAt(0) === "[" && text.charAt(text.length - 1) === "]") ||
+      (text.charAt(0) === "{" && text.charAt(text.length - 1) === "}") ||
+      /^(true|false|null)$/i.test(text) ||
+      /^-?\d+(?:\.\d+)?$/.test(text)) {
+      return true;
+    }
+    if (/^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?)+$/.test(text)) {
+      return true;
+    }
+    return /^[A-Za-z_][A-Za-z0-9_]*\(.*\)$/.test(text);
+  }
+  function writeDslString(value) {
+    return "\"" + String(value)
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, "\\\"")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\t/g, "\\t") + "\"";
+  }
+  function formatDslValue(value) {
+    const text = (value || "").trim();
+    return isDslValueExpression(text) ? text : writeDslString(text);
+  }
+  function buildMappingConditionExpression(fieldPath, operatorKey, value) {
+    const operator = normalizeMappingOperator(operatorKey);
+    if (!fieldPath) {
+      return "";
+    }
+    if (operator === "notEmpty") {
+      return "not(isEmpty(" + fieldPath + "))";
+    }
+    if (!mappingOperatorNeedsValue(operator)) {
+      return operator + "(" + fieldPath + ")";
+    }
+    if ((value || "").trim().length === 0) {
+      return "";
+    }
+    return operator + "(" + fieldPath + ", " + formatDslValue(value) + ")";
+  }
+  function splitTopLevelArguments(text) {
+    const args = [];
+    let start = 0;
+    let depth = 0;
+    let quote = "";
+    let escaping = false;
+    for (let index = 0; index < text.length; index++) {
+      const character = text.charAt(index);
+      if (quote) {
+        if (escaping) {
+          escaping = false;
+        } else if (character === "\\") {
+          escaping = true;
+        } else if (character === quote) {
+          quote = "";
+        }
+        continue;
+      }
+      if (character === "\"" || character === "'") {
+        quote = character;
+        continue;
+      }
+      if (character === "(" || character === "[" || character === "{") {
+        depth++;
+        continue;
+      }
+      if (character === ")" || character === "]" || character === "}") {
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+      if (character === "," && depth === 0) {
+        args.push(text.substring(start, index).trim());
+        start = index + 1;
+      }
+    }
+    const tail = text.substring(start).trim();
+    if (tail.length > 0) {
+      args.push(tail);
+    }
+    return args;
+  }
+  function parseMappingExpression(text) {
+    const raw = (text || "").trim();
+    const callMatch = raw.match(/^([A-Za-z_][A-Za-z0-9_]*)\(([\s\S]*)\)$/);
+    if (!callMatch) {
+      return {
+        type: "raw",
+        raw: raw
+      };
+    }
+    let depth = 0;
+    let quote = "";
+    let escaping = false;
+    for (let index = callMatch[1].length; index < raw.length; index++) {
+      const character = raw.charAt(index);
+      if (quote) {
+        if (escaping) {
+          escaping = false;
+        } else if (character === "\\") {
+          escaping = true;
+        } else if (character === quote) {
+          quote = "";
+        }
+        continue;
+      }
+      if (character === "\"" || character === "'") {
+        quote = character;
+        continue;
+      }
+      if (character === "(") {
+        depth++;
+      } else if (character === ")") {
+        depth--;
+        if (depth === 0 && index < raw.length - 1) {
+          return {
+            type: "raw",
+            raw: raw
+          };
+        }
+      }
+    }
+    return {
+      type: "call",
+      name: callMatch[1],
+      raw: raw,
+      args: splitTopLevelArguments(callMatch[2]).map(parseMappingExpression)
+    };
+  }
+  function expressionText(node) {
+    return node ? node.raw || "" : "";
+  }
+  function getDirectChild(element, selector) {
+    if (!element) {
+      return null;
+    }
+    const children = Array.prototype.slice.call(element.children);
+    for (let index = 0; index < children.length; index++) {
+      if (children[index].matches(selector)) {
+        return children[index];
+      }
+    }
+    return null;
+  }
+  function updateMappingConditionValueVisibility(row) {
+    const operator = row ? row.querySelector("[data-mapping-condition-operator='true']") : null;
+    const right = row ? row.querySelector("[data-mapping-condition-right='true']") : null;
+    if (!operator || !right) {
+      return;
+    }
+    const needsValue = mappingOperatorNeedsValue(operator.value);
+    right.hidden = !needsValue;
+    row.setAttribute("data-value-visible", needsValue ? "true" : "false");
+  }
+  function readMappingConditionRowExpression(row) {
+    const customExpression = row.getAttribute("data-custom-condition-expression") || "";
+    const left = row.querySelector("[data-mapping-condition-left='true']");
+    const operator = row.querySelector("[data-mapping-condition-operator='true']");
+    const right = row.querySelector("[data-mapping-condition-right='true']");
+    const leftValue = left ? left.value.trim() : "";
+    if (customExpression.length > 0 && leftValue === customExpression) {
+      return customExpression;
+    }
+    updateMappingConditionValueVisibility(row);
+    return buildMappingConditionExpression(leftValue, operator ? operator.value : "exists", right ? right.value.trim() : "");
+  }
+  function readMappingConditionGroupExpression(group) {
+    const header = getDirectChild(group, ".bm-mapping-condition-group-header");
+    const list = getDirectChild(group, "[data-mapping-condition-list='true']");
+    const operator = header ? header.querySelector("[data-mapping-group-operator='true']") : null;
+    const parts = [];
+    if (!list) {
+      return "";
+    }
+    Array.prototype.slice.call(list.children).forEach(function (child) {
+      let expression = "";
+      if (child.matches("[data-mapping-condition-row='true']")) {
+        expression = readMappingConditionRowExpression(child);
+      } else if (child.matches("[data-mapping-condition-group='true']")) {
+        expression = readMappingConditionGroupExpression(child);
+      }
+      if (expression.length > 0) {
+        parts.push(expression);
+      }
+    });
+    if (parts.length === 0) {
+      return "";
+    }
+    if (parts.length === 1) {
+      return parts[0];
+    }
+    return (operator && operator.value === "or" ? "or" : "and") + "(" + parts.join(", ") + ")";
+  }
+  function createMappingConditionRow(expression) {
+    const row = cloneTemplateElement("[data-mapping-condition-row-template='true']");
+    if (!row) {
+      return null;
+    }
+    hydrateMappingConditionRow(row, expression || "");
+    return row;
+  }
+  function createMappingConditionGroup(expression) {
+    const group = cloneTemplateElement("[data-mapping-condition-group-template='true']");
+    if (!group) {
+      return null;
+    }
+    hydrateMappingConditionGroup(group, expression || "");
+    return group;
+  }
+  function hydrateMappingConditionRow(row, expression) {
+    const ast = typeof expression === "string" ? parseMappingExpression(expression) : expression;
+    const left = row.querySelector("[data-mapping-condition-left='true']");
+    const operator = row.querySelector("[data-mapping-condition-operator='true']");
+    const right = row.querySelector("[data-mapping-condition-right='true']");
+    row.removeAttribute("data-custom-condition-expression");
+    if (ast && ast.type === "call") {
+      if (ast.name === "not" && ast.args.length === 1 && ast.args[0].type === "call" && ast.args[0].name === "isEmpty" && ast.args[0].args.length === 1) {
+        if (left) {
+          left.value = expressionText(ast.args[0].args[0]);
+        }
+        if (operator) {
+          operator.value = "notEmpty";
+        }
+        if (right) {
+          right.value = "";
+        }
+        updateMappingConditionValueVisibility(row);
+        return;
+      }
+      if ((ast.name === "exists" || ast.name === "isEmpty") && ast.args.length === 1) {
+        if (left) {
+          left.value = expressionText(ast.args[0]);
+        }
+        if (operator) {
+          operator.value = ast.name;
+        }
+        if (right) {
+          right.value = "";
+        }
+        updateMappingConditionValueVisibility(row);
+        return;
+      }
+      if (["eq", "neq", "gt", "gte", "lt", "lte", "contains", "startsWith", "endsWith", "regexMatch"].indexOf(ast.name) >= 0 && ast.args.length === 2) {
+        if (left) {
+          left.value = expressionText(ast.args[0]);
+        }
+        if (operator) {
+          operator.value = ast.name;
+        }
+        if (right) {
+          right.value = expressionText(ast.args[1]);
+        }
+        updateMappingConditionValueVisibility(row);
+        return;
+      }
+    }
+    if (left) {
+      left.value = expressionText(ast);
+    }
+    if (operator) {
+      operator.value = "exists";
+    }
+    if (right) {
+      right.value = "";
+    }
+    row.setAttribute("data-custom-condition-expression", expressionText(ast));
+    updateMappingConditionValueVisibility(row);
+  }
+  function hydrateMappingConditionGroup(group, expression) {
+    const ast = typeof expression === "string" ? parseMappingExpression(expression) : expression;
+    const header = getDirectChild(group, ".bm-mapping-condition-group-header");
+    const operator = header ? header.querySelector("[data-mapping-group-operator='true']") : null;
+    const list = getDirectChild(group, "[data-mapping-condition-list='true']");
+    if (!list) {
+      return;
+    }
+    list.innerHTML = "";
+    if (ast && ast.type === "call" && (ast.name === "and" || ast.name === "or") && ast.args.length > 0) {
+      if (operator) {
+        operator.value = ast.name;
+      }
+      ast.args.forEach(function (argument) {
+        const child = argument.type === "call" && (argument.name === "and" || argument.name === "or")
+          ? createMappingConditionGroup(argument)
+          : createMappingConditionRow(argument);
+        if (child) {
+          list.appendChild(child);
+        }
+      });
+    } else {
+      const row = createMappingConditionRow(ast && ast.raw ? ast : "");
+      if (row) {
+        list.appendChild(row);
+      }
+    }
+  }
+  function getComposerOutput(composer, part) {
+    if (!composer) {
+      return null;
+    }
+    const directOutput = getDirectChild(composer, "[data-conditional-output='" + part + "']");
+    if (directOutput) {
+      return directOutput;
+    }
+    const panel = composer.closest("[data-mapping-panel='conditional']");
+    return panel ? getDirectChild(panel, "[data-conditional-output='" + part + "']") : null;
+  }
+  function getComposerConditionGroup(composer) {
+    const branch = composer ? getDirectChild(composer, "[data-mapping-branch='condition']") : null;
+    return branch ? getDirectChild(branch, "[data-mapping-condition-group='true']") : null;
+  }
+  function getComposerSlot(composer, part) {
+    const branch = composer ? getDirectChild(composer, "[data-mapping-branch='" + part + "']") : null;
+    return branch ? getDirectChild(branch, "[data-mapping-value-slot='" + part + "']") : null;
+  }
+  function ensureNestedConditionalComposer(slot) {
+    const panel = slot ? slot.querySelector("[data-mapping-slot-panel='conditional']") : null;
+    if (!panel) {
+      return null;
+    }
+    let composer = getDirectChild(panel, "[data-mapping-conditional-composer='true']");
+    if (!composer) {
+      composer = cloneTemplateElement("[data-mapping-conditional-composer-template='true']");
+      if (composer) {
+        panel.appendChild(composer);
+        hydrateMappingConditionalComposer(composer, "", "", "null");
+      }
+    }
+    return composer;
+  }
+  function setMappingValueSlotMode(slot, mode, expression) {
+    if (!slot) {
+      return;
+    }
+    const normalizedMode = mode === "conditional" || mode === "null" ? mode : "expression";
+    slot.setAttribute("data-slot-mode", normalizedMode);
+    slot.querySelectorAll("[data-mapping-slot-panel]").forEach(function (panel) {
+      const active = panel.getAttribute("data-mapping-slot-panel") === normalizedMode;
+      panel.hidden = !active;
+    });
+    slot.querySelectorAll("[data-set-mapping-slot-mode]").forEach(function (button) {
+      button.setAttribute("aria-pressed", button.getAttribute("data-set-mapping-slot-mode") === normalizedMode ? "true" : "false");
+    });
+    if (normalizedMode === "conditional") {
+      ensureNestedConditionalComposer(slot);
+    }
+    if (normalizedMode === "expression" && expression !== undefined) {
+      const input = slot.querySelector("[data-mapping-slot-expression='true']");
+      if (input) {
+        input.value = expression;
+      }
+    }
+  }
+  function hydrateMappingValueSlot(slot, expression) {
+    const text = (expression || "").trim();
+    const ast = parseMappingExpression(text);
+    if (ast.type === "call" && ast.name === "when" && ast.args.length >= 2) {
+      setMappingValueSlotMode(slot, "conditional");
+      hydrateMappingConditionalComposer(
+        ensureNestedConditionalComposer(slot),
+        expressionText(ast.args[0]),
+        expressionText(ast.args[1]),
+        ast.args.length > 2 ? expressionText(ast.args[2]) : "null");
+      return;
+    }
+    if (text === "null") {
+      setMappingValueSlotMode(slot, "null");
+      return;
+    }
+    setMappingValueSlotMode(slot, "expression", text);
+  }
+  function readMappingValueSlotExpression(slot) {
+    if (!slot) {
+      return "";
+    }
+    const mode = slot.getAttribute("data-slot-mode") || "expression";
+    if (mode === "null") {
+      return "null";
+    }
+    if (mode === "conditional") {
+      return buildMappingConditionalComposerExpression(ensureNestedConditionalComposer(slot));
+    }
+    const input = slot.querySelector("[data-mapping-slot-expression='true']");
+    return input ? input.value.trim() : "";
+  }
+  function hydrateMappingConditionalComposer(composer, conditionExpression, thenExpression, elseExpression) {
+    if (!composer) {
+      return;
+    }
+    const conditionGroup = getComposerConditionGroup(composer);
+    hydrateMappingConditionGroup(conditionGroup, conditionExpression || "");
+    hydrateMappingValueSlot(getComposerSlot(composer, "then"), thenExpression || "");
+    hydrateMappingValueSlot(getComposerSlot(composer, "else"), stringHasValue(elseExpression) ? elseExpression : "null");
+    composer.setAttribute("data-composer-hydrated", "true");
+    syncMappingConditionalComposer(composer);
+  }
+  function stringHasValue(value) {
+    return (value || "").trim().length > 0;
+  }
+  function syncMappingConditionalComposer(composer) {
+    if (!composer) {
+      return "";
+    }
+    const condition = readMappingConditionGroupExpression(getComposerConditionGroup(composer));
+    const thenExpression = readMappingValueSlotExpression(getComposerSlot(composer, "then"));
+    const elseExpression = readMappingValueSlotExpression(getComposerSlot(composer, "else")) || "null";
+    const conditionOutput = getComposerOutput(composer, "condition");
+    const thenOutput = getComposerOutput(composer, "then");
+    const elseOutput = getComposerOutput(composer, "else");
+    if (conditionOutput) {
+      conditionOutput.value = condition;
+    }
+    if (thenOutput) {
+      thenOutput.value = thenExpression;
+    }
+    if (elseOutput) {
+      elseOutput.value = elseExpression;
+    }
+    if (condition.length === 0 && thenExpression.length === 0 && elseExpression === "null") {
+      return "";
+    }
+    if (condition.length === 0 || thenExpression.length === 0) {
+      return "";
+    }
+    return "when(" + condition + ", " + thenExpression + ", " + elseExpression + ")";
+  }
+  function buildMappingConditionalComposerExpression(composer) {
+    return syncMappingConditionalComposer(composer);
+  }
+  function hydrateMappingConditionalPanel(editor) {
+    const panel = editor ? editor.querySelector("[data-mapping-panel='conditional']") : null;
+    const composer = panel ? getDirectChild(panel, "[data-mapping-conditional-composer='true']") : null;
+    if (!composer) {
+      return;
+    }
+    hydrateMappingConditionalComposer(
+      composer,
+      getComposerOutput(composer, "condition") ? getComposerOutput(composer, "condition").value : "",
+      getComposerOutput(composer, "then") ? getComposerOutput(composer, "then").value : "",
+      getComposerOutput(composer, "else") ? getComposerOutput(composer, "else").value : "null");
+  }
+  function syncMappingEditor(editor) {
+    if (!editor || getMappingEditorMode(editor) !== "conditional") {
+      return;
+    }
+    const panel = editor.querySelector("[data-mapping-panel='conditional']");
+    const composer = panel ? getDirectChild(panel, "[data-mapping-conditional-composer='true']") : null;
+    syncMappingConditionalComposer(composer);
+  }
+  function syncAllMappingEditors() {
+    document.querySelectorAll("[data-mapping-editor='true']").forEach(syncMappingEditor);
   }
   function refreshMappingEditor(editor) {
     if (!editor) {
@@ -982,8 +1482,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     editor.querySelectorAll("[data-enable-conditional-mapping], [data-use-basic-mapping]").forEach(function (button) {
       const enablesConditional = button.hasAttribute("data-enable-conditional-mapping");
-      button.hidden = enablesConditional ? mode === "conditional" : mode !== "conditional";
+      button.setAttribute("aria-pressed", (enablesConditional ? mode === "conditional" : mode !== "conditional") ? "true" : "false");
     });
+    if (mode === "conditional") {
+      hydrateMappingConditionalPanel(editor);
+    }
   }
   function refreshAllMappingEditors() {
     document.querySelectorAll("[data-mapping-editor='true']").forEach(refreshMappingEditor);
@@ -993,23 +1496,138 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     const basicInput = editor.querySelector("[data-basic-expression='true']");
-    const thenInput = editor.querySelector("[data-conditional-then='true']");
-    if (basicInput && thenInput && thenInput.value.length === 0 && basicInput.value.length > 0) {
-      thenInput.value = basicInput.value;
+    const panel = editor.querySelector("[data-mapping-panel='conditional']");
+    const composer = panel ? getDirectChild(panel, "[data-mapping-conditional-composer='true']") : null;
+    const thenOutput = composer ? getComposerOutput(composer, "then") : null;
+    const elseOutput = composer ? getComposerOutput(composer, "else") : null;
+    if (basicInput && thenOutput && thenOutput.value.length === 0 && basicInput.value.length > 0) {
+      thenOutput.value = basicInput.value;
+    }
+    if (elseOutput && elseOutput.value.length === 0) {
+      elseOutput.value = "null";
     }
   }
+  function keepConditionalAsBasicExpression(editor) {
+    const basicInput = editor ? editor.querySelector("[data-basic-expression='true']") : null;
+    const panel = editor ? editor.querySelector("[data-mapping-panel='conditional']") : null;
+    const composer = panel ? getDirectChild(panel, "[data-mapping-conditional-composer='true']") : null;
+    const expression = buildMappingConditionalComposerExpression(composer);
+    if (basicInput && expression.length > 0) {
+      basicInput.value = expression;
+    }
+  }
+  function isUsableExpressionInput(input) {
+    return input &&
+      input.matches(".bm-expression-input") &&
+      input.type !== "hidden" &&
+      !input.closest("[hidden]");
+  }
   function getActiveDropInput(target) {
-    if (activeExpressionInput && target.contains(activeExpressionInput)) {
+    if (isUsableExpressionInput(activeExpressionInput) && target.contains(activeExpressionInput)) {
       return activeExpressionInput;
     }
     const activePanel = target.querySelector("[data-mapping-panel]:not([hidden])");
     if (activePanel) {
-      const activePanelInput = activePanel.querySelector(".bm-expression-input");
+      const activePanelInput = Array.prototype.slice.call(activePanel.querySelectorAll(".bm-expression-input")).find(isUsableExpressionInput);
       if (activePanelInput) {
         return activePanelInput;
       }
     }
-    return target.querySelector(".bm-expression-input");
+    return Array.prototype.slice.call(target.querySelectorAll(".bm-expression-input")).find(isUsableExpressionInput) || null;
+  }
+  function syncMappingEditorFromChild(element) {
+    const editor = element ? element.closest("[data-mapping-editor='true']") : null;
+    if (editor) {
+      syncMappingEditor(editor);
+      return;
+    }
+    syncMappingConditionalComposer(element ? element.closest("[data-mapping-conditional-composer='true']") : null);
+  }
+  function handleMappingConditionEdited(element) {
+    const row = element ? element.closest("[data-mapping-condition-row='true']") : null;
+    if (row) {
+      row.removeAttribute("data-custom-condition-expression");
+      updateMappingConditionValueVisibility(row);
+    }
+    syncMappingEditorFromChild(element);
+    scheduleVisualSync();
+  }
+  function addMappingCondition(group) {
+    const list = group ? getDirectChild(group, "[data-mapping-condition-list='true']") : null;
+    const row = createMappingConditionRow("");
+    if (list && row) {
+      list.appendChild(row);
+      const input = row.querySelector("[data-mapping-condition-left='true']");
+      if (input) {
+        input.focus();
+      }
+    }
+    syncMappingEditorFromChild(group);
+    scheduleVisualSync();
+  }
+  function addMappingGroup(group) {
+    const list = group ? getDirectChild(group, "[data-mapping-condition-list='true']") : null;
+    const nestedGroup = createMappingConditionGroup("");
+    if (list && nestedGroup) {
+      list.appendChild(nestedGroup);
+      const input = nestedGroup.querySelector("[data-mapping-condition-left='true']");
+      if (input) {
+        input.focus();
+      }
+    }
+    syncMappingEditorFromChild(group);
+    scheduleVisualSync();
+  }
+  function removeMappingCondition(row) {
+    const list = row ? row.parentElement : null;
+    if (!list) {
+      return;
+    }
+    const rows = Array.prototype.slice.call(list.children)
+      .filter(function (child) {
+        return child.matches("[data-mapping-condition-row='true'], [data-mapping-condition-group='true']");
+      });
+    if (rows.length <= 1) {
+      hydrateMappingConditionRow(row, "");
+      const input = row.querySelector("[data-mapping-condition-left='true']");
+      if (input) {
+        input.focus();
+      }
+    } else {
+      row.remove();
+    }
+    syncMappingEditorFromChild(list);
+    scheduleVisualSync();
+  }
+  function removeMappingGroup(group) {
+    const parent = group ? group.parentElement : null;
+    if (parent) {
+      group.remove();
+      syncMappingEditorFromChild(parent);
+      scheduleVisualSync();
+    }
+  }
+  function changeMappingSlotMode(slot, mode) {
+    if (!slot) {
+      return;
+    }
+    const previousExpression = readMappingValueSlotExpression(slot);
+    setMappingValueSlotMode(slot, mode, mode === "expression" ? previousExpression : undefined);
+    if (mode === "conditional") {
+      const nestedComposer = ensureNestedConditionalComposer(slot);
+      const previousAst = parseMappingExpression(previousExpression);
+      if (previousAst.type === "call" && previousAst.name === "when" && previousAst.args.length >= 2) {
+        hydrateMappingConditionalComposer(
+          nestedComposer,
+          expressionText(previousAst.args[0]),
+          expressionText(previousAst.args[1]),
+          previousAst.args.length > 2 ? expressionText(previousAst.args[2]) : "null");
+      } else if (previousExpression.length > 0 && previousExpression !== "null") {
+        hydrateMappingConditionalComposer(nestedComposer, "", previousExpression, "null");
+      }
+    }
+    syncMappingEditorFromChild(slot);
+    scheduleVisualSync();
   }
   function scheduleVisualSync() {
     window.clearTimeout(visualTimer);
@@ -1100,34 +1718,91 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     closeDockFlyout();
   });
-  document.querySelectorAll(".bm-expression-input").forEach(function (input) {
-    input.addEventListener("focus", function () {
-      activeExpressionInput = input;
-    });
-    input.addEventListener("input", scheduleVisualSync);
+  document.addEventListener("focusin", function (event) {
+    if (event.target.matches(".bm-expression-input")) {
+      activeExpressionInput = event.target;
+    }
   });
-  document.querySelectorAll("[data-enable-conditional-mapping='true']").forEach(function (button) {
-    button.addEventListener("click", function () {
-      const editor = button.closest("[data-mapping-editor='true']");
+  document.addEventListener("input", function (event) {
+    if (!event.target.matches(".bm-expression-input")) {
+      return;
+    }
+    if (event.target.closest("[data-mapping-condition-row='true']")) {
+      handleMappingConditionEdited(event.target);
+      return;
+    }
+    syncMappingEditorFromChild(event.target);
+    scheduleVisualSync();
+  });
+  document.addEventListener("change", function (event) {
+    if (event.target.matches("[data-mapping-condition-operator='true']")) {
+      handleMappingConditionEdited(event.target);
+      return;
+    }
+    if (event.target.matches("[data-mapping-group-operator='true']")) {
+      syncMappingEditorFromChild(event.target);
+      scheduleVisualSync();
+    }
+  });
+  document.addEventListener("click", function (event) {
+    const conditionalButton = event.target.closest("[data-enable-conditional-mapping='true']");
+    if (conditionalButton) {
+      event.preventDefault();
+      const editor = conditionalButton.closest("[data-mapping-editor='true']");
       const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
       if (hidden) {
         hidden.value = "conditional";
       }
       seedConditionalMapping(editor);
       refreshMappingEditor(editor);
+      syncMappingEditor(editor);
       scheduleVisualSync();
-    });
-  });
-  document.querySelectorAll("[data-use-basic-mapping='true']").forEach(function (button) {
-    button.addEventListener("click", function () {
-      const editor = button.closest("[data-mapping-editor='true']");
+      return;
+    }
+    const basicButton = event.target.closest("[data-use-basic-mapping='true']");
+    if (basicButton) {
+      event.preventDefault();
+      const editor = basicButton.closest("[data-mapping-editor='true']");
       const hidden = editor ? editor.querySelector("[data-mapping-mode-hidden='true']") : null;
+      keepConditionalAsBasicExpression(editor);
       if (hidden) {
         hidden.value = "basic";
       }
       refreshMappingEditor(editor);
       scheduleVisualSync();
-    });
+      return;
+    }
+    const addConditionButton = event.target.closest("[data-add-mapping-condition='true']");
+    if (addConditionButton) {
+      event.preventDefault();
+      addMappingCondition(addConditionButton.closest("[data-mapping-condition-group='true']"));
+      return;
+    }
+    const addGroupButton = event.target.closest("[data-add-mapping-group='true']");
+    if (addGroupButton) {
+      event.preventDefault();
+      addMappingGroup(addGroupButton.closest("[data-mapping-condition-group='true']"));
+      return;
+    }
+    const removeConditionButton = event.target.closest("[data-remove-mapping-condition='true']");
+    if (removeConditionButton) {
+      event.preventDefault();
+      removeMappingCondition(removeConditionButton.closest("[data-mapping-condition-row='true']"));
+      return;
+    }
+    const removeGroupButton = event.target.closest("[data-remove-mapping-group='true']");
+    if (removeGroupButton) {
+      event.preventDefault();
+      removeMappingGroup(removeGroupButton.closest("[data-mapping-condition-group='true']"));
+      return;
+    }
+    const slotModeButton = event.target.closest("[data-set-mapping-slot-mode]");
+    if (slotModeButton) {
+      event.preventDefault();
+      changeMappingSlotMode(
+        slotModeButton.closest("[data-mapping-value-slot]"),
+        slotModeButton.getAttribute("data-set-mapping-slot-mode") || "expression");
+    }
   });
   if (dslEditor) {
     initializeDslCodeEditor();
@@ -1220,6 +1895,11 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           activeExpressionInput.value = path;
           activeExpressionInput.focus();
+          if (activeExpressionInput.closest("[data-mapping-condition-row='true']")) {
+            handleMappingConditionEdited(activeExpressionInput);
+          } else {
+            syncMappingEditorFromChild(activeExpressionInput);
+          }
           scheduleVisualSync();
         }
       }
@@ -1326,6 +2006,13 @@ document.addEventListener("DOMContentLoaded", function () {
           updateTemplateSource(target.getAttribute("data-array-target-path"), expression, aliasInput ? aliasInput.value : "item");
         }
         input.focus();
+        if (!target.hasAttribute("data-array-drop-target")) {
+          if (input.closest("[data-mapping-condition-row='true']")) {
+            handleMappingConditionEdited(input);
+          } else {
+            syncMappingEditorFromChild(input);
+          }
+        }
         scheduleVisualSync();
       }
     });
@@ -1343,6 +2030,10 @@ document.addEventListener("DOMContentLoaded", function () {
           focusTarget = input;
         }
       });
+      editor.querySelectorAll("[data-conditional-output]").forEach(function (input) {
+        input.value = input.getAttribute("data-conditional-output") === "else" ? "null" : "";
+      });
+      syncMappingEditor(editor);
       if (focusTarget) {
         focusTarget.focus();
         scheduleVisualSync();

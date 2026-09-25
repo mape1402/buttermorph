@@ -225,6 +225,146 @@
             </section>
         </section>
 
+        <template data-mapping-condition-row-template="true">
+            <div class="bm-mapping-condition-row" data-mapping-condition-row="true">
+                <input class="bm-expression-input" data-mapping-condition-left="true" />
+                <select data-mapping-condition-operator="true">
+                    <option value="exists">required / exists</option>
+                    <option value="notEmpty">not empty</option>
+                    <option value="isEmpty">is empty</option>
+                    <option value="eq">equals</option>
+                    <option value="neq">not equals</option>
+                    <option value="gt">greater than</option>
+                    <option value="gte">greater or equal</option>
+                    <option value="lt">less than</option>
+                    <option value="lte">less or equal</option>
+                    <option value="contains">contains</option>
+                    <option value="startsWith">starts with</option>
+                    <option value="endsWith">ends with</option>
+                    <option value="regexMatch">matches regex</option>
+                </select>
+                <input class="bm-expression-input" data-mapping-condition-right="true" />
+                <button type="button" data-remove-mapping-condition="true">Remove</button>
+            </div>
+        </template>
+
+        <template data-mapping-condition-group-template="true">
+            <div class="bm-mapping-condition-group" data-mapping-condition-group="true">
+                <div class="bm-mapping-condition-group-header">
+                    <label>
+                        Combine
+                        <select data-mapping-group-operator="true">
+                            <option value="and">All conditions</option>
+                            <option value="or">Any condition</option>
+                        </select>
+                    </label>
+                    <div class="bm-mapping-condition-actions">
+                        <button type="button" data-add-mapping-condition="true">Add condition</button>
+                        <button type="button" data-add-mapping-group="true">Add group</button>
+                        <button type="button" data-remove-mapping-group="true">Remove group</button>
+                    </div>
+                </div>
+                <div class="bm-mapping-condition-list" data-mapping-condition-list="true">
+                    <div class="bm-mapping-condition-row" data-mapping-condition-row="true">
+                        <input class="bm-expression-input" data-mapping-condition-left="true" />
+                        <select data-mapping-condition-operator="true">
+                            <option value="exists">required / exists</option>
+                            <option value="notEmpty">not empty</option>
+                            <option value="isEmpty">is empty</option>
+                            <option value="eq">equals</option>
+                            <option value="neq">not equals</option>
+                            <option value="gt">greater than</option>
+                            <option value="gte">greater or equal</option>
+                            <option value="lt">less than</option>
+                            <option value="lte">less or equal</option>
+                            <option value="contains">contains</option>
+                            <option value="startsWith">starts with</option>
+                            <option value="endsWith">ends with</option>
+                            <option value="regexMatch">matches regex</option>
+                        </select>
+                        <input class="bm-expression-input" data-mapping-condition-right="true" />
+                        <button type="button" data-remove-mapping-condition="true">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <template data-mapping-conditional-composer-template="true">
+            <div class="bm-mapping-conditional-composer bm-mapping-conditional-composer-nested" data-mapping-conditional-composer="true">
+                <input type="hidden" data-conditional-output="condition" />
+                <input type="hidden" data-conditional-output="then" />
+                <input type="hidden" data-conditional-output="else" />
+                <section class="bm-mapping-branch" data-mapping-branch="condition">
+                    <h4>When</h4>
+                    <div class="bm-mapping-condition-group" data-mapping-condition-group="true">
+                        <div class="bm-mapping-condition-group-header">
+                            <label>
+                                Combine
+                                <select data-mapping-group-operator="true">
+                                    <option value="and">All conditions</option>
+                                    <option value="or">Any condition</option>
+                                </select>
+                            </label>
+                            <div class="bm-mapping-condition-actions">
+                                <button type="button" data-add-mapping-condition="true">Add condition</button>
+                                <button type="button" data-add-mapping-group="true">Add group</button>
+                            </div>
+                        </div>
+                        <div class="bm-mapping-condition-list" data-mapping-condition-list="true">
+                            <div class="bm-mapping-condition-row" data-mapping-condition-row="true">
+                                <input class="bm-expression-input" data-mapping-condition-left="true" />
+                                <select data-mapping-condition-operator="true">
+                                    <option value="exists">required / exists</option>
+                                    <option value="notEmpty">not empty</option>
+                                    <option value="isEmpty">is empty</option>
+                                    <option value="eq">equals</option>
+                                    <option value="neq">not equals</option>
+                                    <option value="gt">greater than</option>
+                                    <option value="gte">greater or equal</option>
+                                    <option value="lt">less than</option>
+                                    <option value="lte">less or equal</option>
+                                    <option value="contains">contains</option>
+                                    <option value="startsWith">starts with</option>
+                                    <option value="endsWith">ends with</option>
+                                    <option value="regexMatch">matches regex</option>
+                                </select>
+                                <input class="bm-expression-input" data-mapping-condition-right="true" />
+                                <button type="button" data-remove-mapping-condition="true">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="bm-mapping-branch" data-mapping-branch="then">
+                    <h4>Then</h4>
+                    <div class="bm-mapping-value-slot" data-mapping-value-slot="then">
+                        <div class="bm-mapping-slot-actions">
+                            <button type="button" data-set-mapping-slot-mode="expression">Use expression</button>
+                            <button type="button" data-set-mapping-slot-mode="conditional">Use conditional</button>
+                            <button type="button" data-set-mapping-slot-mode="null">Use null</button>
+                        </div>
+                        <div class="bm-mapping-slot-expression" data-mapping-slot-panel="expression">
+                            <input class="bm-expression-input" data-mapping-slot-expression="true" />
+                        </div>
+                        <div class="bm-mapping-slot-conditional" data-mapping-slot-panel="conditional" hidden></div>
+                    </div>
+                </section>
+                <section class="bm-mapping-branch" data-mapping-branch="else">
+                    <h4>Otherwise</h4>
+                    <div class="bm-mapping-value-slot" data-mapping-value-slot="else">
+                        <div class="bm-mapping-slot-actions">
+                            <button type="button" data-set-mapping-slot-mode="expression">Use expression</button>
+                            <button type="button" data-set-mapping-slot-mode="conditional">Use conditional</button>
+                            <button type="button" data-set-mapping-slot-mode="null">Use null</button>
+                        </div>
+                        <div class="bm-mapping-slot-expression" data-mapping-slot-panel="expression">
+                            <input class="bm-expression-input" data-mapping-slot-expression="true" />
+                        </div>
+                        <div class="bm-mapping-slot-conditional" data-mapping-slot-panel="conditional" hidden></div>
+                    </div>
+                </section>
+            </div>
+        </template>
+
         <div class="bm-modal-backdrop" data-modal="source" aria-hidden="true">
             <div class="bm-modal" role="dialog" aria-modal="true" aria-label="Add source">
                 <div class="bm-modal-header">
