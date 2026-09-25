@@ -383,6 +383,42 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that the visual designer saves conditional mappings as DSL when expressions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSavesConditionalMappingSuccessfully()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
+        string designerToken = ExtractToken(designerHtml);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", designerToken),
+                new KeyValuePair<string, string>("TargetPaths", "Customer.Name"),
+                new KeyValuePair<string, string>("MappingModes", "conditional"),
+                new KeyValuePair<string, string>("Expressions", string.Empty),
+                new KeyValuePair<string, string>("ConditionalConditions", "exists($source.Customer.Email)"),
+                new KeyValuePair<string, string>("ConditionalThenExpressions", "$source.Customer.Name"),
+                new KeyValuePair<string, string>("ConditionalElseExpressions", "\"Unknown\"")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        string dsl = ReadString(json, "dslContent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
+        Assert.Contains("data-mapping-mode-select", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("Name: when(exists($source.Customer.Email), $source.Customer.Name, \"Unknown\")", dsl, StringComparison.Ordinal);
+        Assert.Contains("Customer.Name::mapping::mode", json, StringComparison.Ordinal);
+        Assert.Contains("conditional", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that visual mapping saves surface semantic diagnostics.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

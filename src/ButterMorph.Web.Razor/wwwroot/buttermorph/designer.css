@@ -1114,16 +1114,16 @@ textarea,
 }
 
 .bm-target-field {
-  align-items: center;
+  align-items: start;
   background-color: var(--bm-surface);
   border: 1px solid transparent;
   border-bottom-color: var(--bm-border);
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: minmax(80px, 155px) minmax(240px, 1fr);
+  gap: 0.45rem;
+  grid-template-columns: minmax(80px, 150px) minmax(104px, 124px) minmax(240px, 1fr);
   margin: 0;
-  min-height: 32px;
-  padding: 0.18rem 0.45rem;
+  min-height: 34px;
+  padding: 0.25rem 0.45rem;
 }
 
 .bm-target-field:hover {
@@ -1141,6 +1141,7 @@ textarea,
   display: flex;
   gap: 0.35rem;
   min-width: 0;
+  padding-top: 0.28rem;
 }
 
 .bm-target-label strong {
@@ -1149,11 +1150,46 @@ textarea,
   white-space: nowrap;
 }
 
-.bm-expression-shell {
+.bm-mapping-editor-header {
   align-items: center;
   display: grid;
   gap: 0.35rem;
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bm-mapping-mode-select {
+  height: 27px;
+  min-width: 0;
+  width: 100%;
+}
+
+.bm-mapping-panel,
+.bm-conditional-panel {
+  min-width: 0;
+}
+
+.bm-conditional-panel {
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) minmax(120px, 0.75fr);
+}
+
+.bm-conditional-panel label {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.bm-conditional-panel span {
+  color: var(--bm-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.bm-target-field[data-mapping-mode="conditional"] {
+  border-left: 2px solid rgba(79, 70, 229, 0.65);
 }
 
 .bm-clear-mapping {

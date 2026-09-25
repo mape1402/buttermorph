@@ -703,17 +703,20 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!mappings) {
       return;
     }
-    document.querySelectorAll(".bm-expression-input").forEach(function (input) {
+    document.querySelectorAll(".bm-expression-input, .bm-mapping-mode-select").forEach(function (input) {
       const targetPath = input.getAttribute("data-target-path");
       if (!targetPath) {
         return;
       }
       if (mappings[targetPath] !== undefined) {
         input.value = mappings[targetPath];
+      } else if (input.classList.contains("bm-mapping-mode-select")) {
+        input.value = "basic";
       } else {
         input.value = "";
       }
     });
+    refreshAllMappingEditors();
   }
   function postForm(handler, formData) {
     const token = getToken();
@@ -955,6 +958,55 @@ document.addEventListener("DOMContentLoaded", function () {
     activeExpressionInput = input;
     scheduleVisualSync();
   }
+  function getMappingEditorMode(editor) {
+    const select = editor ? editor.querySelector("[data-mapping-mode-select='true']") : null;
+    return select && select.value === "conditional" ? "conditional" : "basic";
+  }
+  function refreshMappingEditor(editor) {
+    if (!editor) {
+      return;
+    }
+    const mode = getMappingEditorMode(editor);
+    const hidden = editor.querySelector("[data-mapping-mode-hidden='true']");
+    if (hidden) {
+      hidden.value = mode;
+    }
+    editor.setAttribute("data-mapping-mode", mode);
+    editor.querySelectorAll("[data-mapping-panel]").forEach(function (panel) {
+      const isActive = panel.getAttribute("data-mapping-panel") === mode;
+      if (isActive) {
+        panel.removeAttribute("hidden");
+      } else {
+        panel.setAttribute("hidden", "hidden");
+      }
+    });
+  }
+  function refreshAllMappingEditors() {
+    document.querySelectorAll("[data-mapping-editor='true']").forEach(refreshMappingEditor);
+  }
+  function seedConditionalMapping(editor) {
+    if (!editor) {
+      return;
+    }
+    const basicInput = editor.querySelector("[data-basic-expression='true']");
+    const thenInput = editor.querySelector("[data-conditional-then='true']");
+    if (basicInput && thenInput && thenInput.value.length === 0 && basicInput.value.length > 0) {
+      thenInput.value = basicInput.value;
+    }
+  }
+  function getActiveDropInput(target) {
+    if (activeExpressionInput && target.contains(activeExpressionInput)) {
+      return activeExpressionInput;
+    }
+    const activePanel = target.querySelector("[data-mapping-panel]:not([hidden])");
+    if (activePanel) {
+      const activePanelInput = activePanel.querySelector(".bm-expression-input");
+      if (activePanelInput) {
+        return activePanelInput;
+      }
+    }
+    return target.querySelector(".bm-expression-input");
+  }
   function scheduleVisualSync() {
     window.clearTimeout(visualTimer);
     visualTimer = window.setTimeout(syncVisual, 450);
@@ -1049,6 +1101,16 @@ document.addEventListener("DOMContentLoaded", function () {
       activeExpressionInput = input;
     });
     input.addEventListener("input", scheduleVisualSync);
+  });
+  document.querySelectorAll("[data-mapping-mode-select='true']").forEach(function (select) {
+    select.addEventListener("change", function () {
+      const editor = select.closest("[data-mapping-editor='true']");
+      if (select.value === "conditional") {
+        seedConditionalMapping(editor);
+      }
+      refreshMappingEditor(editor);
+      scheduleVisualSync();
+    });
   });
   if (dslEditor) {
     initializeDslCodeEditor();
@@ -1226,7 +1288,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const expression = functionTemplate || sourcePath || text;
       const input = target.hasAttribute("data-array-drop-target")
         ? target.querySelector(".bm-array-source-input")
-        : target.querySelector(".bm-expression-input");
+        : getActiveDropInput(target);
       if (input && expression) {
         if (functionTemplate && !target.hasAttribute("data-array-drop-target")) {
           if (hasTextSelection(input)) {
@@ -1253,15 +1315,24 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.querySelectorAll(".bm-clear-mapping").forEach(function (button) {
     button.addEventListener("click", function () {
-      const shell = button.closest(".bm-expression-shell");
-      const input = shell.querySelector(".bm-expression-input");
-      if (input) {
+      const editor = button.closest("[data-mapping-editor='true']");
+      if (!editor) {
+        return;
+      }
+      let focusTarget = null;
+      editor.querySelectorAll(".bm-expression-input").forEach(function (input) {
         input.value = "";
-        input.focus();
+        if (!focusTarget && !input.closest("[hidden]")) {
+          focusTarget = input;
+        }
+      });
+      if (focusTarget) {
+        focusTarget.focus();
         scheduleVisualSync();
       }
     });
   });
+  refreshAllMappingEditors();
   document.querySelectorAll(".bm-array-source-input, .bm-array-alias-input").forEach(function (input) {
     input.addEventListener("input", function () {
       const container = input.closest(".bm-array-mapping");

@@ -53,6 +53,26 @@ public sealed class SchemaTreeDisplayNode
     public string Expression { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the visual mapping editor mode.
+    /// </summary>
+    public string MappingMode { get; set; } = "basic";
+
+    /// <summary>
+    /// Gets or sets the condition expression for conditional mapping.
+    /// </summary>
+    public string ConditionalConditionExpression { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the true-branch expression for conditional mapping.
+    /// </summary>
+    public string ConditionalThenExpression { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the false-branch expression for conditional mapping.
+    /// </summary>
+    public string ConditionalElseExpression { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the expression placeholder.
     /// </summary>
     public string Placeholder { get; set; } = string.Empty;
