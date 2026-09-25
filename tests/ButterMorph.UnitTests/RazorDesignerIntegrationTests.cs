@@ -567,10 +567,50 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
         Assert.Contains("data-enable-conditional-mapping", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-use-basic-mapping", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-mapping-conditional-composer", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-mapping-value-slot=\"then\"", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-set-mapping-slot-mode=\"conditional\"", designerHtml, StringComparison.Ordinal);
         Assert.DoesNotContain("data-mapping-mode-select", designerHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<span>If</span>", designerHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<span>Map</span>", designerHtml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<span>Else</span>", designerHtml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Name: when(exists($source.Customer.Email), $source.Customer.Name, \"Unknown\")", dsl, StringComparison.Ordinal);
         Assert.Contains("Customer.Name::mapping::mode", json, StringComparison.Ordinal);
         Assert.Contains("conditional", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that nested conditional mapping values are saved from the visual designer payload.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSavesNestedConditionalMappingSuccessfully()
+    {
+        HttpClient client = _factory.CreateClient();
+        await LoadTestSchemas(client);
+        string designerHtml = await client.GetStringAsync("/buttermorph/designer");
+        string designerToken = ExtractToken(designerHtml);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SaveTargetMappings",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", designerToken),
+                new KeyValuePair<string, string>("TargetPaths", "Customer.Name"),
+                new KeyValuePair<string, string>("MappingModes", "conditional"),
+                new KeyValuePair<string, string>("Expressions", string.Empty),
+                new KeyValuePair<string, string>("ConditionalConditions", "and(exists($source.Customer.Email), exists($source.Customer.Name))"),
+                new KeyValuePair<string, string>("ConditionalThenExpressions", "when(exists($source.Customer.Name), upper($source.Customer.Name), \"Unknown\")"),
+                new KeyValuePair<string, string>("ConditionalElseExpressions", "null")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        string dsl = ReadString(json, "dslContent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
+        Assert.Contains("Name: when(and(exists($source.Customer.Email), exists($source.Customer.Name)), when(exists($source.Customer.Name), upper($source.Customer.Name), \"Unknown\"), null)", dsl, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2204,6 +2244,48 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Contains("OrderLines: project $orders.Orders[0].Items as line => { Description: line.Description, Sku: line.Sku }", dsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that visual array projection fields can save conditional mapping expressions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerSyncsConditionalProjectionFieldMappingToDsl()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer" + QueryMarker() + "context=complex-array-sync");
+        string token = ExtractToken(html);
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=complex-array-sync&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ProjectionTargetPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionSources", "$orders.Orders[0].Items"),
+                new KeyValuePair<string, string>("ProjectionAliases", "line"),
+                new KeyValuePair<string, string>("ProjectionAdvancedExpressions", string.Empty),
+                new KeyValuePair<string, string>("ProjectionFieldArrayPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionFieldPaths", "Sku"),
+                new KeyValuePair<string, string>("ProjectionFieldModes", "conditional"),
+                new KeyValuePair<string, string>("ProjectionFieldExpressions", string.Empty),
+                new KeyValuePair<string, string>("ProjectionFieldConditions", "exists(line.Sku)"),
+                new KeyValuePair<string, string>("ProjectionFieldThenExpressions", "when(exists(line.IsGift), upper(line.Sku), line.Sku)"),
+                new KeyValuePair<string, string>("ProjectionFieldElseExpressions", "\"UNKNOWN\""),
+                new KeyValuePair<string, string>("ProjectionFieldArrayPaths", "OrderLines"),
+                new KeyValuePair<string, string>("ProjectionFieldPaths", "Description"),
+                new KeyValuePair<string, string>("ProjectionFieldModes", "basic"),
+                new KeyValuePair<string, string>("ProjectionFieldExpressions", "line.Description"),
+                new KeyValuePair<string, string>("ProjectionFieldConditions", string.Empty),
+                new KeyValuePair<string, string>("ProjectionFieldThenExpressions", string.Empty),
+                new KeyValuePair<string, string>("ProjectionFieldElseExpressions", string.Empty)
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        string dsl = ReadString(json, "dslContent");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Contains("Sku: when(exists(line.Sku), when(exists(line.IsGift), upper(line.Sku), line.Sku), \"UNKNOWN\")", dsl, StringComparison.Ordinal);
     }
 
     /// <summary>
