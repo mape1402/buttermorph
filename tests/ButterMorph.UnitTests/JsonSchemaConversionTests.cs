@@ -35,6 +35,29 @@ public sealed class JsonSchemaConversionTests
     }
 
     /// <summary>
+    /// Confirms that string schemas with temporal formats import as ButterMorph temporal scalar types.
+    /// </summary>
+    [Theory]
+    [InlineData("date", "date")]
+    [InlineData("date-time", "datetime")]
+    [InlineData("time", "time")]
+    [InlineData("duration", "timespan")]
+    public void ImportTemporalFormatsUsesTemporalType(string format, string dataType)
+    {
+        JsonSchemaImporter importer = new();
+
+        JsonSchemaConversionResult result = importer.Import(new JsonSchemaImportRequest
+        {
+            Name = "Temporal",
+            JsonSchema = "{\"type\":\"string\",\"format\":\"" + format + "\"}"
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(SchemaNodeKind.Scalar, result.Schema.Root.Kind);
+        Assert.Equal(dataType, result.Schema.Root.DataType);
+    }
+
+    /// <summary>
     /// Confirms that ButterMorph identity keywords import as schema identity.
     /// </summary>
     [Fact]
@@ -272,6 +295,42 @@ public sealed class JsonSchemaConversionTests
         Assert.Equal(2, root.GetProperty("minLength").GetInt32());
         Assert.Equal("A", root.GetProperty("enum")[0].GetString());
         Assert.True(root.GetProperty("x-extra").GetProperty("enabled").GetBoolean());
+    }
+
+    /// <summary>
+    /// Confirms that temporal scalar types export as JSON Schema strings with temporal formats.
+    /// </summary>
+    [Theory]
+    [InlineData("date", "date")]
+    [InlineData("datetime", "date-time")]
+    [InlineData("time", "time")]
+    [InlineData("timespan", "duration")]
+    public void ExportTemporalTypeWritesStringFormat(string dataType, string format)
+    {
+        JsonSchemaExporter exporter = new();
+        IStructureSchema schema = new StructureSchema
+        {
+            Key = "temporal",
+            Name = "Temporal",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Scalar,
+                DataType = dataType
+            }
+        };
+
+        JsonSchemaConversionResult result = exporter.Export(new JsonSchemaExportRequest
+        {
+            Schema = schema
+        });
+
+        using JsonDocument document = JsonDocument.Parse(result.JsonSchema);
+        JsonElement root = document.RootElement;
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("string", root.GetProperty("type").GetString());
+        Assert.Equal(format, root.GetProperty("format").GetString());
     }
 
     /// <summary>

@@ -241,6 +241,18 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
 
             if (!string.IsNullOrWhiteSpace(value))
             {
+                if (string.Equals(value, SchemaText.String, StringComparison.OrdinalIgnoreCase) &&
+                    element.TryGetProperty("format", out JsonElement formatElement) &&
+                    formatElement.ValueKind == JsonValueKind.String)
+                {
+                    string temporalType = ResolveTemporalType(formatElement.GetString());
+
+                    if (!string.IsNullOrWhiteSpace(temporalType))
+                    {
+                        return temporalType;
+                    }
+                }
+
                 return value;
             }
         }
@@ -251,6 +263,34 @@ public sealed class JsonSchemaImporter : IJsonSchemaImporter
         }
 
         return SchemaText.String;
+    }
+
+    // Resolves JSON Schema string formats into ButterMorph temporal types.
+    private static string ResolveTemporalType(string format)
+    {
+        if (string.Equals(format, "date", StringComparison.OrdinalIgnoreCase))
+        {
+            return "date";
+        }
+
+        if (string.Equals(format, "date-time", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(format, "datetime", StringComparison.OrdinalIgnoreCase))
+        {
+            return "datetime";
+        }
+
+        if (string.Equals(format, "time", StringComparison.OrdinalIgnoreCase))
+        {
+            return "time";
+        }
+
+        if (string.Equals(format, "duration", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(format, "timespan", StringComparison.OrdinalIgnoreCase))
+        {
+            return "timespan";
+        }
+
+        return string.Empty;
     }
 
     // Reads standard JSON Schema required names.

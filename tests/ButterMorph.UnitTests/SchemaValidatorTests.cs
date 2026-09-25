@@ -84,6 +84,63 @@ public sealed class SchemaValidatorTests
     }
 
     /// <summary>
+    /// Confirms that date, date-time, time, and duration schemas validate real payload values.
+    /// </summary>
+    [Fact]
+    public void ValidateAcceptsTemporalPayloads()
+    {
+        SchemaValidator validator = new();
+        ValidationRequest request = new()
+        {
+            SourceGraph = ReadJson(
+                """
+                {
+                  "issuedOn": "2026-09-25",
+                  "createdAt": "2026-09-25T14:30:00Z",
+                  "cutoff": "14:30:00",
+                  "duration": "PT2H30M"
+                }
+                """),
+            Schema = CreateTemporalSchema()
+        };
+
+        ValidationResult result = validator.Validate(request);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
+    /// Confirms that temporal schema restrictions reject invalid and out-of-range payload values.
+    /// </summary>
+    [Fact]
+    public void ValidateReportsTemporalRestrictionFailures()
+    {
+        SchemaValidator validator = new();
+        ValidationRequest request = new()
+        {
+            SourceGraph = ReadJson(
+                """
+                {
+                  "issuedOn": "2026-10-02",
+                  "createdAt": "bad date",
+                  "cutoff": "07:30:00",
+                  "duration": "04:00:00"
+                }
+                """),
+            Schema = CreateTemporalSchema()
+        };
+
+        ValidationResult result = validator.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV012" && diagnostic.Path == "issuedOn");
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV002" && diagnostic.Path == "createdAt");
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV011" && diagnostic.Path == "cutoff");
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMSV012" && diagnostic.Path == "duration");
+    }
+
+    /// <summary>
     /// Confirms that schema references resolve custom type restrictions from definitions.
     /// </summary>
     [Fact]
@@ -184,6 +241,72 @@ public sealed class SchemaValidatorTests
                                 DataType = "string"
                             }
                         ]
+                    }
+                ]
+            }
+        };
+    }
+
+    private static IStructureSchema CreateTemporalSchema()
+    {
+        return new StructureSchema
+        {
+            Key = "Temporal",
+            Name = "Temporal",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object,
+                DataType = "object",
+                Children =
+                [
+                    new SchemaNode
+                    {
+                        Name = "issuedOn",
+                        Kind = SchemaNodeKind.Scalar,
+                        DataType = "date",
+                        IsRequired = true,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            ["minDate"] = "2026-09-01",
+                            ["maxDate"] = "2026-09-30"
+                        }
+                    },
+                    new SchemaNode
+                    {
+                        Name = "createdAt",
+                        Kind = SchemaNodeKind.Scalar,
+                        DataType = "datetime",
+                        IsRequired = true,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            ["minDateTime"] = "2026-09-25T00:00:00Z",
+                            ["maxDateTime"] = "2026-09-26T00:00:00Z"
+                        }
+                    },
+                    new SchemaNode
+                    {
+                        Name = "cutoff",
+                        Kind = SchemaNodeKind.Scalar,
+                        DataType = "time",
+                        IsRequired = true,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            ["minTime"] = "08:00:00",
+                            ["maxTime"] = "18:00:00"
+                        }
+                    },
+                    new SchemaNode
+                    {
+                        Name = "duration",
+                        Kind = SchemaNodeKind.Scalar,
+                        DataType = "timespan",
+                        IsRequired = true,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            ["minDuration"] = "01:00:00",
+                            ["maxDuration"] = "03:00:00"
+                        }
                     }
                 ]
             }
