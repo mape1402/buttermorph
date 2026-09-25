@@ -720,13 +720,22 @@ document.addEventListener("DOMContentLoaded", function () {
     const right = conditionRow.querySelector("[data-condition-right='true']");
     const fieldPath = left ? left.value.trim() : "";
     const operatorKey = operator ? normalizeSimpleOperator(operator.value) : "exists";
+    updateConditionValueVisibility(conditionRow);
     if (!fieldPath) {
       return "";
     }
-    if (right) {
-      right.hidden = !simpleOperatorNeedsValue(operatorKey);
-    }
     return buildSimpleExpression(fieldPath, operatorKey, right ? right.value.trim() : "");
+  }
+
+  function updateConditionValueVisibility(conditionRow) {
+    const operator = conditionRow ? conditionRow.querySelector("[data-condition-operator='true']") : null;
+    const right = conditionRow ? conditionRow.querySelector("[data-condition-right='true']") : null;
+    if (!operator || !right) {
+      return;
+    }
+    const needsValue = simpleOperatorNeedsValue(operator.value);
+    right.hidden = !needsValue;
+    conditionRow.setAttribute("data-value-visible", needsValue ? "true" : "false");
   }
 
   function getDirectChild(element, selector) {
@@ -849,10 +858,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setAssertionKind(row);
     row.querySelectorAll("[data-condition-operator='true']").forEach(function (operator) {
       const conditionRow = operator.closest("[data-condition-row='true']");
-      const right = conditionRow ? conditionRow.querySelector("[data-condition-right='true']") : null;
-      if (right) {
-        right.hidden = !simpleOperatorNeedsValue(operator.value);
-      }
+      updateConditionValueVisibility(conditionRow);
     });
   }
 
@@ -866,6 +872,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (input.matches("[data-simple-field='true'], [data-simple-operator='true'], [data-simple-value='true']")) {
       updateSimpleExpression(row);
+    }
+    if (input.matches("[data-condition-operator='true']")) {
+      const conditionRow = input.closest("[data-condition-row='true']");
+      updateConditionValueVisibility(conditionRow);
+      const right = conditionRow ? conditionRow.querySelector("[data-condition-right='true']") : null;
+      if (right && !right.hidden && right.value.length === 0) {
+        right.focus();
+      }
     }
     const builder = input.closest("[data-condition-builder='true']");
     if (builder) {
