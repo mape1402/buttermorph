@@ -1217,8 +1217,8 @@ textarea,
   border: 1px solid #dfe5f4;
   border-radius: 7px;
   display: grid;
-  gap: 0.34rem;
-  padding: 0.38rem;
+  gap: 0.24rem;
+  padding: 0.3rem;
 }
 
 .bm-mapping-conditional-composer-nested {
@@ -1229,8 +1229,8 @@ textarea,
 .bm-mapping-branch {
   align-items: start;
   display: grid;
-  gap: 0.34rem;
-  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 0.26rem;
+  grid-template-columns: 62px minmax(0, 1fr);
 }
 
 .bm-mapping-branch h4 {
@@ -1238,7 +1238,7 @@ textarea,
   font-size: 0.69rem;
   font-weight: 800;
   margin: 0;
-  padding-top: 0.44rem;
+  padding-top: 0.34rem;
   text-align: right;
   white-space: nowrap;
 }
@@ -1249,9 +1249,9 @@ textarea,
   border: 1px solid #e1e6f3;
   border-radius: 7px;
   display: grid;
-  gap: 0.28rem;
+  gap: 0.22rem;
   min-width: 0;
-  padding: 0.32rem;
+  padding: 0.26rem;
 }
 
 .bm-mapping-condition-group .bm-mapping-condition-group {
@@ -1261,8 +1261,8 @@ textarea,
 .bm-mapping-condition-group-header {
   align-items: end;
   display: grid;
-  gap: 0.32rem;
-  grid-template-columns: minmax(130px, 185px) minmax(0, 1fr);
+  gap: 0.26rem;
+  grid-template-columns: minmax(125px, 180px) minmax(0, 1fr);
 }
 
 .bm-mapping-condition-group-header label {
@@ -1307,13 +1307,13 @@ textarea,
 
 .bm-mapping-condition-list {
   display: grid;
-  gap: 0.24rem;
+  gap: 0.2rem;
 }
 
 .bm-mapping-condition-row {
   align-items: center;
   display: grid;
-  gap: 0.28rem;
+  gap: 0.24rem;
   grid-template-columns: minmax(160px, 1fr) minmax(138px, 0.58fr) minmax(150px, 0.85fr) 30px;
 }
 
@@ -1328,6 +1328,26 @@ textarea,
 .bm-mapping-slot-expression,
 .bm-mapping-slot-conditional {
   min-width: 0;
+}
+
+.bm-mapping-value-slot {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.bm-mapping-slot-actions {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.bm-mapping-slot-expression {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.bm-mapping-slot-conditional {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .bm-mapping-condition-row [data-remove-mapping-condition],
@@ -1359,6 +1379,21 @@ textarea,
 
 .bm-target-field[data-mapping-mode="conditional"] {
   border-left: 2px solid rgba(79, 70, 229, 0.65);
+  gap: 0.24rem 0.42rem;
+  grid-template-columns: minmax(80px, 150px) minmax(0, 1fr);
+  padding-bottom: 0.34rem;
+}
+
+.bm-target-field[data-mapping-mode="conditional"] .bm-mapping-editor-header {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: start;
+  max-width: 220px;
+}
+
+.bm-target-field[data-mapping-mode="conditional"] .bm-conditional-panel {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .bm-clear-mapping {
