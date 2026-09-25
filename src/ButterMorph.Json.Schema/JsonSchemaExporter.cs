@@ -98,6 +98,7 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
         }
 
         writer.WriteString("type", NormalizeScalarType(node.DataType));
+        WriteTemporalFormat(writer, node);
         WriteSchemaIdentity(writer, includeSchemaMetadata, schema);
         WriteMetadata(writer, node.Metadata);
         writer.WriteEndObject();
@@ -331,7 +332,63 @@ public sealed class JsonSchemaExporter : IJsonSchemaExporter
             return SchemaText.String;
         }
 
+        if (IsTemporalType(dataType))
+        {
+            return SchemaText.String;
+        }
+
         return dataType;
+    }
+
+    // Writes JSON Schema string formats for ButterMorph temporal types.
+    private static void WriteTemporalFormat(Utf8JsonWriter writer, ISchemaNode node)
+    {
+        if (node.Metadata.ContainsKey("format"))
+        {
+            return;
+        }
+
+        string format = ResolveTemporalFormat(node.DataType);
+
+        if (!string.IsNullOrWhiteSpace(format))
+        {
+            writer.WriteString("format", format);
+        }
+    }
+
+    // Resolves the JSON Schema format for a temporal scalar type.
+    private static string ResolveTemporalFormat(string dataType)
+    {
+        if (string.Equals(dataType, "date", StringComparison.OrdinalIgnoreCase))
+        {
+            return "date";
+        }
+
+        if (string.Equals(dataType, "datetime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(dataType, "dateTime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(dataType, "date-time", StringComparison.OrdinalIgnoreCase))
+        {
+            return "date-time";
+        }
+
+        if (string.Equals(dataType, "time", StringComparison.OrdinalIgnoreCase))
+        {
+            return "time";
+        }
+
+        if (string.Equals(dataType, "timespan", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(dataType, "timeSpan", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(dataType, "duration", StringComparison.OrdinalIgnoreCase))
+        {
+            return "duration";
+        }
+
+        return string.Empty;
+    }
+
+    private static bool IsTemporalType(string dataType)
+    {
+        return !string.IsNullOrWhiteSpace(ResolveTemporalFormat(dataType));
     }
 
     // Creates a failed conversion result.

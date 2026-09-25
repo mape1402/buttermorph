@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
+using ButterMorph.Functions;
 
 /// <summary>
 /// Validates structure graphs against ButterMorph schemas and schema metadata constraints.
@@ -155,6 +156,7 @@ public sealed class SchemaValidator : ISchemaValidator
 
         ValidateStringConstraints(schemaNode, scalarNode.Value, path, diagnostics);
         ValidateNumberConstraints(schemaNode, scalarNode.Value, path, diagnostics);
+        ValidateTemporalConstraints(schemaNode, scalarNode.Value, path, diagnostics);
         ValidateEnumConstraint(schemaNode, scalarNode.Value, path, diagnostics);
     }
 
@@ -204,6 +206,136 @@ public sealed class SchemaValidator : ISchemaValidator
         if (TryReadDecimal(schemaNode, "maximum", out decimal maximum) && number > maximum)
         {
             diagnostics.Add(CreateDiagnostic("BMSV006", $"Value at '{path}' must be less than or equal to {maximum.ToString(CultureInfo.InvariantCulture)}.", path));
+        }
+    }
+
+    private static void ValidateTemporalConstraints(ISchemaNode schemaNode, IScalarValue value, string path, List<DiagnosticEntry> diagnostics)
+    {
+        string schemaType = NormalizeTemporalSchemaType(schemaNode.DataType);
+
+        if (string.IsNullOrWhiteSpace(schemaType))
+        {
+            return;
+        }
+
+        if (string.Equals(schemaType, "date", StringComparison.Ordinal))
+        {
+            ValidateDateConstraints(schemaNode, value.RawValue, path, diagnostics);
+            return;
+        }
+
+        if (string.Equals(schemaType, "datetime", StringComparison.Ordinal))
+        {
+            ValidateDateTimeConstraints(schemaNode, value.RawValue, path, diagnostics);
+            return;
+        }
+
+        if (string.Equals(schemaType, "time", StringComparison.Ordinal))
+        {
+            ValidateTimeConstraints(schemaNode, value.RawValue, path, diagnostics);
+            return;
+        }
+
+        ValidateTimeSpanConstraints(schemaNode, value.RawValue, path, diagnostics);
+    }
+
+    private static void ValidateDateConstraints(ISchemaNode schemaNode, string rawValue, string path, List<DiagnosticEntry> diagnostics)
+    {
+        DateFunctionTools dates = new();
+
+        if (!dates.TryParseDate(rawValue, out DateOnly value))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV002", $"Value at '{path}' must be 'date'.", path));
+            return;
+        }
+
+        if (TryReadTemporalText(schemaNode, "minimum", "minDate", out string minimumText) &&
+            dates.TryParseDate(minimumText, out DateOnly minimum) &&
+            value < minimum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV011", $"Value at '{path}' must be on or after {minimum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.", path));
+        }
+
+        if (TryReadTemporalText(schemaNode, "maximum", "maxDate", out string maximumText) &&
+            dates.TryParseDate(maximumText, out DateOnly maximum) &&
+            value > maximum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV012", $"Value at '{path}' must be on or before {maximum.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.", path));
+        }
+    }
+
+    private static void ValidateDateTimeConstraints(ISchemaNode schemaNode, string rawValue, string path, List<DiagnosticEntry> diagnostics)
+    {
+        DateFunctionTools dates = new();
+
+        if (!dates.TryParseDateTime(rawValue, out DateTimeOffset value))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV002", $"Value at '{path}' must be 'datetime'.", path));
+            return;
+        }
+
+        if (TryReadTemporalText(schemaNode, "minimum", "minDateTime", out string minimumText) &&
+            dates.TryParseDateTime(minimumText, out DateTimeOffset minimum) &&
+            value < minimum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV011", $"Value at '{path}' must be on or after {minimum.ToString("O", CultureInfo.InvariantCulture)}.", path));
+        }
+
+        if (TryReadTemporalText(schemaNode, "maximum", "maxDateTime", out string maximumText) &&
+            dates.TryParseDateTime(maximumText, out DateTimeOffset maximum) &&
+            value > maximum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV012", $"Value at '{path}' must be on or before {maximum.ToString("O", CultureInfo.InvariantCulture)}.", path));
+        }
+    }
+
+    private static void ValidateTimeConstraints(ISchemaNode schemaNode, string rawValue, string path, List<DiagnosticEntry> diagnostics)
+    {
+        DateFunctionTools dates = new();
+
+        if (!dates.TryParseTime(rawValue, out TimeOnly value))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV002", $"Value at '{path}' must be 'time'.", path));
+            return;
+        }
+
+        if (TryReadTemporalText(schemaNode, "minimum", "minTime", out string minimumText) &&
+            dates.TryParseTime(minimumText, out TimeOnly minimum) &&
+            value < minimum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV011", $"Value at '{path}' must be at or after {minimum.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}.", path));
+        }
+
+        if (TryReadTemporalText(schemaNode, "maximum", "maxTime", out string maximumText) &&
+            dates.TryParseTime(maximumText, out TimeOnly maximum) &&
+            value > maximum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV012", $"Value at '{path}' must be at or before {maximum.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}.", path));
+        }
+    }
+
+    private static void ValidateTimeSpanConstraints(ISchemaNode schemaNode, string rawValue, string path, List<DiagnosticEntry> diagnostics)
+    {
+        DateFunctionTools dates = new();
+
+        if (!dates.TryParseTimeSpan(rawValue, out TimeSpan value))
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV002", $"Value at '{path}' must be 'timespan'.", path));
+            return;
+        }
+
+        if (TryReadTemporalText(schemaNode, "minimum", "minDuration", out string minimumText) &&
+            dates.TryParseTimeSpan(minimumText, out TimeSpan minimum) &&
+            value < minimum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV011", $"Value at '{path}' must be greater than or equal to {minimum.ToString("c", CultureInfo.InvariantCulture)}.", path));
+        }
+
+        if (TryReadTemporalText(schemaNode, "maximum", "maxDuration", out string maximumText) &&
+            dates.TryParseTimeSpan(maximumText, out TimeSpan maximum) &&
+            value > maximum)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSV012", $"Value at '{path}' must be less than or equal to {maximum.ToString("c", CultureInfo.InvariantCulture)}.", path));
         }
     }
 
@@ -527,7 +659,67 @@ public sealed class SchemaValidator : ISchemaValidator
                 decimal.Truncate(number) == number;
         }
 
+        string temporalSchemaType = NormalizeTemporalSchemaType(schemaType);
+
+        if (!string.IsNullOrWhiteSpace(temporalSchemaType))
+        {
+            return IsTemporalScalarCompatible(temporalSchemaType, value);
+        }
+
         return true;
+    }
+
+    private static bool IsTemporalScalarCompatible(string schemaType, IScalarValue value)
+    {
+        if (string.Equals(value.DataType, schemaType, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!string.Equals(value.DataType, "String", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        DateFunctionTools dates = new();
+
+        return schemaType switch
+        {
+            "date" => dates.TryParseDate(value.RawValue, out _),
+            "datetime" => dates.TryParseDateTime(value.RawValue, out _),
+            "time" => dates.TryParseTime(value.RawValue, out _),
+            "timespan" => dates.TryParseTimeSpan(value.RawValue, out _),
+            _ => true
+        };
+    }
+
+    private static string NormalizeTemporalSchemaType(string schemaType)
+    {
+        if (string.Equals(schemaType, "date", StringComparison.OrdinalIgnoreCase))
+        {
+            return "date";
+        }
+
+        if (string.Equals(schemaType, "datetime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(schemaType, "dateTime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(schemaType, "date-time", StringComparison.OrdinalIgnoreCase))
+        {
+            return "datetime";
+        }
+
+        if (string.Equals(schemaType, "time", StringComparison.OrdinalIgnoreCase))
+        {
+            return "time";
+        }
+
+        if (string.Equals(schemaType, "timespan", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(schemaType, "timeSpan", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(schemaType, "duration", StringComparison.OrdinalIgnoreCase))
+        {
+            return "timespan";
+        }
+
+        return string.Empty;
     }
 
     private static bool IsNumberSchemaType(string schemaType)
@@ -598,6 +790,22 @@ public sealed class SchemaValidator : ISchemaValidator
 
         return node.Metadata.TryGetValue(key, out string text) &&
             decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+    }
+
+    private static bool TryReadTemporalText(ISchemaNode node, string primaryKey, string aliasKey, out string value)
+    {
+        if (node.Metadata.TryGetValue(primaryKey, out value) && !string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        if (node.Metadata.TryGetValue(aliasKey, out value) && !string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        value = string.Empty;
+        return false;
     }
 
     private static string CreateChildPath(string path, string childName)

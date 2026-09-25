@@ -136,6 +136,17 @@ public sealed class NativeFunctionTests
         AssertScalar("2024-01-01T00:30:00.0000000+00:00", new DateAddMinutesFunction().Execute(Context(Text("2024-01-01T00:00:00Z"), Number("30"))));
         AssertScalar("2", new DiffDaysFunction().Execute(Context(Text("2024-01-03T00:00:00Z"), Text("2024-01-01T00:00:00Z"))));
         AssertScalar("2024", new FormatDateFunction().Execute(Context(Text("2024-01-01T00:00:00Z"), Text("yyyy"))));
+        AssertScalar("14:30:00", new ParseTimeFunction().Execute(Context(Text("14:30"))));
+        AssertScalar("02:30:00", new ParseTimeSpanFunction().Execute(Context(Text("PT2H30M"))));
+        AssertScalar("true", new IsDateFunction().Execute(Context(Text("2026-09-25"))));
+        AssertScalar("true", new IsDateTimeFunction().Execute(Context(Text("2026-09-25T14:30:00Z"))));
+        AssertScalar("true", new IsTimeFunction().Execute(Context(Text("14:30:00"))));
+        AssertScalar("true", new IsTimeSpanFunction().Execute(Context(Text("PT2H30M"))));
+        AssertScalar("true", new BeforeFunction().Execute(Context(Text("2026-09-25"), Text("2026-09-26"))));
+        AssertScalar("true", new AfterFunction().Execute(Context(Text("14:30:00"), Text("08:00:00"))));
+        AssertScalar("true", new OnOrBeforeFunction().Execute(Context(Text("PT2H30M"), Text("03:00:00"))));
+        AssertScalar("true", new OnOrAfterFunction().Execute(Context(Text("2026-09-25T14:30:00Z"), Text("2026-09-25T14:30:00Z"))));
+        AssertScalar("true", new BetweenTemporalFunction("betweenDates").Execute(Context(Text("2026-09-25"), Text("2026-09-01"), Text("2026-09-30"))));
         AssertScalar("true", new RegexMatchFunction().Execute(Context(Text("abc123"), Text("[0-9]+"))));
         AssertScalar("123", new RegexExtractFunction().Execute(Context(Text("abc123"), Text("[0-9]+"))));
         AssertCollection(["a", "b"], new RegexSplitFunction().Execute(Context(Text("a,b"), Text(","))));
@@ -544,11 +555,12 @@ public sealed class NativeFunctionTests
         return
         [
             "concat", "upper", "lower", "trim", "replace", "substring", "startsWith", "endsWith", "contains", "split", "splitLines", "length", "toString", "toNumber", "toBoolean", "numberFormat", "trimStart", "trimEnd", "left", "right", "indexOf", "lastIndexOf", "padLeft", "padRight", "capitalize", "camelCase", "normalizeWhitespace", "ToUpper", "ToLower", "default", "defaultEmpty", "coalesce", "exists", "isNull", "isEmpty",
-            "eq", "neq", "gt", "gte", "lt", "lte", "and", "or", "not", "if", "switch", "try", "assert",
+            "eq", "equalsTo", "neq", "notEqualsTo", "gt", "greaterThan", "gte", "greaterOrEqual", "lt", "lessThan", "lte", "lessOrEqual", "and", "or", "not", "if", "switch", "try", "assert",
             "add", "sub", "mul", "div", "mod", "abs", "round", "floor", "ceil", "min", "max",
             "toArray", "first", "last", "count", "join", "filter", "map", "reduce", "sort", "distinct", "groupBy", "flatten", "zip", "take", "skip", "slice", "reverse", "sum", "average", "any", "all", "containsValue",
-            "today", "now", "todayLocal", "nowLocal", "dateAddDays", "dateAddHours", "dateAddMinutes", "dateAddMonths", "dateAddYears", "diffDays", "diffHours", "diffMinutes", "formatDate", "parseDate", "toTimeZone", "year", "month", "day", "startOfMonth", "endOfMonth",
-            "regexMatch", "regexExtract", "regexReplace", "regexSplit", "regexFindAll", "jsonParse", "jsonStringify", "uuid", "ulid", "hash"
+            "today", "now", "todayLocal", "nowLocal", "dateAddDays", "dateAddHours", "dateAddMinutes", "dateAddMonths", "dateAddYears", "diffDays", "diffHours", "diffMinutes", "formatDate", "parseDate", "parseDateTime", "parseTime", "parseTimeSpan", "toTimeZone", "year", "month", "day", "startOfMonth", "endOfMonth",
+            "isDate", "isDateTime", "isTime", "isTimeSpan", "before", "after", "onOrBefore", "onOrAfter", "betweenDates", "betweenDateTimes", "betweenTimes", "betweenDurations",
+            "regexMatch", "matchesRegex", "regexExtract", "regexReplace", "regexSplit", "regexFindAll", "jsonParse", "jsonStringify", "uuid", "ulid", "hash"
         ];
     }
 }
