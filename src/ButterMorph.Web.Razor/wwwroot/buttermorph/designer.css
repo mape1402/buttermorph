@@ -2147,6 +2147,18 @@ li.CodeMirror-hint-active {
   outline: none;
 }
 
+.bm-validation-row [hidden],
+.bm-condition-builder [hidden] {
+  display: none !important;
+}
+
+.bm-validation-row .bm-validation-drop-hover,
+.bm-condition-builder .bm-validation-drop-hover {
+  border-color: rgba(79, 70, 229, 0.75);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
+  background-color: #f8f9ff;
+}
+
 .bm-validation-section {
   background-color: #f7f8fd;
   border: 1px solid #dde1ee;
@@ -2232,6 +2244,10 @@ li.CodeMirror-hint-active {
   grid-template-columns: minmax(260px, 1.35fr) minmax(150px, 0.7fr) minmax(180px, 0.85fr);
   margin-top: 0.42rem;
   padding-top: 0.42rem;
+}
+
+.bm-simple-rule-panel[data-value-visible="false"] {
+  grid-template-columns: minmax(300px, 1.35fr) minmax(160px, 0.65fr);
 }
 
 .bm-complex-assertion-panel {
@@ -2378,11 +2394,26 @@ li.CodeMirror-hint-active {
 }
 
 .bm-validation-section-actions button {
-  background-color: #ffffff;
-  border-color: #d8dceb;
-  font-size: 0.76rem;
-  min-height: 29px;
-  padding: 0.25rem 0.65rem;
+  background-color: #eef2ff;
+  border-color: #cfd7ff;
+  color: #3730a3;
+  font-size: 0.78rem;
+  font-weight: 750;
+  min-height: 30px;
+  padding: 0.25rem 0.76rem;
+}
+
+.bm-validation-section-actions button::before {
+  content: "+";
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 0;
+  margin-right: 0.32rem;
+}
+
+.bm-validation-section-actions button:hover {
+  background-color: #e0e7ff;
+  border-color: #adbafb;
 }
 
 .bm-condition-actions button {
