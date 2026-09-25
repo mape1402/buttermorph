@@ -2268,23 +2268,17 @@ li.CodeMirror-hint-active {
   resize: vertical;
 }
 
-.bm-condition-builder,
-.bm-advanced-expression {
+.bm-condition-builder {
   border-top: 1px solid #eef1f8;
   padding-top: 0.38rem;
 }
 
-.bm-condition-builder summary,
-.bm-advanced-expression summary {
+.bm-condition-builder summary {
   color: #4f46e5;
   cursor: pointer;
   font-size: 0.7rem;
   font-weight: 750;
   text-transform: none;
-}
-
-.bm-advanced-expression label {
-  margin-top: 0.42rem;
 }
 
 .bm-condition-builder-body {
@@ -2347,12 +2341,16 @@ li.CodeMirror-hint-active {
   grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) minmax(180px, 1fr) auto;
 }
 
-.bm-condition-row:has([data-condition-right][hidden]) {
+.bm-condition-row[data-value-visible="false"] {
   grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) auto;
 }
 
 .bm-condition-row [data-condition-right][hidden] {
   display: none;
+}
+
+.bm-hidden-expression-store {
+  display: none !important;
 }
 
 .bm-condition-branch {
@@ -2449,7 +2447,6 @@ li.CodeMirror-hint-active {
 
 body[data-bm-theme-mode="dark"] .bm-validation-section,
 body[data-bm-theme-mode="dark"] .bm-validation-row,
-body[data-bm-theme-mode="dark"] .bm-condition-builder,
 body[data-bm-theme-mode="dark"] .bm-condition-group {
   border-color: var(--bm-border);
 }
