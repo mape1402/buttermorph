@@ -285,7 +285,7 @@
                                                     </div>
                                                 </div>
                                                 <div data-builder-panel="when" hidden>
-                                                    <section class="bm-condition-branch">
+                                                    <section class="bm-condition-branch" data-when-branch="condition">
                                                         <h4>If</h4>
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                                             <div class="bm-condition-group-header">
@@ -304,7 +304,11 @@
                                                             <div class="bm-condition-list" data-condition-list="true"></div>
                                                         </div>
                                                     </section>
-                                                    <section class="bm-condition-branch">
+                                                    <div class="bm-condition-branch-actions">
+                                                        <button type="button" data-show-when-branch="then">Add then</button>
+                                                        <button type="button" data-show-when-branch="else">Add else</button>
+                                                    </div>
+                                                    <section class="bm-condition-branch" data-when-branch="then" hidden>
                                                         <h4>Then</h4>
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
                                                             <div class="bm-condition-group-header">
@@ -323,7 +327,7 @@
                                                             <div class="bm-condition-list" data-condition-list="true"></div>
                                                         </div>
                                                     </section>
-                                                    <section class="bm-condition-branch">
+                                                    <section class="bm-condition-branch" data-when-branch="else" hidden>
                                                         <h4>Else</h4>
                                                         <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
                                                             <div class="bm-condition-group-header">
@@ -475,7 +479,7 @@
                             </div>
                         </div>
                         <div data-builder-panel="when" hidden>
-                            <section class="bm-condition-branch">
+                            <section class="bm-condition-branch" data-when-branch="condition">
                                 <h4>If</h4>
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
                                     <div class="bm-condition-group-header">
@@ -494,7 +498,11 @@
                                     <div class="bm-condition-list" data-condition-list="true"></div>
                                 </div>
                             </section>
-                            <section class="bm-condition-branch">
+                            <div class="bm-condition-branch-actions">
+                                <button type="button" data-show-when-branch="then">Add then</button>
+                                <button type="button" data-show-when-branch="else">Add else</button>
+                            </div>
+                            <section class="bm-condition-branch" data-when-branch="then" hidden>
                                 <h4>Then</h4>
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
                                     <div class="bm-condition-group-header">
@@ -513,7 +521,7 @@
                                     <div class="bm-condition-list" data-condition-list="true"></div>
                                 </div>
                             </section>
-                            <section class="bm-condition-branch">
+                            <section class="bm-condition-branch" data-when-branch="else" hidden>
                                 <h4>Else</h4>
                                 <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
                                     <div class="bm-condition-group-header">

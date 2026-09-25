@@ -2270,7 +2270,7 @@ li.CodeMirror-hint-active {
 
 .bm-condition-builder {
   border-top: 1px solid #eef1f8;
-  padding-top: 0.38rem;
+  padding-top: 0.28rem;
 }
 
 .bm-condition-builder summary {
@@ -2283,21 +2283,31 @@ li.CodeMirror-hint-active {
 
 .bm-condition-builder-body {
   display: grid;
-  gap: 0.42rem;
-  padding-top: 0.42rem;
+  gap: 0.3rem;
+  padding-top: 0.3rem;
 }
 
 .bm-condition-mode {
-  max-width: 180px;
+  align-items: center;
+  flex-direction: row !important;
+  gap: 0.35rem !important;
+  justify-self: start;
+  max-width: none;
+  width: auto;
+}
+
+.bm-condition-mode select {
+  min-width: 165px;
+  width: auto;
 }
 
 .bm-condition-group {
   background-color: #fbfcff;
   border: 1px solid #e1e5f2;
-  border-radius: 8px;
+  border-radius: 7px;
   display: grid;
-  gap: 0.42rem;
-  padding: 0.48rem;
+  gap: 0.28rem;
+  padding: 0.34rem 0.42rem;
 }
 
 .bm-condition-group .bm-condition-group {
@@ -2306,20 +2316,20 @@ li.CodeMirror-hint-active {
 
 .bm-condition-group-header {
   align-items: end;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
-  justify-content: space-between;
+  display: grid;
+  gap: 0.32rem;
+  grid-template-columns: minmax(145px, 190px) minmax(0, 1fr);
 }
 
 .bm-condition-group-header label {
-  min-width: 170px;
+  min-width: 0;
 }
 
 .bm-condition-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.28rem;
+  justify-content: flex-end;
 }
 
 .bm-condition-actions button,
@@ -2331,18 +2341,18 @@ li.CodeMirror-hint-active {
 
 .bm-condition-list {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.24rem;
 }
 
 .bm-condition-row {
-  align-items: end;
+  align-items: center;
   display: grid;
-  gap: 0.36rem;
-  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) minmax(180px, 1fr) auto;
+  gap: 0.28rem;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(145px, 0.62fr) minmax(170px, 1fr) 30px;
 }
 
 .bm-condition-row[data-value-visible="false"] {
-  grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.75fr) auto;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(145px, 0.62fr) 30px;
 }
 
 .bm-condition-row [data-condition-right][hidden] {
@@ -2354,8 +2364,10 @@ li.CodeMirror-hint-active {
 }
 
 .bm-condition-branch {
+  align-items: start;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.34rem;
+  grid-template-columns: 42px minmax(0, 1fr);
 }
 
 .bm-condition-branch h4 {
@@ -2363,7 +2375,24 @@ li.CodeMirror-hint-active {
   font-size: 0.7rem;
   font-weight: 750;
   margin: 0;
+  padding-top: 0.45rem;
   text-transform: none;
+}
+
+.bm-condition-branch-actions {
+  display: flex;
+  gap: 0.28rem;
+  justify-content: flex-start;
+  padding-left: 42px;
+}
+
+.bm-condition-branch-actions button {
+  background-color: #eef2ff;
+  border-color: #d8defc;
+  color: #4338ca;
+  font-size: 0.72rem;
+  min-height: 28px;
+  padding: 0.2rem 0.5rem;
 }
 
 .bm-validation-row-remove {
