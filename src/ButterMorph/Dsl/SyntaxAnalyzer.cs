@@ -297,16 +297,21 @@ internal sealed class SyntaxAnalyzer
 
         if (string.Equals(identifier.Value, "when", StringComparison.Ordinal))
         {
-            if (arguments.Count != 3)
+            if (arguments.Count is not 2 and not 3)
             {
-                throw Error(identifier, "Conditional expression requires three arguments.");
+                throw Error(identifier, "Conditional expression requires two or three arguments.");
             }
 
             return new ConditionNode
             {
                 Condition = arguments[0],
                 ThenExpression = arguments[1],
-                ElseExpression = arguments[2]
+                ElseExpression = arguments.Count == 3 ? arguments[2] : new LiteralNode
+                {
+                    DataType = "Boolean",
+                    RawValue = "true",
+                    IsNull = false
+                }
             };
         }
 

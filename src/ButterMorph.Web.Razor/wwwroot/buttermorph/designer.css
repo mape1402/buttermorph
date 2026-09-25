@@ -2526,6 +2526,56 @@ li.CodeMirror-hint-active {
   padding: 0.2rem 0.5rem;
 }
 
+.bm-validation-slot {
+  background-color: #ffffff;
+  border: 1px solid #e2e6f3;
+  border-radius: 7px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.36rem;
+}
+
+.bm-validation-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  justify-content: flex-end;
+}
+
+.bm-validation-slot-actions button {
+  background-color: #f5f7ff;
+  border-color: #d8defc;
+  color: #3730a3;
+  font-size: 0.7rem;
+  min-height: 26px;
+  padding: 0.16rem 0.46rem;
+}
+
+.bm-validation-slot-actions button:hover {
+  background-color: #e8edff;
+  border-color: #b9c3fb;
+}
+
+.bm-validation-slot-actions [data-clear-slot] {
+  background-color: #fff7f7;
+  border-color: #f2caca;
+  color: #9f1d1d;
+}
+
+.bm-validation-slot-actions [data-clear-slot]:hover {
+  background-color: #fee2e2;
+  border-color: #f0a8a8;
+}
+
+.bm-validation-slot-body {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.bm-validation-slot-body > .bm-condition-when {
+  margin-top: 0;
+}
+
 .bm-validation-row-remove {
   background-color: #fff7f7;
   border-color: #f2caca;
@@ -2607,7 +2657,9 @@ li.CodeMirror-hint-active {
 
 body[data-bm-theme-mode="dark"] .bm-validation-section,
 body[data-bm-theme-mode="dark"] .bm-validation-row,
-body[data-bm-theme-mode="dark"] .bm-condition-group {
+body[data-bm-theme-mode="dark"] .bm-condition-group,
+body[data-bm-theme-mode="dark"] .bm-validation-slot {
+  background-color: var(--bm-surface);
   border-color: var(--bm-border);
 }
 

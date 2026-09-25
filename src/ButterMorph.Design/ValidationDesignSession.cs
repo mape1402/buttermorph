@@ -2,6 +2,7 @@ namespace ButterMorph.Design;
 
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
+using ButterMorph.Validation;
 
 /// <summary>
 /// Represents an editable validation design session.
@@ -45,6 +46,12 @@ public sealed class ValidationDesignSession : IValidationDesignSession
             return Failure("BVDG001", "Validation document is required.", string.Empty);
         }
 
+        IReadOnlyCollection<DiagnosticEntry> diagnostics = ValidationExpressionShapeValidator.ValidateDocument(document);
+        if (diagnostics.Count > 0)
+        {
+            return Failure(diagnostics);
+        }
+
         _document = CloneDocument(document);
         return Success();
     }
@@ -56,6 +63,12 @@ public sealed class ValidationDesignSession : IValidationDesignSession
     /// <returns>The operation result.</returns>
     public IValidationOperationResult ReplaceDocument(IReadOnlyCollection<IValidationAssertion> assertions)
     {
+        IValidationOperationResult result = ValidateStatements((assertions ?? []).Cast<IValidationStatement>().ToArray());
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
         _document = new ValidationDocument
         {
             Assertions = assertions ?? []
@@ -71,6 +84,12 @@ public sealed class ValidationDesignSession : IValidationDesignSession
     /// <returns>The operation result.</returns>
     public IValidationOperationResult ReplaceDocumentStatements(IReadOnlyCollection<IValidationStatement> statements)
     {
+        IValidationOperationResult result = ValidateStatements(statements);
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
         _document = new ValidationDocument
         {
             Statements = statements ?? []
@@ -96,6 +115,12 @@ public sealed class ValidationDesignSession : IValidationDesignSession
             if (parsed is not IValidationDocument validationDocument)
             {
                 return Failure("BVDG002", "Imported DSL did not produce a validation document.", string.Empty);
+            }
+
+            IReadOnlyCollection<DiagnosticEntry> diagnostics = ValidationExpressionShapeValidator.ValidateDocument(validationDocument);
+            if (diagnostics.Count > 0)
+            {
+                return Failure(diagnostics);
             }
 
             _document = CloneDocument(validationDocument);
@@ -143,6 +168,24 @@ public sealed class ValidationDesignSession : IValidationDesignSession
                 }
             ]
         };
+    }
+
+    // Creates a failed operation result from existing diagnostics.
+    private static IValidationOperationResult Failure(IReadOnlyCollection<DiagnosticEntry> diagnostics)
+    {
+        return new ValidationOperationResult
+        {
+            Succeeded = false,
+            Diagnostics = diagnostics
+        };
+    }
+
+    // Validates semantic shape for validation statements.
+    private static IValidationOperationResult ValidateStatements(IReadOnlyCollection<IValidationStatement> statements)
+    {
+        IReadOnlyCollection<DiagnosticEntry> diagnostics = ValidationExpressionShapeValidator.ValidateStatements(statements);
+
+        return diagnostics.Count == 0 ? Success() : Failure(diagnostics);
     }
 
     // Creates a mutable document copy.
