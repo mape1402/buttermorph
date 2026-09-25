@@ -664,10 +664,15 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateSimpleValueVisibility(row) {
     const operator = row ? row.querySelector("[data-simple-operator='true']") : null;
     const wrapper = row ? row.querySelector("[data-simple-value-wrapper='true']") : null;
+    const panel = row ? row.querySelector("[data-simple-rule-panel='true']") : null;
     if (!operator || !wrapper) {
       return;
     }
-    wrapper.hidden = !simpleOperatorNeedsValue(operator.value);
+    const needsValue = simpleOperatorNeedsValue(operator.value);
+    wrapper.hidden = !needsValue;
+    if (panel) {
+      panel.setAttribute("data-value-visible", needsValue ? "true" : "false");
+    }
   }
 
   function updateSimpleExpression(row) {
@@ -868,6 +873,54 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function readDroppedExpression(event) {
+    if (!event.dataTransfer) {
+      return "";
+    }
+    return event.dataTransfer.getData("application/x-buttermorph-function-template") ||
+      event.dataTransfer.getData("application/x-buttermorph-source-path") ||
+      event.dataTransfer.getData("text/plain") ||
+      "";
+  }
+
+  function findValidationDropTarget(target) {
+    if (!target || !target.closest) {
+      return null;
+    }
+    const input = target.closest("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-complex-expression-editor='true']");
+    if (!input || !document.contains(input) || input.type === "hidden" || input.disabled) {
+      return null;
+    }
+    return input;
+  }
+
+  function canWriteToInput(input) {
+    return !!input &&
+      document.contains(input) &&
+      input.type !== "hidden" &&
+      !input.disabled &&
+      !input.closest("[hidden]");
+  }
+
+  function writeDropValue(input, expression) {
+    if (!input || expression.length === 0) {
+      return;
+    }
+    if (hasTextSelection(input)) {
+      insertIntoExpressionInput(input, expression, false);
+      return;
+    }
+    input.value = expression;
+    input.focus();
+    if (input.matches(".bm-expression-input")) {
+      activeExpressionInput = input;
+    } else {
+      activeBuilderInput = input;
+    }
+    updateExpressionOwners(input);
+    scheduleVisualSync();
+  }
+
   function setLeftDockMode(mode) {
     const normalizedMode = mode === "auto" ? "auto" : "pinned";
     if (workbench) {
@@ -971,8 +1024,41 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (event.target.matches("[data-simple-operator='true'], [data-builder-mode='true'], [data-group-operator='true'], [data-condition-operator='true']")) {
       updateExpressionOwners(event.target);
+      if (event.target.matches("[data-simple-operator='true']") && simpleOperatorNeedsValue(event.target.value)) {
+        const row = event.target.closest("[data-assertion-row='true']");
+        const valueInput = row ? row.querySelector("[data-simple-value='true']") : null;
+        if (valueInput && valueInput.value.length === 0) {
+          valueInput.focus();
+        }
+      }
       scheduleVisualSync();
     }
+  });
+  document.addEventListener("dragover", function (event) {
+    const target = findValidationDropTarget(event.target);
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    target.classList.add("bm-validation-drop-hover");
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
+  });
+  document.addEventListener("dragleave", function (event) {
+    const target = findValidationDropTarget(event.target);
+    if (target) {
+      target.classList.remove("bm-validation-drop-hover");
+    }
+  });
+  document.addEventListener("drop", function (event) {
+    const target = findValidationDropTarget(event.target);
+    if (!target) {
+      return;
+    }
+    event.preventDefault();
+    target.classList.remove("bm-validation-drop-hover");
+    writeDropValue(target, readDroppedExpression(event));
   });
   document.addEventListener("focusin", function (event) {
     if (event.target.matches(".bm-expression-input")) {
@@ -1054,9 +1140,21 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.querySelectorAll("[data-assertion-row='true']").forEach(initializeAssertionRow);
   document.querySelectorAll(".bm-source-field, .bm-source-branch[data-path]").forEach(function (field) {
+    field.addEventListener("dragstart", function (event) {
+      const path = field.getAttribute("data-path") || "";
+      field.classList.add("bm-dragging");
+      if (event.dataTransfer && path) {
+        event.dataTransfer.setData("application/x-buttermorph-source-path", path);
+        event.dataTransfer.setData("text/plain", path);
+        event.dataTransfer.effectAllowed = "copy";
+      }
+    });
+    field.addEventListener("dragend", function () {
+      field.classList.remove("bm-dragging");
+    });
     field.addEventListener("click", function () {
       const path = field.getAttribute("data-path") || "";
-      if (activeBuilderInput && path && document.contains(activeBuilderInput)) {
+      if (path && canWriteToInput(activeBuilderInput)) {
         if (hasTextSelection(activeBuilderInput)) {
           insertIntoExpressionInput(activeBuilderInput, path, false);
         } else {
@@ -1067,7 +1165,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         return;
       }
-      if (activeExpressionInput && path && document.contains(activeExpressionInput)) {
+      if (path && canWriteToInput(activeExpressionInput)) {
         if (hasTextSelection(activeExpressionInput)) {
           insertIntoExpressionInput(activeExpressionInput, path, false);
         } else {
@@ -1091,9 +1189,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
   document.querySelectorAll(".bm-function-item").forEach(function (functionItem) {
+    functionItem.addEventListener("dragstart", function (event) {
+      const template = functionItem.getAttribute("data-function-template") || "";
+      functionItem.classList.add("bm-dragging");
+      if (event.dataTransfer && template) {
+        event.dataTransfer.setData("application/x-buttermorph-function-template", template);
+        event.dataTransfer.setData("text/plain", template);
+        event.dataTransfer.effectAllowed = "copy";
+      }
+    });
+    functionItem.addEventListener("dragend", function () {
+      functionItem.classList.remove("bm-dragging");
+    });
     functionItem.addEventListener("click", function () {
       const template = functionItem.getAttribute("data-function-template") || "";
-      if (activeExpressionInput && document.contains(activeExpressionInput)) {
+      if (canWriteToInput(activeExpressionInput)) {
         if (hasTextSelection(activeExpressionInput)) {
           insertIntoExpressionInput(activeExpressionInput, template, true);
         } else {
@@ -1102,7 +1212,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateExpressionOwners(activeExpressionInput);
         return;
       }
-      if (activeBuilderInput && document.contains(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true']")) {
+      if (canWriteToInput(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true']")) {
         if (hasTextSelection(activeBuilderInput)) {
           insertIntoExpressionInput(activeBuilderInput, template, true);
         } else {
