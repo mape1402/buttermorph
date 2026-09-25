@@ -566,8 +566,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(ReadBoolean(json, "succeeded"));
         Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
-        Assert.Contains("data-enable-conditional-mapping", designerHtml, StringComparison.Ordinal);
-        Assert.Contains("data-use-basic-mapping", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("data-toggle-mapping-mode", designerHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-enable-conditional-mapping", designerHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-use-basic-mapping", designerHtml, StringComparison.Ordinal);
         Assert.Contains("data-mapping-conditional-composer", designerHtml, StringComparison.Ordinal);
         Assert.Contains("data-mapping-value-slot=\"then\"", designerHtml, StringComparison.Ordinal);
         Assert.Contains("data-set-mapping-slot-mode=\"conditional\"", designerHtml, StringComparison.Ordinal);
