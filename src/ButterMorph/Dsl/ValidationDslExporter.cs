@@ -18,31 +18,62 @@ public sealed class ValidationDslExporter : IValidationDslExporter
     {
         StringBuilder builder = new();
 
-        WriteAssertions(builder, document);
+        WriteStatements(builder, document);
 
         return builder.ToString().TrimEnd();
     }
 
-    // Writes boolean validation assertions preserving document order.
-    private static void WriteAssertions(StringBuilder builder, IValidationDocument document)
+    // Writes validation statements preserving document order.
+    private static void WriteStatements(StringBuilder builder, IValidationDocument document)
     {
-        if (document.Assertions.Count == 0)
+        if (document.Statements.Count == 0)
         {
             return;
         }
 
         builder.AppendLine("validate {");
 
-        foreach (IValidationAssertion assertion in document.Assertions)
+        foreach (IValidationStatement statement in document.Statements)
         {
-            WriteIndent(builder, 1);
+            WriteStatement(builder, statement, 1);
+        }
+
+        builder.AppendLine("}");
+    }
+
+    // Writes one validation statement.
+    private static void WriteStatement(StringBuilder builder, IValidationStatement statement, int indent)
+    {
+        if (statement is IValidationAssertion assertion)
+        {
+            WriteIndent(builder, indent);
             builder.Append("assert ");
             builder.Append(WriteExpression(assertion.Expression));
             builder.Append(": ");
             builder.AppendLine(WriteString(assertion.Message));
+            return;
         }
 
-        builder.AppendLine("}");
+        if (statement is IValidationForEach forEach)
+        {
+            WriteIndent(builder, indent);
+            builder.Append("foreach ");
+            builder.Append(WriteExpression(forEach.SourceExpression));
+            builder.Append(" as ");
+            builder.Append(string.IsNullOrWhiteSpace(forEach.ItemAlias) ? "item" : forEach.ItemAlias);
+            builder.AppendLine(" {");
+
+            foreach (IValidationStatement childStatement in forEach.Statements)
+            {
+                WriteStatement(builder, childStatement, indent + 1);
+            }
+
+            WriteIndent(builder, indent);
+            builder.AppendLine("}");
+            return;
+        }
+
+        throw new InvalidOperationException($"Validation statement '{statement.GetType().Name}' cannot be exported.");
     }
 
     // Writes any supported transformation expression.

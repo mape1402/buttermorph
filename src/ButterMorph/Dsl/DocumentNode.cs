@@ -9,5 +9,7 @@ internal sealed class DocumentNode : AstNode
 
     internal List<ValidationAssertionNode> ValidationAssertions { get; } = [];
 
+    internal List<AstNode> ValidationStatements { get; } = [];
+
     internal Dictionary<string, string> Metadata { get; } = new(StringComparer.Ordinal);
 }

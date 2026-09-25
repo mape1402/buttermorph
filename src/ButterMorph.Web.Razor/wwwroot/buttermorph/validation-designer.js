@@ -87,7 +87,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     window.CodeMirror.defineMode("buttermorphValidationDsl", function () {
-      const keywords = /^(validate|assert|project|as|when|true|false|null)\b/;
+      const keywords = /^(validate|assert|foreach|project|as|when|true|false|null)\b/;
       return {
         token: function (stream) {
           if (stream.eatSpace()) {
@@ -185,6 +185,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return [
       { text: "validate {\n  assert gt($source.quantity, 10): \"Quantity must be greater than 10\"\n}", displayText: "validate block", description: "Creates validation assertions." },
       { text: "assert gt($source.quantity, 10): \"Quantity must be greater than 10\"", displayText: "assert", description: "Creates a validation assertion." },
+      { text: "foreach $source.items as item {\n  assert gt($item.quantity, 0): \"Item quantity must be greater than zero\"\n}", displayText: "foreach", description: "Validates every item in a collection." },
       { text: "and(gt($source.quantity, 10), exists($source.id))", displayText: "and", description: "Requires every condition to be true." },
       { text: "or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\"))", displayText: "or", description: "Requires at least one condition to be true." },
       { text: "and(gt($source.total, 0), or(eq($source.status, \"Paid\"), eq($source.status, \"Pending\")))", displayText: "and/or", description: "Combines AND and OR in one assertion." },
@@ -320,6 +321,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function collectVisualForm() {
     syncAllAssertionRows();
+    syncAllForEachRows();
     const data = new FormData(visualForm);
     data.set("ActiveView", "Visual");
     return data;
@@ -993,6 +995,62 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-assertion-row='true']").forEach(syncAssertionRow);
   }
 
+  function getForEachExpressionOutput(row) {
+    return row ? row.querySelector("[data-foreach-expression-output='true']") : null;
+  }
+
+  function updateForEachValueVisibility(row) {
+    const operator = row ? row.querySelector("[data-foreach-operator='true']") : null;
+    const wrapper = row ? row.querySelector("[data-foreach-value-wrapper='true']") : null;
+    const panel = row ? row.querySelector("[data-foreach-simple-panel='true']") : null;
+    if (!operator || !wrapper) {
+      return;
+    }
+    const needsValue = simpleOperatorNeedsValue(operator.value);
+    wrapper.hidden = !needsValue;
+    if (panel) {
+      panel.setAttribute("data-value-visible", needsValue ? "true" : "false");
+    }
+  }
+
+  function syncForEachRow(row) {
+    const kind = row ? row.querySelector("[data-foreach-kind='true']") : null;
+    const simplePanel = row ? row.querySelector("[data-foreach-simple-panel='true']") : null;
+    const complexPanel = row ? row.querySelector("[data-foreach-complex-panel='true']") : null;
+    const output = getForEachExpressionOutput(row);
+    if (!kind || !simplePanel || !complexPanel || !output) {
+      return;
+    }
+    const isSimple = kind.value === "Simple";
+    row.setAttribute("data-rule-kind", isSimple ? "simple" : "advanced");
+    simplePanel.hidden = !isSimple;
+    complexPanel.hidden = isSimple;
+    if (isSimple) {
+      const field = row.querySelector("[data-foreach-field='true']");
+      const operator = row.querySelector("[data-foreach-operator='true']");
+      const value = row.querySelector("[data-foreach-value='true']");
+      updateForEachValueVisibility(row);
+      output.value = buildSimpleExpression(
+        field ? field.value.trim() : "",
+        operator ? operator.value : "exists",
+        value ? value.value.trim() : "");
+      return;
+    }
+    const expression = row.querySelector("[data-foreach-expression='true']");
+    output.value = expression ? expression.value.trim() : "";
+  }
+
+  function syncAllForEachRows() {
+    document.querySelectorAll("[data-foreach-row='true']").forEach(syncForEachRow);
+  }
+
+  function initializeForEachRow(row) {
+    if (!row) {
+      return;
+    }
+    syncForEachRow(row);
+  }
+
   function initializeAssertionRow(row) {
     if (!row) {
       return;
@@ -1008,6 +1066,12 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updateExpressionOwners(input) {
+    const foreachRow = input.closest("[data-foreach-row='true']");
+    if (foreachRow) {
+      syncForEachRow(foreachRow);
+      return;
+    }
+
     const row = input.closest("[data-assertion-row='true']");
     if (!row) {
       return;
@@ -1046,7 +1110,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!target || !target.closest) {
       return null;
     }
-    const input = target.closest("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-complex-expression-editor='true']");
+    const input = target.closest("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-complex-expression-editor='true'], [data-foreach-source='true'], [data-foreach-field='true'], [data-foreach-value='true'], [data-foreach-expression='true']");
     if (!input || !document.contains(input) || input.type === "hidden" || input.disabled) {
       return null;
     }
@@ -1181,6 +1245,18 @@ document.addEventListener("DOMContentLoaded", function () {
       scheduleVisualSync();
       return;
     }
+    if (event.target.matches("[data-foreach-kind='true'], [data-foreach-operator='true']")) {
+      const row = event.target.closest("[data-foreach-row='true']");
+      syncForEachRow(row);
+      if (event.target.matches("[data-foreach-operator='true']") && simpleOperatorNeedsValue(event.target.value)) {
+        const valueInput = row ? row.querySelector("[data-foreach-value='true']") : null;
+        if (valueInput && valueInput.value.length === 0) {
+          valueInput.focus();
+        }
+      }
+      scheduleVisualSync();
+      return;
+    }
     if (event.target.matches("[data-simple-operator='true'], [data-builder-mode='true'], [data-group-operator='true'], [data-condition-operator='true']")) {
       updateExpressionOwners(event.target);
       if (event.target.matches("[data-simple-operator='true']") && simpleOperatorNeedsValue(event.target.value)) {
@@ -1223,13 +1299,17 @@ document.addEventListener("DOMContentLoaded", function () {
     if (event.target.matches(".bm-expression-input")) {
       activeExpressionInput = event.target;
     }
-    if (event.target.matches("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true']")) {
+    if (event.target.matches("[data-simple-field='true'], [data-simple-value='true'], [data-condition-left='true'], [data-condition-right='true'], [data-foreach-source='true'], [data-foreach-field='true'], [data-foreach-value='true']")) {
       activeBuilderInput = event.target;
     }
   });
   document.addEventListener("click", function (event) {
     if (event.target.matches("[data-add-assertion='true']")) {
       initializeAssertionRow(cloneTemplate("[data-assertion-template='true']", "[data-assertion-list='true']"));
+      return;
+    }
+    if (event.target.matches("[data-add-foreach='true']")) {
+      initializeForEachRow(cloneTemplate("[data-foreach-template='true']", "[data-foreach-list='true']"));
       return;
     }
     if (event.target.matches("[data-add-condition='true']")) {
@@ -1357,6 +1437,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
   document.querySelectorAll("[data-assertion-row='true']").forEach(initializeAssertionRow);
+  document.querySelectorAll("[data-foreach-row='true']").forEach(initializeForEachRow);
   document.querySelectorAll(".bm-source-field, .bm-source-branch[data-path]").forEach(function (field) {
     field.addEventListener("dragstart", function (event) {
       const path = field.getAttribute("data-path") || "";
@@ -1430,7 +1511,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateExpressionOwners(activeExpressionInput);
         return;
       }
-      if (canWriteToInput(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true']")) {
+      if (canWriteToInput(activeBuilderInput) && activeBuilderInput.matches("[data-simple-value='true'], [data-condition-right='true'], [data-foreach-value='true']")) {
         if (hasTextSelection(activeBuilderInput)) {
           insertIntoExpressionInput(activeBuilderInput, template, true);
         } else {

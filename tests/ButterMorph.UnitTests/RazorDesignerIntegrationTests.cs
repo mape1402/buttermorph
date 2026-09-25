@@ -209,6 +209,43 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that the validation designer saves foreach item rules.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerSavesForEachRule()
+    {
+        FakeButterMorphValidationDesignerHost host = new();
+        HttpClient client = CreateValidationHostClient(host);
+        string html = await client.GetStringAsync("/buttermorph/validations/designer" + QueryMarker() + "context=validation-foreach-save");
+        string token = ExtractToken(html);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=validation-foreach-save&handler=SaveValidationDocument",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ForEachSources", "$invoice.Lines"),
+                new KeyValuePair<string, string>("ForEachAliases", "item"),
+                new KeyValuePair<string, string>("ForEachAssertionKinds", "Simple"),
+                new KeyValuePair<string, string>("ForEachSimpleFieldPaths", "$item.Quantity"),
+                new KeyValuePair<string, string>("ForEachSimpleOperators", "gt"),
+                new KeyValuePair<string, string>("ForEachSimpleValues", "0"),
+                new KeyValuePair<string, string>("ForEachAssertionExpressions", string.Empty),
+                new KeyValuePair<string, string>("ForEachAssertionMessages", "Line quantity must be greater than zero.")
+            ]));
+        string json = await response.Content.ReadAsStringAsync();
+        IValidationForEach forEach = Assert.IsAssignableFrom<IValidationForEach>(Assert.Single(host.LastSaveRequest.Document.Statements));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal("item", forEach.ItemAlias);
+        Assert.Single(forEach.Statements);
+        Assert.Contains("foreach $invoice.Lines as item", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+        Assert.Contains("assert gt($item.Quantity, 0): \"Line quantity must be greater than zero.\"", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that host-configured dark mode renders on designer pages.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

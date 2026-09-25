@@ -112,6 +112,54 @@ public sealed class ValidationDesignerModel : PageModel
     public List<string> AssertionMessages { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets posted foreach source expressions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachSources { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach item aliases.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachAliases { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach assertion kinds.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachAssertionKinds { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach simple field paths.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachSimpleFieldPaths { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach simple operators.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachSimpleOperators { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach simple values.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachSimpleValues { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach assertion expressions.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachAssertionExpressions { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets posted foreach assertion messages.
+    /// </summary>
+    [BindProperty]
+    public List<string> ForEachAssertionMessages { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the DSL editor content.
     /// </summary>
     [BindProperty]
@@ -137,6 +185,11 @@ public sealed class ValidationDesignerModel : PageModel
     /// Gets the current validation assertions.
     /// </summary>
     public IReadOnlyCollection<ValidationAssertionDisplayModel> Assertions { get; private set; } = [];
+
+    /// <summary>
+    /// Gets the current foreach validation blocks.
+    /// </summary>
+    public IReadOnlyCollection<ValidationForEachDisplayModel> ForEachRules { get; private set; } = [];
 
     /// <summary>
     /// Gets validation diagnostics.
@@ -437,6 +490,7 @@ public sealed class ValidationDesignerModel : PageModel
         SourceSchemas = CreateSourceSchemas();
         FunctionCategories = CreateFunctionCategories();
         Assertions = CreateAssertions(document);
+        ForEachRules = CreateForEachRules(document);
 
         if (string.IsNullOrWhiteSpace(DslContent))
         {
@@ -448,16 +502,19 @@ public sealed class ValidationDesignerModel : PageModel
     private IReadOnlyCollection<DiagnosticEntry> SavePostedValidationDocument()
     {
         List<DiagnosticEntry> diagnostics = [];
+        List<IValidationStatement> statements = [];
         List<IValidationAssertion> assertions = [];
 
         SavePostedAssertions(assertions, diagnostics);
+        statements.AddRange(assertions);
+        SavePostedForEachRules(statements, diagnostics);
 
         if (diagnostics.Count > 0)
         {
             return diagnostics;
         }
 
-        IValidationOperationResult result = Session.ReplaceDocument(assertions);
+        IValidationOperationResult result = Session.ReplaceDocumentStatements(statements);
 
         if (!result.Succeeded)
         {
@@ -465,6 +522,88 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return diagnostics;
+    }
+
+    // Saves posted foreach validation blocks.
+    private void SavePostedForEachRules(List<IValidationStatement> statements, List<DiagnosticEntry> diagnostics)
+    {
+        int count = new[]
+        {
+            CountPostedValues(ForEachSources),
+            CountPostedValues(ForEachAliases),
+            CountPostedValues(ForEachAssertionKinds),
+            CountPostedValues(ForEachSimpleFieldPaths),
+            CountPostedValues(ForEachSimpleOperators),
+            CountPostedValues(ForEachSimpleValues),
+            CountPostedValues(ForEachAssertionExpressions),
+            CountPostedValues(ForEachAssertionMessages)
+        }.Max();
+
+        for (int index = 0; index < count; index++)
+        {
+            string source = GetPostedValue(ForEachSources, index).Trim();
+            string alias = ResolveAlias(GetPostedValue(ForEachAliases, index));
+            string kind = NormalizeAssertionKind(GetPostedValue(ForEachAssertionKinds, index));
+            string message = GetPostedValue(ForEachAssertionMessages, index).Trim();
+            string expression = GetPostedValue(ForEachAssertionExpressions, index).Trim();
+
+            if (string.Equals(kind, "Simple", StringComparison.Ordinal))
+            {
+                string fieldPath = GetPostedValue(ForEachSimpleFieldPaths, index).Trim();
+                string operatorKey = NormalizeSimpleOperator(GetPostedValue(ForEachSimpleOperators, index));
+                string value = GetPostedValue(ForEachSimpleValues, index).Trim();
+
+                if (string.IsNullOrWhiteSpace(source) && string.IsNullOrWhiteSpace(fieldPath) && string.IsNullOrWhiteSpace(value) && string.IsNullOrWhiteSpace(message))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(fieldPath))
+                {
+                    diagnostics.Add(CreateDiagnostic("BVDG011", "Foreach validation field is required.", source));
+                    continue;
+                }
+
+                if (RequiresSimpleValue(operatorKey) && string.IsNullOrWhiteSpace(value))
+                {
+                    diagnostics.Add(CreateDiagnostic("BVDG012", "Foreach validation value is required.", fieldPath));
+                    continue;
+                }
+
+                expression = BuildSimpleAssertionExpression(fieldPath, operatorKey, value);
+            }
+            else if (string.IsNullOrWhiteSpace(source) && string.IsNullOrWhiteSpace(expression) && string.IsNullOrWhiteSpace(message))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(source))
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG013", "Foreach source expression is required.", string.Empty));
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG014", "Foreach assertion expression is required.", source));
+                continue;
+            }
+
+            try
+            {
+                IValidationDocument document = ParseValidationDocument(
+                    "validate {" + Environment.NewLine +
+                    "  foreach " + source + " as " + alias + " {" + Environment.NewLine +
+                    "    assert " + expression + ": " + WriteString(string.IsNullOrWhiteSpace(message) ? "Validation assertion failed." : message) + Environment.NewLine +
+                    "  }" + Environment.NewLine +
+                    "}");
+                statements.Add(document.Statements.OfType<IValidationForEach>().First());
+            }
+            catch (FormatException exception)
+            {
+                diagnostics.Add(CreateDiagnostic("BVDG015", exception.Message, source));
+            }
+        }
     }
 
     // Saves posted validation assertions.
@@ -635,6 +774,27 @@ public sealed class ValidationDesignerModel : PageModel
             Kind = "Simple"
         });
         return assertions;
+    }
+
+    // Creates editable foreach rows.
+    private IReadOnlyCollection<ValidationForEachDisplayModel> CreateForEachRules(IValidationDocument document)
+    {
+        List<ValidationForEachDisplayModel> rows = [];
+
+        foreach (IValidationForEach forEach in document.Statements.OfType<IValidationForEach>())
+        {
+            foreach (IValidationAssertion assertion in forEach.Statements.OfType<IValidationAssertion>())
+            {
+                rows.Add(new ValidationForEachDisplayModel
+                {
+                    SourceExpression = ExportExpressionText(forEach.SourceExpression),
+                    Alias = ResolveAlias(forEach.ItemAlias),
+                    Assertion = CreateAssertionDisplay(assertion)
+                });
+            }
+        }
+
+        return rows;
     }
 
     // Creates one editable assertion row from an existing assertion.
@@ -1110,6 +1270,17 @@ public sealed class ValidationDesignerModel : PageModel
         }
 
         return "Complex";
+    }
+
+    // Resolves a safe default foreach item alias.
+    private static string ResolveAlias(string alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            return "item";
+        }
+
+        return alias.Trim();
     }
 
     // Normalizes simple operator aliases.

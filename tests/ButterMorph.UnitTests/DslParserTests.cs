@@ -154,6 +154,31 @@ public sealed class DslParserTests
     }
 
     /// <summary>
+    /// Confirms that validation foreach blocks are parsed with the default item alias shape.
+    /// </summary>
+    [Fact]
+    public void ParseCreatesValidationForEachStatements()
+    {
+        IValidationDocument document = ParseValidation(
+            """
+            validate {
+              foreach $source.orders as item {
+                assert gt($item.total, 0): "Order total must be greater than zero"
+              }
+            }
+            """);
+
+        IValidationForEach forEach = Assert.IsAssignableFrom<IValidationForEach>(Assert.Single(document.Statements));
+        IPathExpression source = Assert.IsAssignableFrom<IPathExpression>(forEach.SourceExpression);
+        IValidationAssertion assertion = Assert.IsAssignableFrom<IValidationAssertion>(Assert.Single(forEach.Statements));
+
+        Assert.Empty(document.Assertions);
+        Assert.Equal("$source.orders", source.Path);
+        Assert.Equal("item", forEach.ItemAlias);
+        Assert.Equal("$item.total", assertion.Path);
+    }
+
+    /// <summary>
     /// Confirms that empty validation documents keep their document type.
     /// </summary>
     [Fact]

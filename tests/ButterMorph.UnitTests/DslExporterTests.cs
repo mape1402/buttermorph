@@ -116,6 +116,49 @@ public sealed class DslExporterTests
     }
 
     /// <summary>
+    /// Confirms that validation foreach statements are exported and parse back.
+    /// </summary>
+    [Fact]
+    public void ValidationExportWritesForEachStatements()
+    {
+        IValidationDocument document = new ValidationDocument
+        {
+            Statements =
+            [
+                new ValidationForEach
+                {
+                    SourceExpression = CreatePath("$source.orders"),
+                    ItemAlias = "item",
+                    Statements =
+                    [
+                        new ValidationAssertion
+                        {
+                            Expression = new FunctionCallExpression
+                            {
+                                FunctionKey = "gt",
+                                Arguments =
+                                [
+                                    CreatePath("$item.total"),
+                                    CreateNumber("0")
+                                ]
+                            },
+                            Message = "Order total must be greater than zero",
+                            Path = "$item.total"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        string dsl = new ValidationDslExporter().Export(document);
+        IValidationDocument parsed = ParseValidation(dsl);
+
+        Assert.Contains("foreach $source.orders as item", dsl, System.StringComparison.Ordinal);
+        Assert.Contains("assert gt($item.total, 0): \"Order total must be greater than zero\"", dsl, System.StringComparison.Ordinal);
+        Assert.IsAssignableFrom<IValidationForEach>(Assert.Single(parsed.Statements));
+    }
+
+    /// <summary>
     /// Confirms that strings are escaped and parse back correctly.
     /// </summary>
     [Fact]

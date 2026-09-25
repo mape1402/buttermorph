@@ -27,6 +27,13 @@ public interface IValidationDesignSession
     IValidationOperationResult ReplaceDocument(IReadOnlyCollection<IValidationAssertion> assertions);
 
     /// <summary>
+    /// Replaces the current validation document.
+    /// </summary>
+    /// <param name="statements">The validation statements.</param>
+    /// <returns>The operation result.</returns>
+    IValidationOperationResult ReplaceDocumentStatements(IReadOnlyCollection<IValidationStatement> statements);
+
+    /// <summary>
     /// Imports validation DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>

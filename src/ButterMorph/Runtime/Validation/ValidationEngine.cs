@@ -3,6 +3,7 @@ namespace ButterMorph.Validation;
 using System;
 using System.Collections.Generic;
 using ButterMorph.Abstractions;
+using ButterMorph.Core;
 
 /// <summary>
 /// Executes validation assertions and schemas against internal structure graphs.
@@ -83,7 +84,7 @@ public sealed class ValidationEngine : IValidationEngine
             return CreateResult(diagnostics);
         }
 
-        ValidateAssertions(graph, scope, request, payloadAlias, diagnostics);
+        ValidateStatements(graph, scope, request, payloadAlias, diagnostics);
 
         return CreateResult(diagnostics);
     }
@@ -114,14 +115,14 @@ public sealed class ValidationEngine : IValidationEngine
         diagnostics.AddRange(schemaResult.Diagnostics);
     }
 
-    private void ValidateAssertions(
+    private void ValidateStatements(
         IStructureGraph graph,
         ValidationScope scope,
         ValidationRequest request,
         string payloadAlias,
         List<DiagnosticEntry> diagnostics)
     {
-        if (scope.Assertions.Count == 0)
+        if (scope.Statements.Count == 0)
         {
             return;
         }
@@ -140,22 +141,48 @@ public sealed class ValidationEngine : IValidationEngine
 
         IExecutionContext executionContext = _executionContextFactory.Create(sources);
         Dictionary<string, IStructureNode> aliases = new(StringComparer.Ordinal);
+        Dictionary<string, string> aliasPaths = new(StringComparer.Ordinal);
 
         foreach (KeyValuePair<string, IStructureGraph> source in sources)
         {
             aliases[source.Key] = source.Value.Root;
+            aliasPaths[source.Key] = "$" + source.Key;
         }
 
-        foreach (IValidationAssertion assertion in scope.Assertions)
+        foreach (IValidationStatement statement in scope.Statements)
         {
-            ValidateAssertion(assertion, executionContext, aliases, payloadAlias, diagnostics);
+            ValidateStatement(statement, executionContext, aliases, aliasPaths, payloadAlias, diagnostics);
         }
+    }
+
+    private void ValidateStatement(
+        IValidationStatement statement,
+        IExecutionContext executionContext,
+        IReadOnlyDictionary<string, IStructureNode> aliases,
+        IReadOnlyDictionary<string, string> aliasPaths,
+        string payloadAlias,
+        List<DiagnosticEntry> diagnostics)
+    {
+        if (statement is IValidationAssertion assertion)
+        {
+            ValidateAssertion(assertion, executionContext, aliases, aliasPaths, payloadAlias, diagnostics);
+            return;
+        }
+
+        if (statement is IValidationForEach forEach)
+        {
+            ValidateForEach(forEach, executionContext, aliases, aliasPaths, payloadAlias, diagnostics);
+            return;
+        }
+
+        diagnostics.Add(CreateDiagnostic("BMVL009", $"Validation statement '{statement.GetType().Name}' is not supported.", string.Empty));
     }
 
     private void ValidateAssertion(
         IValidationAssertion assertion,
         IExecutionContext executionContext,
         IReadOnlyDictionary<string, IStructureNode> aliases,
+        IReadOnlyDictionary<string, string> aliasPaths,
         string payloadAlias,
         List<DiagnosticEntry> diagnostics)
     {
@@ -172,20 +199,112 @@ public sealed class ValidationEngine : IValidationEngine
         }
         catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
         {
-            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, NormalizeAssertionPath(assertion.Path, payloadAlias)));
+            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
             return;
         }
 
         if (!result.Succeeded)
         {
-            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation assertion could not be evaluated.", NormalizeAssertionPath(assertion.Path, payloadAlias)));
+            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation assertion could not be evaluated.", NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
             diagnostics.AddRange(result.Diagnostics);
             return;
         }
 
         if (!IsTruthyBoolean(result.Result))
         {
-            diagnostics.Add(CreateDiagnostic("BMVL004", assertion.Message, NormalizeAssertionPath(assertion.Path, payloadAlias)));
+            diagnostics.Add(CreateDiagnostic("BMVL004", assertion.Message, NormalizeAssertionPath(assertion.Path, payloadAlias, aliasPaths)));
+        }
+    }
+
+    private void ValidateForEach(
+        IValidationForEach forEach,
+        IExecutionContext executionContext,
+        IReadOnlyDictionary<string, IStructureNode> aliases,
+        IReadOnlyDictionary<string, string> aliasPaths,
+        string payloadAlias,
+        List<DiagnosticEntry> diagnostics)
+    {
+        ITransformationExpressionEvaluationResult sourceResult;
+
+        try
+        {
+            sourceResult = _expressionEvaluator.Evaluate(new TransformationExpressionEvaluationContext
+            {
+                ExecutionContext = executionContext,
+                Expression = forEach.SourceExpression,
+                Aliases = aliases
+            });
+        }
+        catch (Exception exception) when (exception is FormatException || exception is KeyNotFoundException || exception is InvalidOperationException || exception is IndexOutOfRangeException)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL005", exception.Message, ResolveForEachPath(forEach, payloadAlias, aliasPaths)));
+            return;
+        }
+
+        if (!sourceResult.Succeeded)
+        {
+            diagnostics.Add(CreateDiagnostic("BMVL005", "Validation foreach source could not be evaluated.", ResolveForEachPath(forEach, payloadAlias, aliasPaths)));
+            diagnostics.AddRange(sourceResult.Diagnostics);
+            return;
+        }
+
+        if (sourceResult.Result is IStructureNodeCollectionFunctionResult nodeCollection)
+        {
+            ValidateForEachNodes(forEach, executionContext, aliases, aliasPaths, payloadAlias, nodeCollection.Nodes, diagnostics);
+            return;
+        }
+
+        if (sourceResult.Result is IScalarCollectionFunctionResult scalarCollection)
+        {
+            List<IStructureNode> scalarNodes = [];
+            int scalarIndex = 0;
+
+            foreach (IScalarValue value in scalarCollection.Values)
+            {
+                scalarNodes.Add(new ScalarStructureNode
+                {
+                    Name = scalarIndex.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Value = value
+                });
+                scalarIndex++;
+            }
+
+            ValidateForEachNodes(forEach, executionContext, aliases, aliasPaths, payloadAlias, scalarNodes, diagnostics);
+            return;
+        }
+
+        diagnostics.Add(CreateDiagnostic("BMVL009", "Validation foreach source must evaluate to a collection.", ResolveForEachPath(forEach, payloadAlias, aliasPaths)));
+    }
+
+    private void ValidateForEachNodes(
+        IValidationForEach forEach,
+        IExecutionContext executionContext,
+        IReadOnlyDictionary<string, IStructureNode> aliases,
+        IReadOnlyDictionary<string, string> aliasPaths,
+        string payloadAlias,
+        IReadOnlyCollection<IStructureNode> nodes,
+        List<DiagnosticEntry> diagnostics)
+    {
+        string alias = ResolvePayloadAlias(forEach.ItemAlias, "item");
+        int index = 0;
+
+        foreach (IStructureNode node in nodes)
+        {
+            Dictionary<string, IStructureNode> childAliases = new(aliases, StringComparer.Ordinal)
+            {
+                [alias] = node
+            };
+            Dictionary<string, string> childAliasPaths = new(aliasPaths, StringComparer.Ordinal)
+            {
+                [alias] = CreateIndexedForEachPath(forEach, index, aliasPaths)
+            };
+
+            foreach (IValidationStatement statement in forEach.Statements)
+            {
+                ValidateStatement(statement, executionContext, childAliases, childAliasPaths, payloadAlias, diagnostics);
+            }
+
+            index++;
         }
     }
 
@@ -206,14 +325,14 @@ public sealed class ValidationEngine : IValidationEngine
             return new ValidationScope
             {
                 HasValidationDocument = true,
-                Assertions = validationDocument.Assertions
+                Statements = validationDocument.Statements
             };
         }
 
         return new ValidationScope
         {
             HasValidationDocument = false,
-            Assertions = []
+            Statements = []
         };
     }
 
@@ -259,12 +378,14 @@ public sealed class ValidationEngine : IValidationEngine
         return alias.TrimStart('$');
     }
 
-    private static string NormalizeAssertionPath(string path, string payloadAlias)
+    private static string NormalizeAssertionPath(string path, string payloadAlias, IReadOnlyDictionary<string, string> aliasPaths)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
             return string.Empty;
         }
+
+        path = ResolveAliasPath(path, aliasPaths);
 
         string prefix = "$" + payloadAlias + ".";
 
@@ -279,6 +400,58 @@ public sealed class ValidationEngine : IValidationEngine
         }
 
         return path;
+    }
+
+    private static string ResolveAliasPath(string path, IReadOnlyDictionary<string, string> aliasPaths)
+    {
+        if (!path.StartsWith("$", StringComparison.Ordinal))
+        {
+            return path;
+        }
+
+        string withoutPrefix = path[1..];
+        int endIndex = withoutPrefix.Length;
+        int dotIndex = withoutPrefix.IndexOf('.', StringComparison.Ordinal);
+        int bracketIndex = withoutPrefix.IndexOf('[', StringComparison.Ordinal);
+
+        if (dotIndex >= 0)
+        {
+            endIndex = Math.Min(endIndex, dotIndex);
+        }
+
+        if (bracketIndex >= 0)
+        {
+            endIndex = Math.Min(endIndex, bracketIndex);
+        }
+
+        string alias = withoutPrefix[..endIndex];
+
+        if (!aliasPaths.TryGetValue(alias, out string aliasPath))
+        {
+            return path;
+        }
+
+        return aliasPath + withoutPrefix[endIndex..];
+    }
+
+    private static string ResolveForEachPath(IValidationForEach forEach, string payloadAlias, IReadOnlyDictionary<string, string> aliasPaths)
+    {
+        if (forEach.SourceExpression is IPathExpression pathExpression)
+        {
+            return NormalizeAssertionPath(pathExpression.Path, payloadAlias, aliasPaths);
+        }
+
+        return string.Empty;
+    }
+
+    private static string CreateIndexedForEachPath(IValidationForEach forEach, int index, IReadOnlyDictionary<string, string> aliasPaths)
+    {
+        if (forEach.SourceExpression is IPathExpression pathExpression)
+        {
+            return ResolveAliasPath(pathExpression.Path, aliasPaths) + "[" + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "]";
+        }
+
+        return "$" + ResolvePayloadAlias(forEach.ItemAlias, "item") + "[" + index.ToString(System.Globalization.CultureInfo.InvariantCulture) + "]";
     }
 
     // Creates an error diagnostic for validation orchestration failures.
@@ -297,6 +470,6 @@ public sealed class ValidationEngine : IValidationEngine
     {
         internal bool HasValidationDocument { get; set; }
 
-        internal IReadOnlyCollection<IValidationAssertion> Assertions { get; set; } = [];
+        internal IReadOnlyCollection<IValidationStatement> Statements { get; set; } = [];
     }
 }
