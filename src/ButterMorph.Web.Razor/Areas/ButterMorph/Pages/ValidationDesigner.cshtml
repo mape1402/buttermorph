@@ -611,5 +611,75 @@
             </div>
         </div>
     </template>
+
+    <template data-condition-when-template="true">
+        <div class="bm-condition-when" data-condition-when="true">
+            <div class="bm-condition-when-header">
+                <strong>If / then / else</strong>
+                <button type="button" data-remove-when="true">Remove if</button>
+            </div>
+            <section class="bm-condition-branch" data-when-branch="condition">
+                <h4>If</h4>
+                <div class="bm-condition-group" data-condition-group="true" data-when-part="condition">
+                    <div class="bm-condition-group-header">
+                        <label>
+                            Combine
+                            <select data-group-operator="true">
+                                <option value="and">All conditions</option>
+                                <option value="or">Any condition</option>
+                            </select>
+                        </label>
+                        <div class="bm-condition-actions">
+                            <button type="button" data-add-condition="true">Add condition</button>
+                            <button type="button" data-add-group="true">Add group</button>
+                        </div>
+                    </div>
+                    <div class="bm-condition-list" data-condition-list="true"></div>
+                </div>
+            </section>
+            <div class="bm-condition-branch-actions">
+                <button type="button" data-show-when-branch="then">Add then</button>
+                <button type="button" data-show-when-branch="else">Add else</button>
+            </div>
+            <section class="bm-condition-branch" data-when-branch="then" hidden>
+                <h4>Then</h4>
+                <div class="bm-condition-group" data-condition-group="true" data-when-part="then">
+                    <div class="bm-condition-group-header">
+                        <label>
+                            Combine
+                            <select data-group-operator="true">
+                                <option value="and">All conditions</option>
+                                <option value="or">Any condition</option>
+                            </select>
+                        </label>
+                        <div class="bm-condition-actions">
+                            <button type="button" data-add-condition="true">Add condition</button>
+                            <button type="button" data-add-group="true">Add group</button>
+                        </div>
+                    </div>
+                    <div class="bm-condition-list" data-condition-list="true"></div>
+                </div>
+            </section>
+            <section class="bm-condition-branch" data-when-branch="else" hidden>
+                <h4>Else</h4>
+                <div class="bm-condition-group" data-condition-group="true" data-when-part="else">
+                    <div class="bm-condition-group-header">
+                        <label>
+                            Combine
+                            <select data-group-operator="true">
+                                <option value="and">All conditions</option>
+                                <option value="or">Any condition</option>
+                            </select>
+                        </label>
+                        <div class="bm-condition-actions">
+                            <button type="button" data-add-condition="true">Add condition</button>
+                            <button type="button" data-add-group="true">Add group</button>
+                        </div>
+                    </div>
+                    <div class="bm-condition-list" data-condition-list="true"></div>
+                </div>
+            </section>
+        </div>
+    </template>
 </body>
 </html>

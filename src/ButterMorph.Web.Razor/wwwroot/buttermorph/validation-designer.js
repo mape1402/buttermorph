@@ -765,6 +765,8 @@ document.addEventListener("DOMContentLoaded", function () {
         expression = readConditionExpression(child);
       } else if (child.matches("[data-condition-group='true']")) {
         expression = readConditionGroupExpression(child);
+      } else if (child.matches("[data-condition-when='true']")) {
+        expression = readConditionWhenExpression(child);
       }
       if (expression.length > 0) {
         parts.push(expression);
@@ -783,6 +785,86 @@ document.addEventListener("DOMContentLoaded", function () {
     return panel ? getDirectChild(panel, "[data-condition-group='true']") : null;
   }
 
+  function createBuilderButton(text, attributeName) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.setAttribute(attributeName, "true");
+    return button;
+  }
+
+  function getWhenBranch(scope, branchName) {
+    return scope ? getDirectChild(scope, "[data-when-branch='" + branchName + "']") : null;
+  }
+
+  function getWhenBranchGroup(scope, branchName) {
+    const branch = getWhenBranch(scope, branchName);
+    return branch ? getDirectChild(branch, "[data-condition-group='true']") : null;
+  }
+
+  function getWhenScopes(root) {
+    const scopes = [];
+    if (!root || !root.querySelectorAll) {
+      return scopes;
+    }
+    if (root.matches && (root.matches("[data-condition-when='true']") || root.matches("[data-builder-panel='when']"))) {
+      scopes.push(root);
+    }
+    root.querySelectorAll("[data-condition-when='true'], [data-builder-panel='when']").forEach(function (scope) {
+      if (scopes.indexOf(scope) < 0) {
+        scopes.push(scope);
+      }
+    });
+    return scopes;
+  }
+
+  function getWhenScope(element) {
+    return element ? element.closest("[data-condition-when='true'], [data-builder-panel='when']") : null;
+  }
+
+  function ensureConditionGroupActionButtons(root) {
+    if (!root || !root.querySelectorAll) {
+      return;
+    }
+    root.querySelectorAll("[data-condition-group='true']").forEach(function (group) {
+      const header = getDirectChild(group, ".bm-condition-group-header");
+      const actions = header ? header.querySelector(".bm-condition-actions") : null;
+      const addGroup = actions ? actions.querySelector("[data-add-group='true']") : null;
+      if (!actions || actions.querySelector("[data-add-when='true']")) {
+        return;
+      }
+      const button = createBuilderButton("Add if", "data-add-when");
+      if (addGroup && addGroup.nextSibling) {
+        actions.insertBefore(button, addGroup.nextSibling);
+      } else {
+        actions.appendChild(button);
+      }
+    });
+  }
+
+  function ensureWhenBranchControls(root) {
+    getWhenScopes(root).forEach(function (scope) {
+      ["then", "else"].forEach(function (branchName) {
+        const group = getWhenBranchGroup(scope, branchName);
+        const header = group ? getDirectChild(group, ".bm-condition-group-header") : null;
+        const actions = header ? header.querySelector(".bm-condition-actions") : null;
+        if (!actions || actions.querySelector("[data-remove-when-branch='" + branchName + "']")) {
+          return;
+        }
+        const button = createBuilderButton("Remove " + branchName, "data-remove-when-branch");
+        button.setAttribute("data-remove-when-branch", branchName);
+        button.className = "bm-condition-branch-remove";
+        actions.appendChild(button);
+      });
+    });
+  }
+
+  function ensureConditionBuilderControls(root) {
+    ensureConditionGroupActionButtons(root);
+    ensureWhenBranchControls(root);
+    updateWhenBranchActions(root);
+  }
+
   function updateBuilderPanels(builder) {
     const mode = builder.querySelector("[data-builder-mode='true']");
     const activeMode = mode ? mode.value : "group";
@@ -790,32 +872,61 @@ document.addEventListener("DOMContentLoaded", function () {
       panel.hidden = panel.getAttribute("data-builder-panel") !== activeMode;
     });
     if (activeMode === "when") {
-      ensureConditionListHasRow(getDirectChild(builder.querySelector("[data-when-part='condition']"), "[data-condition-list='true']"));
+      const whenPanel = builder.querySelector("[data-builder-panel='when']");
+      const conditionGroup = getWhenBranchGroup(whenPanel, "condition");
+      ensureConditionListHasRow(getDirectChild(conditionGroup, "[data-condition-list='true']"));
     }
-    updateWhenBranchActions(builder);
+    ensureConditionBuilderControls(builder);
   }
 
   function ensureConditionListHasRow(list) {
-    if (!list || getDirectChild(list, "[data-condition-row='true'], [data-condition-group='true']")) {
+    if (!list || getDirectChild(list, "[data-condition-row='true'], [data-condition-group='true'], [data-condition-when='true']")) {
       return null;
     }
     return addConditionToList(list);
   }
 
   function isWhenBranchEnabled(group) {
+    if (!group) {
+      return false;
+    }
     const branch = group ? group.closest("[data-when-branch]") : null;
     return !branch || !branch.hidden;
   }
 
-  function updateWhenBranchActions(builder) {
-    if (!builder) {
+  function updateWhenBranchActions(root) {
+    if (!root) {
       return;
     }
-    builder.querySelectorAll("[data-show-when-branch]").forEach(function (button) {
-      const branchName = button.getAttribute("data-show-when-branch");
-      const branch = branchName ? builder.querySelector("[data-when-branch='" + branchName + "']") : null;
-      button.hidden = !branch || !branch.hidden;
+    getWhenScopes(root).forEach(function (scope) {
+      const actions = getDirectChild(scope, ".bm-condition-branch-actions");
+      if (!actions) {
+        return;
+      }
+      actions.querySelectorAll("[data-show-when-branch]").forEach(function (button) {
+        const branchName = button.getAttribute("data-show-when-branch");
+        const branch = branchName ? getWhenBranch(scope, branchName) : null;
+        button.hidden = !branch || !branch.hidden;
+      });
     });
+  }
+
+  function readConditionWhenExpression(scope) {
+    if (!scope || scope.hidden) {
+      return "";
+    }
+    const conditionGroup = getWhenBranchGroup(scope, "condition");
+    const thenGroup = getWhenBranchGroup(scope, "then");
+    const elseGroup = getWhenBranchGroup(scope, "else");
+    const condition = readConditionGroupExpression(conditionGroup);
+    const thenEnabled = isWhenBranchEnabled(thenGroup);
+    const elseEnabled = isWhenBranchEnabled(elseGroup);
+    const thenExpression = thenEnabled ? readConditionGroupExpression(thenGroup) : "";
+    const elseExpression = elseEnabled ? readConditionGroupExpression(elseGroup) : "";
+    if (condition.length > 0 && (thenEnabled || elseEnabled)) {
+      return "when(" + condition + ", " + (thenExpression || "true") + ", " + (elseExpression || "true") + ")";
+    }
+    return condition;
   }
 
   function updateBuilderExpression(builder) {
@@ -826,30 +937,18 @@ document.addEventListener("DOMContentLoaded", function () {
     let expression = "";
     updateBuilderPanels(builder);
     if (mode && mode.value === "when") {
-      const conditionGroup = builder.querySelector("[data-when-part='condition']");
-      const thenGroup = builder.querySelector("[data-when-part='then']");
-      const elseGroup = builder.querySelector("[data-when-part='else']");
-      const condition = readConditionGroupExpression(conditionGroup);
-      const thenEnabled = isWhenBranchEnabled(thenGroup);
-      const elseEnabled = isWhenBranchEnabled(elseGroup);
-      const thenExpression = thenEnabled ? readConditionGroupExpression(thenGroup) : "";
-      const elseExpression = elseEnabled ? readConditionGroupExpression(elseGroup) : "";
-      if (condition.length > 0 && (thenEnabled || elseEnabled)) {
-        expression = "when(" + condition + ", " + (thenExpression || "true") + ", " + (elseExpression || "true") + ")";
-      } else {
-        expression = condition;
-      }
+      expression = readConditionWhenExpression(builder.querySelector("[data-builder-panel='when']"));
     } else {
       expression = readConditionGroupExpression(findPanelRootGroup(builder.querySelector("[data-builder-panel='group']")));
     }
-    if (expression.length > 0) {
-      if (editor) {
-        editor.value = expression;
+    if (editor) {
+      editor.value = expression;
+      if (expression.length > 0) {
         activeExpressionInput = editor;
       }
-      if (output) {
-        output.value = expression;
-      }
+    }
+    if (output) {
+      output.value = expression;
     }
   }
 
@@ -857,6 +956,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const condition = cloneTemplateElement("[data-condition-row-template='true']");
     if (condition) {
       list.appendChild(condition);
+      updateConditionValueVisibility(condition);
     }
     return condition;
   }
@@ -865,8 +965,19 @@ document.addEventListener("DOMContentLoaded", function () {
     const group = cloneTemplateElement("[data-condition-group-template='true']");
     if (group) {
       list.appendChild(group);
+      ensureConditionBuilderControls(group);
     }
     return group;
+  }
+
+  function addWhenToList(list) {
+    const whenNode = cloneTemplateElement("[data-condition-when-template='true']");
+    if (whenNode) {
+      list.appendChild(whenNode);
+      ensureConditionBuilderControls(whenNode);
+      ensureConditionListHasRow(getDirectChild(getWhenBranchGroup(whenNode, "condition"), "[data-condition-list='true']"));
+    }
+    return whenNode;
   }
 
   function syncAssertionRow(row) {
@@ -1149,19 +1260,61 @@ document.addEventListener("DOMContentLoaded", function () {
       scheduleVisualSync();
       return;
     }
+    if (event.target.matches("[data-add-when='true']")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const group = event.target.closest("[data-condition-group='true']");
+      const list = getDirectChild(group, "[data-condition-list='true']");
+      const whenNode = list ? addWhenToList(list) : null;
+      if (whenNode) {
+        const firstInput = whenNode.querySelector("[data-condition-left='true']");
+        if (firstInput) {
+          firstInput.focus();
+        }
+      }
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
     if (event.target.matches("[data-show-when-branch]")) {
       const builder = event.target.closest("[data-condition-builder='true']");
+      const whenScope = getWhenScope(event.target);
       const branchName = event.target.getAttribute("data-show-when-branch");
-      const branch = builder && branchName ? builder.querySelector("[data-when-branch='" + branchName + "']") : null;
+      const branch = branchName ? getWhenBranch(whenScope, branchName) : null;
       if (branch) {
         branch.hidden = false;
-        ensureConditionListHasRow(branch.querySelector("[data-condition-list='true']"));
+        ensureConditionListHasRow(getDirectChild(getWhenBranchGroup(whenScope, branchName), "[data-condition-list='true']"));
         const firstInput = branch.querySelector("[data-condition-left='true']");
         if (firstInput) {
           firstInput.focus();
         }
       }
-      updateWhenBranchActions(builder);
+      updateWhenBranchActions(whenScope);
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-remove-when-branch]")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const branch = event.target.closest("[data-when-branch]");
+      const whenScope = getWhenScope(event.target);
+      const list = branch ? branch.querySelector("[data-condition-list='true']") : null;
+      if (list) {
+        list.innerHTML = "";
+      }
+      if (branch) {
+        branch.hidden = true;
+      }
+      updateWhenBranchActions(whenScope);
+      updateBuilderExpression(builder);
+      scheduleVisualSync();
+      return;
+    }
+    if (event.target.matches("[data-remove-when='true']")) {
+      const builder = event.target.closest("[data-condition-builder='true']");
+      const whenNode = event.target.closest("[data-condition-when='true']");
+      if (whenNode) {
+        whenNode.remove();
+      }
       updateBuilderExpression(builder);
       scheduleVisualSync();
       return;

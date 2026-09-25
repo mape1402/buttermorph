@@ -2314,6 +2314,42 @@ li.CodeMirror-hint-active {
   background-color: rgba(99, 102, 241, 0.04);
 }
 
+.bm-condition-when {
+  background-color: #f8f9ff;
+  border: 1px dashed #cdd5f8;
+  border-radius: 7px;
+  display: grid;
+  gap: 0.32rem;
+  padding: 0.38rem;
+}
+
+.bm-condition-when-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bm-condition-when-header strong {
+  color: #3730a3;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.bm-condition-when-header button,
+.bm-condition-branch-remove {
+  background-color: #fff7f7 !important;
+  border-color: #f2caca !important;
+  color: #9f1d1d !important;
+}
+
+.bm-condition-when-header button:hover,
+.bm-condition-branch-remove:hover {
+  background-color: #fee2e2 !important;
+  border-color: #f0a8a8 !important;
+  color: #7f1d1d !important;
+}
+
 .bm-condition-group-header {
   align-items: end;
   display: grid;
