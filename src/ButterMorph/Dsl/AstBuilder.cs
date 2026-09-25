@@ -21,7 +21,7 @@ internal sealed class AstBuilder
     internal IDslDocument Build(DocumentNode node)
     {
         bool hasMappings = node.Assignments.Count > 0;
-        bool hasValidations = node.HasValidationBlock || node.ValidationAssertions.Count > 0;
+        bool hasValidations = node.HasValidationBlock || node.ValidationStatements.Count > 0 || node.ValidationAssertions.Count > 0;
 
         if (hasMappings && hasValidations)
         {
@@ -59,17 +59,44 @@ internal sealed class AstBuilder
         IValidationDocumentBuilder builder = ButterMorphModel.CreateValidationDocument()
             .WithDefinition(_definition);
 
-        foreach (ValidationAssertionNode assertion in node.ValidationAssertions)
+        foreach (AstNode statement in node.ValidationStatements)
         {
-            builder.WithAssertion(new ValidationAssertion
+            builder.WithStatement(BuildValidationStatement(statement));
+        }
+
+        return builder.Build();
+    }
+
+    private IValidationStatement BuildValidationStatement(AstNode node)
+    {
+        if (node is ValidationAssertionNode assertion)
+        {
+            return new ValidationAssertion
             {
                 Expression = BuildExpression(assertion.Expression),
                 Message = assertion.Message,
                 Path = assertion.Path
-            });
+            };
         }
 
-        return builder.Build();
+        if (node is ValidationForEachNode forEach)
+        {
+            List<IValidationStatement> statements = [];
+
+            foreach (AstNode statement in forEach.Statements)
+            {
+                statements.Add(BuildValidationStatement(statement));
+            }
+
+            return new ValidationForEach
+            {
+                SourceExpression = BuildExpression(forEach.SourceExpression),
+                ItemAlias = string.IsNullOrWhiteSpace(forEach.ItemAlias) ? "item" : forEach.ItemAlias,
+                Statements = statements
+            };
+        }
+
+        throw new InvalidOperationException($"Unsupported validation statement '{node.GetType().Name}'.");
     }
 
     private ITransformationExpression BuildExpression(AstNode node)

@@ -382,6 +382,11 @@ public sealed class TransformationExpressionEvaluator : ITransformationExpressio
     {
         if (path.StartsWith("$", StringComparison.Ordinal))
         {
+            if (TryResolveDollarAliasPath(context, path, out IStructureNode resolvedAliasNode))
+            {
+                return resolvedAliasNode;
+            }
+
             return _navigationEngine.Select(context.ExecutionContext, path);
         }
 
@@ -406,6 +411,38 @@ public sealed class TransformationExpressionEvaluator : ITransformationExpressio
         }
 
         return _pathResolver.Resolve(aliasNode, remainder);
+    }
+
+    // Resolves paths like $item.Total when item is a scoped alias.
+    private bool TryResolveDollarAliasPath(TransformationExpressionEvaluationContext context, string path, out IStructureNode node)
+    {
+        string withoutPrefix = path[1..];
+        int endIndex = withoutPrefix.Length;
+        int dotIndex = withoutPrefix.IndexOf('.', StringComparison.Ordinal);
+
+        if (dotIndex >= 0)
+        {
+            endIndex = dotIndex;
+        }
+
+        string alias = withoutPrefix[..endIndex];
+
+        if (!context.Aliases.TryGetValue(alias, out IStructureNode aliasNode))
+        {
+            node = null;
+            return false;
+        }
+
+        string remainder = dotIndex >= 0 ? withoutPrefix[(dotIndex + 1)..] : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(remainder))
+        {
+            node = aliasNode;
+            return true;
+        }
+
+        node = _pathResolver.Resolve(aliasNode, remainder);
+        return true;
     }
 
     // Converts a resolved structure node into a function-shaped expression result.

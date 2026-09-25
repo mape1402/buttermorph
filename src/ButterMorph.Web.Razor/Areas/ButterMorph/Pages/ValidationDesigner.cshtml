@@ -354,6 +354,78 @@
                                 </div>
                             }
                         </div>
+                        <div class="bm-validation-section-header bm-validation-subsection-header">
+                            <h3>For each item</h3>
+                            <div class="bm-validation-section-actions">
+                                <button type="button" data-add-foreach="true">Add foreach</button>
+                            </div>
+                        </div>
+                        <div class="bm-validation-grid" data-foreach-list="true">
+                            @foreach (var rule in Model.ForEachRules)
+                            {
+                                <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="@(rule.Assertion.Kind == "Simple" ? "simple" : "advanced")">
+                                    <div class="bm-validation-row-top bm-foreach-row-top">
+                                        <label>
+                                            For each
+                                            <input name="ForEachSources" value="@rule.SourceExpression" data-foreach-source="true" data-validation-input="true" />
+                                        </label>
+                                        <label>
+                                            As
+                                            <input name="ForEachAliases" value="@rule.Alias" data-foreach-alias="true" data-validation-input="true" />
+                                        </label>
+                                        <label>
+                                            Error message
+                                            <input name="ForEachAssertionMessages" value="@rule.Assertion.Message" data-validation-input="true" />
+                                        </label>
+                                        <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+                                    </div>
+                                    <div class="bm-validation-row-top">
+                                        <label>
+                                            Type
+                                            <select name="ForEachAssertionKinds" data-foreach-kind="true" data-validation-input="true">
+                                                <option value="Simple" selected="@(rule.Assertion.Kind == "Simple" ? "selected" : null)">Field rule</option>
+                                                <option value="Complex" selected="@(rule.Assertion.Kind != "Simple" ? "selected" : null)">Advanced rule</option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                    <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="@(rule.Assertion.RequiresValue ? "true" : "false")" hidden="@(rule.Assertion.Kind != "Simple")">
+                                        <label>
+                                            Field to validate
+                                            <input name="ForEachSimpleFieldPaths" value="@rule.Assertion.FieldPath" data-foreach-field="true" data-validation-input="true" />
+                                        </label>
+                                        <label>
+                                            Rule
+                                            <select name="ForEachSimpleOperators" data-foreach-operator="true" data-validation-input="true">
+                                                <option value="exists" selected="@(rule.Assertion.Operator == "exists" ? "selected" : null)">required / exists</option>
+                                                <option value="notEmpty" selected="@(rule.Assertion.Operator == "notEmpty" ? "selected" : null)">not empty</option>
+                                                <option value="isEmpty" selected="@(rule.Assertion.Operator == "isEmpty" ? "selected" : null)">is empty</option>
+                                                <option value="eq" selected="@(rule.Assertion.Operator == "eq" ? "selected" : null)">equals</option>
+                                                <option value="neq" selected="@(rule.Assertion.Operator == "neq" ? "selected" : null)">not equals</option>
+                                                <option value="gt" selected="@(rule.Assertion.Operator == "gt" ? "selected" : null)">greater than</option>
+                                                <option value="gte" selected="@(rule.Assertion.Operator == "gte" ? "selected" : null)">greater or equal</option>
+                                                <option value="lt" selected="@(rule.Assertion.Operator == "lt" ? "selected" : null)">less than</option>
+                                                <option value="lte" selected="@(rule.Assertion.Operator == "lte" ? "selected" : null)">less or equal</option>
+                                                <option value="contains" selected="@(rule.Assertion.Operator == "contains" ? "selected" : null)">contains</option>
+                                                <option value="startsWith" selected="@(rule.Assertion.Operator == "startsWith" ? "selected" : null)">starts with</option>
+                                                <option value="endsWith" selected="@(rule.Assertion.Operator == "endsWith" ? "selected" : null)">ends with</option>
+                                                <option value="regexMatch" selected="@(rule.Assertion.Operator == "regexMatch" ? "selected" : null)">matches regex</option>
+                                            </select>
+                                        </label>
+                                        <label data-foreach-value-wrapper="true" hidden="@(!rule.Assertion.RequiresValue ? "hidden" : null)">
+                                            Value
+                                            <input name="ForEachSimpleValues" value="@rule.Assertion.Value" data-foreach-value="true" data-validation-input="true" />
+                                        </label>
+                                    </div>
+                                    <div class="bm-complex-assertion-panel" data-foreach-complex-panel="true" hidden="@(rule.Assertion.Kind == "Simple")">
+                                        <label>
+                                            Expression
+                                            <textarea class="bm-expression-input" rows="3" data-foreach-expression="true" data-validation-input="true">@rule.Assertion.Expression</textarea>
+                                        </label>
+                                    </div>
+                                    <input type="hidden" name="ForEachAssertionExpressions" value="@rule.Assertion.Expression" data-foreach-expression-output="true" data-validation-input="true" />
+                                </div>
+                            }
+                        </div>
                     </section>
                 </form>
             </section>
@@ -545,6 +617,70 @@
                 </details>
                 <textarea class="bm-expression-input bm-hidden-expression-store" rows="1" data-complex-expression-editor="true" data-validation-input="true" hidden></textarea>
             </div>
+        </div>
+    </template>
+
+    <template data-foreach-template="true">
+        <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="simple">
+            <div class="bm-validation-row-top bm-foreach-row-top">
+                <label>
+                    For each
+                    <input name="ForEachSources" data-foreach-source="true" data-validation-input="true" />
+                </label>
+                <label>
+                    As
+                    <input name="ForEachAliases" value="item" data-foreach-alias="true" data-validation-input="true" />
+                </label>
+                <label>
+                    Error message
+                    <input name="ForEachAssertionMessages" data-validation-input="true" />
+                </label>
+                <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
+            </div>
+            <div class="bm-validation-row-top">
+                <label>
+                    Type
+                    <select name="ForEachAssertionKinds" data-foreach-kind="true" data-validation-input="true">
+                        <option value="Simple" selected>Field rule</option>
+                        <option value="Complex">Advanced rule</option>
+                    </select>
+                </label>
+            </div>
+            <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="false">
+                <label>
+                    Field to validate
+                    <input name="ForEachSimpleFieldPaths" data-foreach-field="true" data-validation-input="true" />
+                </label>
+                <label>
+                    Rule
+                    <select name="ForEachSimpleOperators" data-foreach-operator="true" data-validation-input="true">
+                        <option value="exists">required / exists</option>
+                        <option value="notEmpty">not empty</option>
+                        <option value="isEmpty">is empty</option>
+                        <option value="eq">equals</option>
+                        <option value="neq">not equals</option>
+                        <option value="gt">greater than</option>
+                        <option value="gte">greater or equal</option>
+                        <option value="lt">less than</option>
+                        <option value="lte">less or equal</option>
+                        <option value="contains">contains</option>
+                        <option value="startsWith">starts with</option>
+                        <option value="endsWith">ends with</option>
+                        <option value="regexMatch">matches regex</option>
+                    </select>
+                </label>
+                <label data-foreach-value-wrapper="true" hidden>
+                    Value
+                    <input name="ForEachSimpleValues" data-foreach-value="true" data-validation-input="true" />
+                </label>
+            </div>
+            <div class="bm-complex-assertion-panel" data-foreach-complex-panel="true" hidden>
+                <label>
+                    Expression
+                    <textarea class="bm-expression-input" rows="3" data-foreach-expression="true" data-validation-input="true"></textarea>
+                </label>
+            </div>
+            <input type="hidden" name="ForEachAssertionExpressions" data-foreach-expression-output="true" data-validation-input="true" />
         </div>
     </template>
 

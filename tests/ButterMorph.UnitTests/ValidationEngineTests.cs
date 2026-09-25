@@ -192,6 +192,51 @@ public sealed class ValidationEngineTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMVL004" && diagnostic.Path == "$order.total");
     }
 
+    /// <summary>
+    /// Confirms that foreach validation statements evaluate every collection item with the item alias.
+    /// </summary>
+    [Fact]
+    public void ValidateExecutesForEachStatementsWithItemAlias()
+    {
+        ValidationEngine engine = CreateEngineWithAssertions(new ValidationRuleRegistry());
+        IStructureGraph graph = ReadJson("{\"orders\":[{\"total\":12},{\"total\":0}]}");
+        ValidationRequest request = new()
+        {
+            SourceGraph = graph,
+            PayloadAlias = "source",
+            Sources = new Dictionary<string, IStructureGraph>
+            {
+                ["source"] = graph
+            },
+            Definition = new ValidationDocument
+            {
+                Statements =
+                [
+                    new ValidationForEach
+                    {
+                        SourceExpression = Path("$source.orders"),
+                        ItemAlias = "item",
+                        Statements =
+                        [
+                            new ValidationAssertion
+                            {
+                                Expression = Function("gt", Path("$item.total"), Number("0")),
+                                Message = "Order total must be greater than zero.",
+                                Path = "$item.total"
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        ValidationResult result = engine.Validate(request);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "BMVL004" && diagnostic.Path == "orders[1].total");
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Path == "orders[0].total");
+    }
+
     // Creates a validation engine with real path resolution.
     private static ValidationEngine CreateEngine(IValidationRuleRegistry registry)
     {

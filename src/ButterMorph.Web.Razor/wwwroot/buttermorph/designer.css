@@ -2232,6 +2232,12 @@ li.CodeMirror-hint-active {
   gap: 0.5rem;
 }
 
+.bm-validation-subsection-header {
+  border-top: 1px solid #e6e9f4;
+  margin-top: 0.15rem;
+  padding-top: 0.55rem;
+}
+
 .bm-validation-row {
   background-color: #ffffff;
   border: 1px solid #d8dceb;
@@ -2264,12 +2270,27 @@ li.CodeMirror-hint-active {
   top: 0.64rem;
 }
 
+.bm-validation-row-foreach {
+  border-left-color: rgba(14, 116, 144, 0.72);
+}
+
+.bm-validation-row-foreach::before {
+  background: #ecfeff;
+  border-color: #bae6fd;
+  color: #0e7490;
+  content: "F" counter(validation-rule);
+}
+
 .bm-validation-row-top {
   align-items: end;
   display: grid;
   gap: 0.42rem;
   grid-template-columns: minmax(120px, 0.35fr) minmax(240px, 1fr) auto;
   padding: 0;
+}
+
+.bm-foreach-row-top {
+  grid-template-columns: minmax(220px, 1fr) minmax(80px, 120px) minmax(220px, 1fr) auto;
 }
 
 .bm-simple-rule-panel {

@@ -11,8 +11,8 @@ public sealed class ValidationDocumentBuilder : IValidationDocumentBuilder
     // Stores the optional DSL definition associated with the document.
     private IDslDefinition _definition = new DslDefinition();
 
-    // Stores validation assertions in insertion order.
-    private readonly List<IValidationAssertion> _assertions = [];
+    // Stores validation statements in insertion order.
+    private readonly List<IValidationStatement> _statements = [];
 
     /// <summary>
     /// Sets the source DSL definition.
@@ -32,7 +32,18 @@ public sealed class ValidationDocumentBuilder : IValidationDocumentBuilder
     /// <returns>The current builder.</returns>
     public IValidationDocumentBuilder WithAssertion(IValidationAssertion assertion)
     {
-        _assertions.Add(assertion);
+        _statements.Add(assertion);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an executable validation statement.
+    /// </summary>
+    /// <param name="statement">The validation statement.</param>
+    /// <returns>The current builder.</returns>
+    public IValidationDocumentBuilder WithStatement(IValidationStatement statement)
+    {
+        _statements.Add(statement);
         return this;
     }
 
@@ -45,7 +56,7 @@ public sealed class ValidationDocumentBuilder : IValidationDocumentBuilder
         return new ValidationDocument
         {
             Definition = _definition,
-            Assertions = [.. _assertions]
+            Statements = [.. _statements]
         };
     }
 }

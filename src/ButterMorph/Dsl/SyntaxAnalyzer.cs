@@ -88,29 +88,84 @@ internal sealed class SyntaxAnalyzer
     {
         document.HasValidationBlock = true;
         Consume(TokenKind.LeftBrace, "Expected validate block start.");
+        ParseValidationStatements(document.ValidationStatements, document.ValidationAssertions, "Expected validate block end.");
+        Consume(TokenKind.RightBrace, "Expected validate block end.");
+    }
 
+    private void ParseValidationStatements(List<AstNode> statements, List<ValidationAssertionNode> topLevelAssertions, string endMessage)
+    {
         while (!Check(TokenKind.RightBrace) && !IsAtEnd())
         {
-            ConsumeIdentifier("assert", "Expected validation assertion.");
-            AstNode expression = ParseExpression();
-            string message = "Validation assertion failed.";
-
-            if (Match(TokenKind.Colon))
+            if (MatchIdentifier("assert"))
             {
-                Token messageToken = Consume(TokenKind.StringLiteral, "Expected validation assertion message.");
-                message = messageToken.Value;
+                ValidationAssertionNode assertion = ParseValidationAssertion();
+                statements.Add(assertion);
+
+                if (topLevelAssertions != null)
+                {
+                    topLevelAssertions.Add(assertion);
+                }
+
+                Match(TokenKind.Comma);
+                continue;
             }
 
-            document.ValidationAssertions.Add(new ValidationAssertionNode
+            if (MatchIdentifier("foreach"))
             {
-                Expression = expression,
-                Message = message,
-                Path = FindFirstPath(expression)
-            });
-            Match(TokenKind.Comma);
+                statements.Add(ParseValidationForEach());
+                Match(TokenKind.Comma);
+                continue;
+            }
+
+            throw Error(Current, "Expected validation assertion or foreach block.");
         }
 
-        Consume(TokenKind.RightBrace, "Expected validate block end.");
+        if (IsAtEnd())
+        {
+            throw Error(Current, endMessage);
+        }
+    }
+
+    private ValidationAssertionNode ParseValidationAssertion()
+    {
+        AstNode expression = ParseExpression();
+        string message = "Validation assertion failed.";
+
+        if (Match(TokenKind.Colon))
+        {
+            Token messageToken = Consume(TokenKind.StringLiteral, "Expected validation assertion message.");
+            message = messageToken.Value;
+        }
+
+        return new ValidationAssertionNode
+        {
+            Expression = expression,
+            Message = message,
+            Path = FindFirstPath(expression)
+        };
+    }
+
+    private ValidationForEachNode ParseValidationForEach()
+    {
+        AstNode sourceExpression = ParseExpression();
+        string alias = "item";
+
+        if (MatchIdentifier("as"))
+        {
+            Token aliasToken = Consume(TokenKind.Identifier, "Expected foreach item alias.");
+            alias = aliasToken.Value;
+        }
+
+        Consume(TokenKind.LeftBrace, "Expected foreach block start.");
+        ValidationForEachNode node = new()
+        {
+            SourceExpression = sourceExpression,
+            ItemAlias = alias
+        };
+        ParseValidationStatements(node.Statements, null, "Expected foreach block end.");
+        Consume(TokenKind.RightBrace, "Expected foreach block end.");
+
+        return node;
     }
 
     private void ParseMetadataBlock(DocumentNode document)

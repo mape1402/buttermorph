@@ -3,7 +3,7 @@ namespace ButterMorph.Abstractions;
 /// <summary>
 /// Represents one boolean validation assertion.
 /// </summary>
-public interface IValidationAssertion
+public interface IValidationAssertion : IValidationStatement
 {
     /// <summary>
     /// Gets the expression that must evaluate to true.

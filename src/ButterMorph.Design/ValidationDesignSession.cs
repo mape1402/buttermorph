@@ -65,6 +65,21 @@ public sealed class ValidationDesignSession : IValidationDesignSession
     }
 
     /// <summary>
+    /// Replaces the current validation document.
+    /// </summary>
+    /// <param name="statements">The validation statements.</param>
+    /// <returns>The operation result.</returns>
+    public IValidationOperationResult ReplaceDocumentStatements(IReadOnlyCollection<IValidationStatement> statements)
+    {
+        _document = new ValidationDocument
+        {
+            Statements = statements ?? []
+        };
+
+        return Success();
+    }
+
+    /// <summary>
     /// Imports validation DSL content into the current session.
     /// </summary>
     /// <param name="dsl">The DSL content.</param>
@@ -136,7 +151,7 @@ public sealed class ValidationDesignSession : IValidationDesignSession
         return new ValidationDocument
         {
             Definition = document.Definition,
-            Assertions = document.Assertions
+            Statements = document.Statements
         };
     }
 }
