@@ -7,6 +7,34 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.0.0] - 2026-09-25
+
+### Added
+- Added first-class `ValidationDocument` support with parser/exporter roundtrips, modeling helpers, design sessions, runtime execution, and host save/load contracts.
+- Added the reusable Validation Designer at `/buttermorph/validations/designer` with separate visual and DSL views.
+- Added explicit payload validation against schemas, including required fields, scalar type checks, string length, numeric restrictions, arrays, enum/allowed values, and temporal restrictions.
+- Added validation assertions with field references, logical groups, conditional `when(...)` branches, nested `when(...)` branches, and `foreach` item validation with the default `item` alias.
+- Added temporal primitive handling for `Date`, `DateTime`, `Time`, and `TimeSpan`, plus temporal parsing and validation functions.
+- Added validation-oriented function discovery alongside transformation functions in designer tooling.
+- Added source metadata support in the mapping designer so hosts can provide display name, description, and tags while keeping technical source IDs out of the main panel.
+- Added visual conditional mapping composition for `when(condition, thenExpression, elseExpression)`, including nested conditionals and conditional fields inside array projections.
+
+### Changed
+- Separated mapping and validation workflows: `MappingDocument` remains for transformation, while `ValidationDocument` owns explicit validation rules.
+- Validation is now an explicit runtime operation; transforms do not automatically validate payloads unless the host asks for validation.
+- Changed mapping and validation source IDs to require DSL-safe identifiers: aliases must start with a letter or underscore and may contain only letters, digits, and underscores.
+- Refined mapping designer controls for conditional mappings, clearer clear/remove actions, compact value slots, and less native-looking select controls.
+
+### Fixed
+- Fixed field-reference handling in function arguments so expressions can use source fields as function parameters instead of only direct literal values.
+- Fixed mapping designer save feedback so visual users receive diagnostics when a mapping cannot be saved.
+
+### Compatibility
+- Existing mapping documents remain loadable through the same DSL model. Documents using conditional mappings continue to load as `when(...)` expressions.
+- Stored mappings that used source aliases with hyphens should be migrated to identifier-safe aliases before editing or executing in v2.0.0.
+
+---
+
 ## [v1.1.3] - 2026-09-19
 
 ### Fixed
