@@ -5,9 +5,9 @@
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ButterMorph.svg?label=Downloads)](https://www.nuget.org/packages/ButterMorph)
 [![License](https://img.shields.io/github/license/mape1402/buttermorph.svg)](LICENSE)
 
-ButterMorph is a modular .NET toolkit for designing, storing, and executing shape-neutral data transformations.
+ButterMorph is a modular .NET toolkit for designing, storing, validating, and executing shape-neutral data transformations.
 
-It provides the core transformation model, schema definition services, JSON adapters, a textual DSL, and reusable Razor designers that can be embedded into any host application. The host owns persistence and business rules; ButterMorph owns the modeling, schema/mapping designers, rehydration, DSL import/export, and runtime execution.
+It provides the core transformation and validation models, schema definition services, JSON adapters, textual DSLs, and reusable Razor designers that can be embedded into any host application. The host owns persistence and business rules; ButterMorph owns the modeling, schema/mapping/validation designers, rehydration, DSL import/export, and runtime execution.
 
 ## Big Picture
 
@@ -18,6 +18,7 @@ A host application, such as an internal platform, admin portal, or business syst
 - storing custom types, custom fields, schemas, mappings, and source samples;
 - deciding which custom types and custom fields are available in each schema designer session;
 - deciding which schemas are available as mapping sources and targets;
+- deciding which schemas and sources are available to validation sessions;
 - launching ButterMorph designers;
 - saving returned definitions or mappings;
 - providing authentication, authorization, navigation, and business workflows.
@@ -29,9 +30,11 @@ ButterMorph is responsible for:
 - creating payload schemas with `key`, `name`, `description`, `version`, metadata, properties, `$defs`, and `$metadataDefs`;
 - rehydrating designers from saved ButterMorph definitions;
 - building transformation documents;
+- building validation documents;
 - importing/exporting DSL;
 - analyzing mappings before execution;
 - executing mappings over typed structure graphs;
+- validating payloads against schemas and explicit validation documents;
 - exposing reusable Razor UI for mapping and schema tooling.
 
 The intended flow is:
@@ -46,7 +49,7 @@ ButterMorph does not persist host data. That is intentional: the same NuGet pack
 
 | Package | Purpose |
 | --- | --- |
-| `ButterMorph` | Core runtime, typed model, expressions, native functions, validation, semantics, DSL, modeling builders, and dependency injection. |
+| `ButterMorph` | Core runtime, typed model, expressions, native functions, mapping and validation documents, semantics, DSL, modeling builders, and dependency injection. |
 | `ButterMorph.Json` | JSON graph reader/writer adapters for runtime input/output. |
 | `ButterMorph.Json.Schema` | JSON Schema import/export compatibility for ButterMorph schemas. |
 | `ButterMorph.SchemaDesign` | Headless schema design services, custom type definitions, custom field definitions, payload schema definitions, and hydrators. |
@@ -60,20 +63,20 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="1.1.1" />
-<PackageReference Include="ButterMorph.Json" Version="1.1.1" />
+<PackageReference Include="ButterMorph" Version="2.0.0" />
+<PackageReference Include="ButterMorph.Json" Version="2.0.0" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="1.1.1" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.0.0" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="1.1.1" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.0.0" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -112,6 +115,7 @@ Then implement the host interfaces you need:
 - `IButterMorphFieldMetadataDesignerHost` for custom metadata fields.
 - `IButterMorphPayloadSchemaDesignerHost` for schemas.
 - `IButterMorphDesignerHost` for mappings.
+- `IButterMorphValidationDesignerHost` for validations.
 
 The host interfaces are the persistence boundary. ButterMorph calls `Load(...)` when a designer opens and `Save(...)` when the user saves.
 
@@ -178,6 +182,7 @@ After calling `app.MapButterMorphDesigner("/buttermorph")`, the reusable UI is m
 | Route | Purpose |
 | --- | --- |
 | `/buttermorph/designer` | Mapping designer. |
+| `/buttermorph/validations/designer` | Validation designer. |
 | `/buttermorph/schema-types/designer` | Custom data type designer. |
 | `/buttermorph/metadata-fields/designer` | Custom metadata field designer. |
 | `/buttermorph/payload-schema/designer` | Payload schema designer. |
@@ -366,6 +371,41 @@ public Task<ButterMorphDesignerSaveResult> Save(ButterMorphDesignerSaveRequest r
 ```
 
 The host should store the DSL for portability. ButterMorph can parse it back into a transformation document when the designer is reopened.
+
+Source aliases are DSL identifiers. Use letters, digits, and underscores only, starting with a letter or underscore. For example, use `customer_source` instead of `customer-source`; hyphens are rejected because they make field references ambiguous in expressions.
+
+The visual mapping designer supports basic field mappings and conditional mappings. Conditional mappings are stored as regular DSL expressions such as `when(condition, thenExpression, elseExpression)`, including nested `when(...)` expressions and conditional fields inside array projections. Existing mapping documents continue to load through the same DSL model.
+
+## Validation Design
+
+Validation is explicit. Transforming data does not automatically run validation; hosts decide when to validate a payload against a schema, a validation document, or both.
+
+The validation designer builds an `IValidationDocument`. Validation documents are separate from mapping documents and can express rules across one or more sources, including simple field assertions, logical groups, conditional `when(...)` assertions, and `foreach` validations over arrays.
+
+Example validation DSL:
+
+```text
+validate {
+  assert gt($source.quantity, 10): "Quantity must be greater than 10"
+
+  assert and(
+    eq($source.a, 1),
+    eq($source.b, 2)
+  ): "A and B must match"
+
+  assert when(
+    eq($source.x, 100),
+    eq($source.y, 2),
+    eq($source.y, 3)
+  ): "Y must match X"
+
+  foreach $source.lines as item {
+    assert gt($item.quantity, 0): "Line quantity must be greater than zero"
+  }
+}
+```
+
+Schema validation checks real payloads against schema structure and restrictions, including required fields, scalar types, string length, numeric ranges, arrays, enum/allowed values, and temporal constraints for `Date`, `DateTime`, `Time`, and `TimeSpan`.
 
 ## DSL Example
 
