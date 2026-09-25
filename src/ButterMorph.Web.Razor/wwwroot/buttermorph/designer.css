@@ -1157,15 +1157,32 @@ textarea,
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.bm-mapping-mode-select {
-  height: 27px;
-  min-width: 0;
-  width: 100%;
-}
-
 .bm-mapping-panel,
 .bm-conditional-panel {
   min-width: 0;
+}
+
+.bm-mapping-panel[hidden],
+.bm-conditional-panel[hidden],
+.bm-mapping-toggle[hidden] {
+  display: none !important;
+}
+
+.bm-mapping-toggle {
+  background-color: #eef2ff;
+  border-color: #cfd7ff;
+  color: #3730a3;
+  font-size: 0.72rem;
+  font-weight: 750;
+  min-height: 26px;
+  min-width: 0;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+}
+
+.bm-mapping-toggle:hover {
+  background-color: #e0e7ff;
+  border-color: #adbafb;
 }
 
 .bm-conditional-panel {
@@ -2281,16 +2298,37 @@ li.CodeMirror-hint-active {
   content: "F" counter(validation-rule);
 }
 
+.bm-validation-row-foreach .bm-validation-row-kind {
+  background-color: #ecfeff;
+  border-color: #bae6fd;
+  color: #0e7490;
+}
+
 .bm-validation-row-top {
   align-items: end;
   display: grid;
   gap: 0.42rem;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(240px, 1fr) auto;
+  grid-template-columns: minmax(104px, 0.28fr) minmax(240px, 1fr) auto;
   padding: 0;
 }
 
 .bm-foreach-row-top {
-  grid-template-columns: minmax(220px, 1fr) minmax(80px, 120px) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(134px, 0.55fr) minmax(220px, 1fr) minmax(80px, 120px) minmax(220px, 1fr) auto;
+}
+
+.bm-validation-row-kind {
+  align-items: center;
+  align-self: end;
+  background-color: #f1f4ff;
+  border: 1px solid #dce3ff;
+  border-radius: 999px;
+  color: #3730a3;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 0.12rem 0.55rem;
+  white-space: nowrap;
 }
 
 .bm-simple-rule-panel {

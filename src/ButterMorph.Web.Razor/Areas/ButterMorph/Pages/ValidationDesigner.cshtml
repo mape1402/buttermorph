@@ -184,21 +184,19 @@
                         <div class="bm-validation-section-header">
                             <h3>Rules</h3>
                             <div class="bm-validation-section-actions">
-                                <button type="button" data-add-assertion="true">Add rule</button>
+                                <button type="button" data-add-field-rule="true">Add field rule</button>
+                                <button type="button" data-add-assertion="true">Add assertion</button>
+                                <button type="button" data-add-foreach-field-rule="true">Add foreach field rule</button>
+                                <button type="button" data-add-foreach-assertion="true">Add foreach assertion</button>
                             </div>
                         </div>
                         <div class="bm-validation-grid" data-assertion-list="true">
                             @foreach (var assertion in Model.Assertions)
                             {
                                 <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true" data-rule-kind="@(assertion.Kind == "Simple" ? "simple" : "advanced")">
+                                    <input type="hidden" name="AssertionKinds" value="@assertion.Kind" data-assertion-kind="true" data-validation-input="true" />
                                     <div class="bm-validation-row-top">
-                                        <label>
-                                            Type
-                                            <select name="AssertionKinds" data-assertion-kind="true" data-validation-input="true">
-                                                <option value="Simple" selected="@(assertion.Kind == "Simple" ? "selected" : null)">Field rule</option>
-                                                <option value="Complex" selected="@(assertion.Kind != "Simple" ? "selected" : null)">Advanced rule</option>
-                                            </select>
-                                        </label>
+                                        <div class="bm-validation-row-kind">@(assertion.Kind == "Simple" ? "Field rule" : "Assertion")</div>
                                         <label>
                                             Error message
                                             <input name="AssertionMessages" value="@assertion.Message" data-validation-input="true" />
@@ -354,17 +352,13 @@
                                 </div>
                             }
                         </div>
-                        <div class="bm-validation-section-header bm-validation-subsection-header">
-                            <h3>For each item</h3>
-                            <div class="bm-validation-section-actions">
-                                <button type="button" data-add-foreach="true">Add foreach</button>
-                            </div>
-                        </div>
                         <div class="bm-validation-grid" data-foreach-list="true">
                             @foreach (var rule in Model.ForEachRules)
                             {
                                 <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="@(rule.Assertion.Kind == "Simple" ? "simple" : "advanced")">
+                                    <input type="hidden" name="ForEachAssertionKinds" value="@rule.Assertion.Kind" data-foreach-kind="true" data-validation-input="true" />
                                     <div class="bm-validation-row-top bm-foreach-row-top">
+                                        <div class="bm-validation-row-kind">@(rule.Assertion.Kind == "Simple" ? "For each field rule" : "For each assertion")</div>
                                         <label>
                                             For each
                                             <input name="ForEachSources" value="@rule.SourceExpression" data-foreach-source="true" data-validation-input="true" />
@@ -378,15 +372,6 @@
                                             <input name="ForEachAssertionMessages" value="@rule.Assertion.Message" data-validation-input="true" />
                                         </label>
                                         <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
-                                    </div>
-                                    <div class="bm-validation-row-top">
-                                        <label>
-                                            Type
-                                            <select name="ForEachAssertionKinds" data-foreach-kind="true" data-validation-input="true">
-                                                <option value="Simple" selected="@(rule.Assertion.Kind == "Simple" ? "selected" : null)">Field rule</option>
-                                                <option value="Complex" selected="@(rule.Assertion.Kind != "Simple" ? "selected" : null)">Advanced rule</option>
-                                            </select>
-                                        </label>
                                     </div>
                                     <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="@(rule.Assertion.RequiresValue ? "true" : "false")" hidden="@(rule.Assertion.Kind != "Simple")">
                                         <label>
@@ -457,14 +442,9 @@
 
     <template data-assertion-template="true">
         <div class="bm-validation-row bm-validation-row-assertion" data-assertion-row="true" data-rule-kind="simple">
+            <input type="hidden" name="AssertionKinds" value="Simple" data-assertion-kind="true" data-validation-input="true" />
             <div class="bm-validation-row-top">
-                <label>
-                    Type
-                    <select name="AssertionKinds" data-assertion-kind="true" data-validation-input="true">
-                        <option value="Simple" selected>Field rule</option>
-                        <option value="Complex">Advanced rule</option>
-                    </select>
-                </label>
+                <div class="bm-validation-row-kind">Field rule</div>
                 <label>
                     Error message
                     <input name="AssertionMessages" data-validation-input="true" />
@@ -622,7 +602,9 @@
 
     <template data-foreach-template="true">
         <div class="bm-validation-row bm-validation-row-foreach" data-foreach-row="true" data-rule-kind="simple">
+            <input type="hidden" name="ForEachAssertionKinds" value="Simple" data-foreach-kind="true" data-validation-input="true" />
             <div class="bm-validation-row-top bm-foreach-row-top">
+                <div class="bm-validation-row-kind">For each field rule</div>
                 <label>
                     For each
                     <input name="ForEachSources" data-foreach-source="true" data-validation-input="true" />
@@ -636,15 +618,6 @@
                     <input name="ForEachAssertionMessages" data-validation-input="true" />
                 </label>
                 <button type="button" class="bm-validation-row-remove" data-remove-row="true">Remove</button>
-            </div>
-            <div class="bm-validation-row-top">
-                <label>
-                    Type
-                    <select name="ForEachAssertionKinds" data-foreach-kind="true" data-validation-input="true">
-                        <option value="Simple" selected>Field rule</option>
-                        <option value="Complex">Advanced rule</option>
-                    </select>
-                </label>
             </div>
             <div class="bm-simple-rule-panel" data-foreach-simple-panel="true" data-value-visible="false">
                 <label>
