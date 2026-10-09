@@ -34,6 +34,7 @@ public sealed class DslExporterTests
         string dsl = new DslExporter().Export(document);
 
         Assert.Equal(
+            NormalizeLineEndings(
             """
             metadata {
               name: "CustomerMap"
@@ -46,7 +47,7 @@ public sealed class DslExporterTests
                 Email: $source.Customer.Email
               }
             }
-            """,
+            """),
             NormalizeLineEndings(dsl));
     }
 

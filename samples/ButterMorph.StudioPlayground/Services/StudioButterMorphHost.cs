@@ -15,7 +15,8 @@ internal sealed class StudioButterMorphHost :
     IButterMorphDesignerHost,
     IButterMorphSchemaTypeDesignerHost,
     IButterMorphFieldMetadataDesignerHost,
-    IButterMorphPayloadSchemaDesignerHost
+    IButterMorphPayloadSchemaDesignerHost,
+    IButterMorphPayloadSchemaViewerHost
 {
     private readonly StudioStore store;
     private readonly IJsonSchemaImporter schemaImporter;
@@ -240,6 +241,26 @@ internal sealed class StudioButterMorphHost :
         {
             Succeeded = true,
             Message = "Schema saved into Studio host."
+        });
+    }
+
+    /// <inheritdoc />
+    Task<ButterMorphPayloadSchemaViewerLoadResult> IButterMorphPayloadSchemaViewerHost.Load(ButterMorphPayloadSchemaViewerLoadRequest request)
+    {
+        if (!store.TryGetSchema(request.ContextKey, out StudioSchema schema))
+        {
+            return Task.FromResult(new ButterMorphPayloadSchemaViewerLoadResult
+            {
+                JsonSchema = "{}",
+                Message = "Schema was not found in Studio host."
+            });
+        }
+
+        return Task.FromResult(new ButterMorphPayloadSchemaViewerLoadResult
+        {
+            Definition = ReadDefinition<PayloadSchemaDefinition>(schema.ButterMorphResultJson),
+            JsonSchema = ResolveSchemaJson(schema),
+            Message = string.Empty
         });
     }
 

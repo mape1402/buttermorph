@@ -1,0 +1,100 @@
+@page "/buttermorph/payload-schema/viewer"
+@model ButterMorph.Web.Razor.PayloadSchemaViewerModel
+@{
+    Layout = null;
+    string keyVersion = string.IsNullOrWhiteSpace(Model.Viewer.Version)
+        ? Model.Viewer.Key
+        : Model.Viewer.Key + " - " + Model.Viewer.Version;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ButterMorph Schema Viewer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=10" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=8" defer></script>
+</head>
+<body class="bm-schema-viewer-page"
+      style="@Model.ThemeStyle"
+      data-bm-theme-mode="@Model.ThemeMode"
+      data-schema-active-view="@Model.ActiveView"
+      data-monaco-loader-url="@Model.MonacoLoaderUrl"
+      data-monaco-vs-base-url="@Model.MonacoVsBaseUrl">
+    <main class="bm-schema-viewer-shell">
+        <header class="bm-schema-viewer-topbar">
+            <div>
+                <h1>@Model.Viewer.Name</h1>
+                <p class="bm-schema-viewer-key">@keyVersion</p>
+                <p class="bm-schema-viewer-description">@Model.Viewer.Description</p>
+            </div>
+            @if (Model.ShowViewSwitch)
+            {
+                <div class="bm-schema-view-switch" role="tablist" aria-label="Schema viewer mode">
+                    <button type="button" data-schema-view-button="ux" aria-selected="@(Model.ActiveView == "ux" ? "true" : "false")">Schema</button>
+                    <button type="button" data-schema-view-button="json" aria-selected="@(Model.ActiveView == "json" ? "true" : "false")">JSON</button>
+                </div>
+            }
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <section class="bm-schema-viewer-message">@Model.Message</section>
+        }
+
+        @if (Model.UserFriendlyEnabled)
+        {
+            <section class="bm-schema-viewer-surface" data-schema-view-panel="ux">
+                <section class="bm-schema-viewer-browser">
+                    <div class="bm-schema-viewer-toolbar">
+                        <div class="bm-schema-pathbar">
+                            <nav class="bm-schema-breadcrumb" data-schema-breadcrumb="true" aria-label="Schema path"></nav>
+                        </div>
+                        <div class="bm-schema-viewer-search">
+                            <label class="bm-schema-sr-only" for="schema-viewer-search">Search schema properties</label>
+                            <input id="schema-viewer-search" type="search" data-schema-search="true" aria-label="Search schema properties" placeholder="Search properties" />
+                        </div>
+                    </div>
+                    <div class="bm-schema-structure" data-schema-structure="true">
+                        <div class="bm-schema-node-list" data-schema-node-list="true" role="tree" aria-label="Schema structure"></div>
+                        <div class="bm-schema-search-results" data-schema-search-results="true" hidden></div>
+                    </div>
+                </section>
+            </section>
+        }
+
+        @if (Model.JsonEnabled)
+        {
+            <section class="bm-schema-viewer-json" data-schema-view-panel="json">
+                <div class="bm-schema-json-editor bm-schema-json-loading" data-schema-json-editor="true">
+                    <textarea data-schema-json-source="true" readonly>@Model.RawJson</textarea>
+                </div>
+            </section>
+        }
+
+        @if (!Model.UserFriendlyEnabled && !Model.JsonEnabled)
+        {
+            <section class="bm-card">
+                <p class="bm-empty">Schema viewer is disabled by host configuration.</p>
+            </section>
+        }
+
+        <div class="bm-schema-detail-dialog" data-schema-detail-dialog="true" hidden>
+            <div class="bm-schema-detail-backdrop" data-schema-detail-close="true"></div>
+            <article class="bm-schema-detail-popover" role="dialog" aria-modal="true" aria-labelledby="schema-detail-title">
+                <header>
+                    <div>
+                        <h2 id="schema-detail-title" data-schema-detail-title="true"></h2>
+                        <p data-schema-detail-path="true"></p>
+                    </div>
+                    <button type="button" data-schema-detail-close="true" aria-label="Close property details">x</button>
+                </header>
+                <div data-schema-detail-body="true"></div>
+            </article>
+        </div>
+    </main>
+    <script id="schema-viewer-data" type="application/json">@Html.Raw(Model.ViewerDataJson)</script>
+</body>
+</html>

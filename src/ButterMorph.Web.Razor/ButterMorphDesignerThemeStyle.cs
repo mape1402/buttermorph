@@ -60,7 +60,9 @@ internal static class ButterMorphDesignerThemeStyle
         Append(builder, "--bm-muted", palette.MutedTextColor);
         Append(builder, "--bm-primary", palette.PrimaryColor);
         Append(builder, "--bm-primary-hover", palette.PrimaryHoverColor);
+        Append(builder, "--bm-primary-dark", palette.PrimaryDarkColor);
         Append(builder, "--bm-danger", palette.DangerColor);
+        Append(builder, "--bm-on-primary", "#ffffff");
         Append(builder, "--bm-sidebar-bg", palette.SidebarBackgroundColor);
         Append(builder, "--bm-sidebar-brand-bg", palette.SidebarBrandBackgroundColor);
         Append(builder, "--bm-sidebar-border", palette.SidebarBorderColor);
@@ -79,6 +81,31 @@ internal static class ButterMorphDesignerThemeStyle
         Append(builder, "--bm-schema-primary", palette.PrimaryColor);
         Append(builder, "--bm-schema-primary-dark", palette.PrimaryDarkColor);
         Append(builder, "--bm-schema-danger", palette.DangerColor);
+        AppendDerivedThemeVariables(builder);
+    }
+
+    private static void AppendDerivedThemeVariables(StringBuilder builder)
+    {
+        Append(builder, "--bm-accent-surface", "color-mix(in srgb, var(--bm-primary) 8%, var(--bm-surface))");
+        Append(builder, "--bm-accent-soft", "color-mix(in srgb, var(--bm-primary) 10%, var(--bm-content-bg))");
+        Append(builder, "--bm-accent-border", "color-mix(in srgb, var(--bm-primary) 28%, var(--bm-border))");
+        Append(builder, "--bm-accent-strong-border", "color-mix(in srgb, var(--bm-primary) 48%, var(--bm-border-strong))");
+        Append(builder, "--bm-accent-text", "color-mix(in srgb, var(--bm-primary) 78%, var(--bm-text))");
+        Append(builder, "--bm-accent-text-strong", "color-mix(in srgb, var(--bm-primary) 86%, var(--bm-text))");
+        Append(builder, "--bm-focus-ring", "color-mix(in srgb, var(--bm-primary) 24%, transparent)");
+        Append(builder, "--bm-drop-surface", "color-mix(in srgb, var(--bm-primary) 10%, var(--bm-surface))");
+        Append(builder, "--bm-chip-bg", "color-mix(in srgb, var(--bm-primary) 9%, var(--bm-surface))");
+        Append(builder, "--bm-chip-border", "color-mix(in srgb, var(--bm-primary) 30%, var(--bm-border))");
+        Append(builder, "--bm-chip-text", "color-mix(in srgb, var(--bm-primary) 82%, var(--bm-text))");
+        Append(builder, "--bm-sidebar-hover", "color-mix(in srgb, var(--bm-sidebar-accent) 10%, transparent)");
+        Append(builder, "--bm-sidebar-active", "color-mix(in srgb, var(--bm-sidebar-accent) 18%, transparent)");
+        Append(builder, "--bm-sidebar-accent-surface", "color-mix(in srgb, var(--bm-sidebar-accent) 14%, var(--bm-sidebar-bg))");
+        Append(builder, "--bm-sidebar-accent-surface-strong", "color-mix(in srgb, var(--bm-sidebar-accent) 24%, var(--bm-sidebar-bg))");
+        Append(builder, "--bm-sidebar-accent-border", "color-mix(in srgb, var(--bm-sidebar-accent) 30%, var(--bm-sidebar-border))");
+        Append(builder, "--bm-sidebar-accent-strong-border", "color-mix(in srgb, var(--bm-sidebar-accent) 46%, var(--bm-sidebar-border))");
+        Append(builder, "--bm-danger-soft", "color-mix(in srgb, var(--bm-danger) 8%, var(--bm-surface))");
+        Append(builder, "--bm-danger-border", "color-mix(in srgb, var(--bm-danger) 30%, var(--bm-border))");
+        Append(builder, "--bm-danger-text", "color-mix(in srgb, var(--bm-danger) 82%, var(--bm-text))");
     }
 
     private static void Append(StringBuilder builder, string name, string value)

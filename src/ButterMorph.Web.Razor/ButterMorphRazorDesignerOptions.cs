@@ -11,6 +11,11 @@ public sealed class ButterMorphRazorDesignerOptions
     public ButterMorphDesignerThemeOptions Theme { get; } = new();
 
     /// <summary>
+    /// Gets the read-only schema viewer options.
+    /// </summary>
+    public ButterMorphSchemaViewerOptions SchemaViewer { get; } = new();
+
+    /// <summary>
     /// Gets or sets a value indicating whether schema action buttons are shown by default.
     /// </summary>
     public bool ShowSchemaActions { get; set; } = true;

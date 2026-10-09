@@ -11,7 +11,7 @@
         },
         primaryDarkColor: {
             palette: "primary-dark-color",
-            targets: ["--bm-schema-primary-dark"]
+            targets: ["--bm-primary-dark", "--bm-schema-primary-dark"]
         },
         backgroundColor: {
             palette: "background-color",

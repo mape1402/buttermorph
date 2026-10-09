@@ -34,6 +34,8 @@ public static class EndpointRouteBuilderExtensions
         MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "vendor/codemirror/show-hint.min.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-schema-viewer.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-schema-viewer.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema-builder.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema-metadata-editor.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-type-version-editor.js", "text/javascript; charset=utf-8");

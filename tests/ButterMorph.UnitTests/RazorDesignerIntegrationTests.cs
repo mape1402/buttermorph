@@ -44,6 +44,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage schemaTypeDesigner = await client.GetAsync("/buttermorph/schema-types/designer");
         HttpResponseMessage metadataFieldDesigner = await client.GetAsync("/buttermorph/metadata-fields/designer");
         HttpResponseMessage payloadSchemaDesigner = await client.GetAsync("/buttermorph/payload-schema/designer");
+        HttpResponseMessage payloadSchemaViewer = await client.GetAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
         HttpResponseMessage dsl = await client.GetAsync("/buttermorph/dsl");
 
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
@@ -54,6 +55,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, schemaTypeDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, metadataFieldDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, payloadSchemaDesigner.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, payloadSchemaViewer.StatusCode);
         Assert.Equal(HttpStatusCode.OK, dsl.StatusCode);
     }
 
@@ -83,8 +85,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string designerHtml = await client.GetStringAsync("/buttermorph/designer");
         string payloadDesignerHtml = await client.GetStringAsync("/buttermorph/payload-schema/designer");
+        string payloadViewerHtml = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
 
         Assert.Contains("--bm-primary:#123456", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-primary-dark:", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-accent-surface:color-mix(in srgb, var(--bm-primary) 8%, var(--bm-surface))", designerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-focus-ring:color-mix(in srgb, var(--bm-primary) 24%, transparent)", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-content-bg:#abcdef", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-sidebar-bg:#234567", designerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-theme-light-primary-color:#123456", designerHtml, StringComparison.Ordinal);
@@ -94,6 +100,98 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("--bm-schema-primary:#123456", payloadDesignerHtml, StringComparison.Ordinal);
         Assert.Contains("--bm-schema-bg:#abcdef", payloadDesignerHtml, StringComparison.Ordinal);
         Assert.Contains("buttermorph-theme.js", payloadDesignerHtml, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-viewer.css", payloadViewerHtml, StringComparison.Ordinal);
+        Assert.Contains("--bm-accent-border:color-mix(in srgb, var(--bm-primary) 28%, var(--bm-border))", payloadViewerHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the read-only schema viewer renders both user-friendly and JSON views by default.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerRendersUserFriendlyAndJsonViews()
+    {
+        FakeButterMorphPayloadSchemaViewerHost host = CreateSchemaViewerHost();
+        HttpClient client = CreateSchemaViewerHostClient(host);
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
+
+        Assert.Equal(1, host.LoadCalls);
+        Assert.Contains("Customer Profile", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-button=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-button=\"json\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-node-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-detail-dialog=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("\"root\":", html, StringComparison.Ordinal);
+        Assert.Contains("Name", html, StringComparison.Ordinal);
+        Assert.Contains("minLength", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-viewer.js", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that schema viewer surfaces can be limited to JSON only.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerCanRenderJsonOnly()
+    {
+        FakeButterMorphPayloadSchemaViewerHost host = CreateSchemaViewerHost();
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(host);
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.SchemaViewer.EnabledViews = ButterMorphSchemaViewerViews.Json;
+                    options.SchemaViewer.DefaultView = ButterMorphSchemaViewerView.Json;
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
+
+        Assert.Contains("data-schema-active-view=\"json\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-view-button=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that schema viewer surfaces can be limited to the user-friendly view only.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerCanRenderUserFriendlyOnly()
+    {
+        FakeButterMorphPayloadSchemaViewerHost host = CreateSchemaViewerHost();
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(host);
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.SchemaViewer.EnabledViews = ButterMorphSchemaViewerViews.UserFriendly;
+                    options.SchemaViewer.DefaultView = ButterMorphSchemaViewerView.UserFriendly;
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
+
+        Assert.Contains("data-schema-active-view=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-view-button=\"json\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-node-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("\"root\":", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2432,6 +2530,31 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         return factory.CreateClient();
     }
 
+    // Creates a test client with a fake schema viewer host integration.
+    private HttpClient CreateSchemaViewerHostClient(FakeButterMorphPayloadSchemaViewerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a schema viewer host loaded with a representative payload schema.
+    private static FakeButterMorphPayloadSchemaViewerHost CreateSchemaViewerHost()
+    {
+        return new FakeButterMorphPayloadSchemaViewerHost
+        {
+            LoadResult = new ButterMorphPayloadSchemaViewerLoadResult
+            {
+                JsonSchema = SchemaViewerJson()
+            }
+        };
+    }
+
     // Creates a simple schema with one scalar field.
     private static IStructureSchema CreateDesignerSchema(string name)
     {
@@ -2541,6 +2664,49 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     private static string SimpleSchema()
     {
         return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Name\":{\"type\":\"string\"}}}";
+    }
+
+    // Creates a payload schema definition for the read-only schema viewer.
+    private static string SchemaViewerJson()
+    {
+        return """
+        {
+          "key": "customer-profile",
+          "name": "Customer Profile",
+          "description": "Atlas-style customer profile schema.",
+          "version": "1.2.0",
+          "type": "object",
+          "metadata": {
+            "topic": "Customers"
+          },
+          "properties": {
+            "Name": {
+              "type": "string",
+              "description": "Customer full name.",
+              "required": true,
+              "minLength": 3,
+              "maxLength": 60,
+              "metadata": {
+                "classification": "Confidential"
+              }
+            },
+            "Contacts": {
+              "type": "array",
+              "description": "Customer contact methods.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Email": {
+                    "type": "string",
+                    "format": "email",
+                    "required": true
+                  }
+                }
+              }
+            }
+          }
+        }
+        """;
     }
 
     // Creates a customer JSON Schema without Atlas-incompatible metadata.
