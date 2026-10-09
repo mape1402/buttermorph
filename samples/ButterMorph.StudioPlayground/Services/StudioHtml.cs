@@ -87,7 +87,7 @@ internal static class StudioHtml
                   </section>
                 </main>
               </div>
-              <script src="/studio.js?v=5"></script>
+              <script src="/studio.js?v=7"></script>
             </body>
             </html>
             """;

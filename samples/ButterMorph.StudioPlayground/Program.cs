@@ -23,6 +23,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<IButterMorphSchemaTypeDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
         builder.Services.AddSingleton<IButterMorphFieldMetadataDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
         builder.Services.AddSingleton<IButterMorphPayloadSchemaDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
+        builder.Services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
 
         WebApplication app = builder.Build();
 

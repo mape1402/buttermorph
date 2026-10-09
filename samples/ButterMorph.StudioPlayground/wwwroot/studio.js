@@ -156,6 +156,7 @@
   function renderSchemaDetail(item) {
     return `
       <div class="action-row">
+        <button class="primary-button" data-open-designer="/buttermorph/payload-schema/viewer" data-key="${item.id}">View Schema</button>
         <button class="primary-button" data-open-designer="/buttermorph/payload-schema/designer" data-key="${item.id}">Open Designer</button>
         <button class="ghost-button" data-save-injection="${item.id}" data-key="${item.id}">Save Injection</button>
         <button class="danger-button" data-delete="schemas" data-key="${item.id}">Delete</button>
@@ -168,7 +169,35 @@
         <div class="check-list"><strong>Inject Custom Types</strong>${state.customTypes.map(type => checkbox("type", item, type)).join("")}</div>
         <div class="check-list"><strong>Inject Custom Fields</strong>${state.customFields.map(field => checkbox("field", item, field)).join("")}</div>
       </div>
-      <pre class="json-viewer schema-json-viewer">${escapeHtml(pretty(item.butterMorphResultJson || "{}"))}</pre>`;
+      ${renderSchemaPreview(item)}`;
+  }
+
+  function renderSchemaPreview(item) {
+    const schema = safeParseJson(item.butterMorphResultJson || item.jsonSchema || "{}") || {};
+    const properties = schema.properties && typeof schema.properties === "object" ? Object.keys(schema.properties) : [];
+    const required = properties.filter(name => schema.properties[name] && schema.properties[name].required === true).length;
+    return `
+      <div class="schema-preview">
+        <article><span>Fields</span><strong>${properties.length}</strong></article>
+        <article><span>Required</span><strong>${required}</strong></article>
+        <article><span>Version</span><strong>${escapeHtml(item.version || schema.version || "1.0.0")}</strong></article>
+      </div>
+      <div class="schema-preview-list">
+        ${properties.slice(0, 8).map(name => {
+          const field = schema.properties[name] || {};
+          return `<div><strong>${escapeHtml(name)}</strong><span>${escapeHtml(resolveSchemaFieldType(field))}${field.required === true ? " · required" : ""}</span></div>`;
+        }).join("") || "<p>No fields configured.</p>"}
+      </div>`;
+  }
+
+  function resolveSchemaFieldType(field) {
+    if (field.$ref) {
+      return field.$ref.split("/").pop().replace("@", " ");
+    }
+    if (field.type === "array" && field.items) {
+      return "array of " + resolveSchemaFieldType(field.items);
+    }
+    return field.type || "field";
   }
 
   function renderMappingDetail(item) {
@@ -225,7 +254,12 @@
     const modeQuery = mode ? `&mode=${encodeURIComponent(mode)}` : "";
     const injectionQuery = extraQuery || "";
     const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
-    window.ButterMorphHost.openFrame(url, { title: "ButterMorph Designer", width: 1420, height: 900 });
+    const isSchemaViewer = route === "/buttermorph/payload-schema/viewer";
+    window.ButterMorphHost.openFrame(url, {
+      title: isSchemaViewer ? "ButterMorph Schema Viewer" : "ButterMorph Designer",
+      width: isSchemaViewer ? 833 : 1420,
+      height: 900
+    });
   }
 
   function createEditQuery(kind, id) {
@@ -530,6 +564,14 @@
       return JSON.stringify(JSON.parse(json), null, 2);
     } catch {
       return json;
+    }
+  }
+
+  function safeParseJson(json) {
+    try {
+      return JSON.parse(json);
+    } catch {
+      return null;
     }
   }
 
