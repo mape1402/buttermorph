@@ -8,9 +8,18 @@
                  data-path="@Model.Path"
                  data-kind="@Model.Kind"
                  data-data-type="@Model.DataType"
-                 title="@Model.Path">
+                 data-field-key="@Model.Path"
+                 data-field-description="@Model.Description"
+                 aria-label="@Model.Path">
             <span class="bm-node-name">@Model.Name</span>
             <span class="bm-node-meta">@Model.Kind</span>
+            <span class="bm-sidebar-tooltip bm-source-field-tooltip" role="tooltip">
+                <span><strong>Key</strong><span>@Model.Path</span></span>
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <span><strong>Description</strong><span>@Model.Description</span></span>
+                }
+            </span>
         </summary>
         <div class="bm-tree-children">
             @foreach (var child in Model.Children)
@@ -28,8 +37,17 @@ else
             data-path="@Model.Path"
             data-kind="@Model.Kind"
             data-data-type="@Model.DataType"
-            title="@Model.Path">
+            data-field-key="@Model.Path"
+            data-field-description="@Model.Description"
+            aria-label="@Model.Path">
         <span class="bm-node-name">@Model.Name</span>
         <span class="bm-node-meta">@Model.DataType</span>
+        <span class="bm-sidebar-tooltip bm-source-field-tooltip" role="tooltip">
+            <span><strong>Key</strong><span>@Model.Path</span></span>
+            @if (!string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <span><strong>Description</strong><span>@Model.Description</span></span>
+            }
+        </span>
     </button>
 }
