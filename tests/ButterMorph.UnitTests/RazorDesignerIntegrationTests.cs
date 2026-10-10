@@ -1507,7 +1507,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string html = await client.GetStringAsync("/buttermorph/metadata-fields/designer" + QueryMarker() + "context=metadata-new-test&popup=true");
 
         Assert.Contains("New Custom Field", html, StringComparison.Ordinal);
-        Assert.Contains("buttermorph-schema.css?v=21", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema.css?v=22", html, StringComparison.Ordinal);
         Assert.Contains("context=metadata-new-test", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
@@ -1517,6 +1517,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
         Assert.Contains("window.close", html, StringComparison.Ordinal);
         Assert.Contains("metadata-data-type", html, StringComparison.Ordinal);
+        Assert.Contains("bm-schema-sticky-actions", html, StringComparison.Ordinal);
         Assert.Contains("Validation", html, StringComparison.Ordinal);
         Assert.Contains("allowed-values-hidden", html, StringComparison.Ordinal);
         Assert.Contains("metadata-validation-section", html, StringComparison.Ordinal);
@@ -1542,13 +1543,14 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
 
-        Assert.Contains("buttermorph-schema.css?v=21", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema.css?v=22", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-schema-builder.js?v=19", html, StringComparison.Ordinal);
         Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
         Assert.Contains("handler=Save", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-host-form=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("bm-schema-sticky-actions", html, StringComparison.Ordinal);
         Assert.Contains("X-ButterMorph-Host-Flow", html, StringComparison.Ordinal);
         Assert.Contains("window.opener.postMessage", html, StringComparison.Ordinal);
         Assert.Contains("window.close", html, StringComparison.Ordinal);
