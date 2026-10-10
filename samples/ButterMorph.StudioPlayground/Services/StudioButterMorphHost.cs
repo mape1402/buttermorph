@@ -13,6 +13,7 @@ using ButterMorph.Web.Razor;
 /// </summary>
 internal sealed class StudioButterMorphHost :
     IButterMorphDesignerHost,
+    IButterMorphValidationDesignerHost,
     IButterMorphSchemaTypeDesignerHost,
     IButterMorphFieldMetadataDesignerHost,
     IButterMorphPayloadSchemaDesignerHost,
@@ -89,6 +90,41 @@ internal sealed class StudioButterMorphHost :
         {
             Succeeded = true,
             Message = "Mapping saved into Studio host."
+        });
+    }
+
+    /// <inheritdoc />
+    public Task<ButterMorphValidationDesignerLoadResult> Load(ButterMorphValidationDesignerLoadRequest request)
+    {
+        StudioValidation validation = ResolveValidationForLoad(request.ContextKey);
+        Dictionary<string, IStructureSchema> sourceSchemas = CreateSourceSchemas(validation.SourceSchemaIds);
+
+        return Task.FromResult(new ButterMorphValidationDesignerLoadResult
+        {
+            SourceSchemas = sourceSchemas,
+            SourceMetadata = CreateSourceMetadata(validation.SourceSchemaIds, sourceSchemas),
+            InitialDocument = ResolveValidationDocument(validation),
+            InitialDslContent = validation.DslContent,
+            Message = string.Empty
+        });
+    }
+
+    /// <inheritdoc />
+    public Task<ButterMorphValidationDesignerSaveResult> Save(ButterMorphValidationDesignerSaveRequest request)
+    {
+        StudioValidation validation = store.TryGetValidation(request.ContextKey, out StudioValidation existing)
+            ? existing
+            : CreateValidationFromSetup(request.ContextKey);
+
+        validation.Document = request.Document;
+        validation.DslContent = request.DslContent;
+        store.SaveValidation(validation);
+        store.DeleteValidationSetup(request.ContextKey);
+
+        return Task.FromResult(new ButterMorphValidationDesignerSaveResult
+        {
+            Succeeded = true,
+            Message = "Validation saved into Studio host."
         });
     }
 
@@ -284,6 +320,26 @@ internal sealed class StudioButterMorphHost :
     }
 
     /// <summary>
+    /// Creates source schemas for a host-owned source setup.
+    /// </summary>
+    /// <param name="sourceSchemaIds">The source schema ids keyed by source alias.</param>
+    /// <returns>The imported source schemas.</returns>
+    public Dictionary<string, IStructureSchema> CreateSourceSchemas(IReadOnlyDictionary<string, string> sourceSchemaIds)
+    {
+        Dictionary<string, IStructureSchema> sourceSchemas = new(StringComparer.OrdinalIgnoreCase);
+        foreach (KeyValuePair<string, string> source in sourceSchemaIds)
+        {
+            if (store.TryGetSchema(source.Value, out StudioSchema schema) &&
+                TryImportSchema(schema, out IStructureSchema importedSchema))
+            {
+                sourceSchemas[source.Key] = importedSchema;
+            }
+        }
+
+        return sourceSchemas;
+    }
+
+    /// <summary>
     /// Creates type catalog items from stored types.
     /// </summary>
     /// <param name="items">The stored types.</param>
@@ -343,6 +399,16 @@ internal sealed class StudioButterMorphHost :
         return CreateMappingFromSetup(id);
     }
 
+    private StudioValidation ResolveValidationForLoad(string id)
+    {
+        if (store.TryGetValidation(id, out StudioValidation validation))
+        {
+            return validation;
+        }
+
+        return CreateValidationFromSetup(id);
+    }
+
     /// <summary>
     /// Resolves the mapping document from the runtime document or the persisted DSL.
     /// </summary>
@@ -371,6 +437,34 @@ internal sealed class StudioButterMorphHost :
         return new TransformationDocument();
     }
 
+    /// <summary>
+    /// Resolves the validation document from the runtime document or the persisted DSL.
+    /// </summary>
+    /// <param name="validation">The validation.</param>
+    /// <returns>The resolved validation document.</returns>
+    public IValidationDocument ResolveValidationDocument(StudioValidation validation)
+    {
+        if (validation.Document != null)
+        {
+            return validation.Document;
+        }
+
+        if (!string.IsNullOrWhiteSpace(validation.DslContent))
+        {
+            try
+            {
+                return dslParser.Parse(new DslDefinition { Content = validation.DslContent }) as IValidationDocument
+                    ?? new ValidationDocument();
+            }
+            catch (FormatException)
+            {
+                return new ValidationDocument();
+            }
+        }
+
+        return new ValidationDocument();
+    }
+
     private StudioMapping CreateMappingFromSetup(string id)
     {
         StudioMapping mapping = new()
@@ -395,6 +489,52 @@ internal sealed class StudioButterMorphHost :
         }
 
         return mapping;
+    }
+
+    private StudioValidation CreateValidationFromSetup(string id)
+    {
+        StudioValidation validation = new()
+        {
+            Id = id,
+            Name = id,
+            Document = new ValidationDocument()
+        };
+
+        if (!store.TryGetValidationSetup(id, out StudioValidationSetup setup))
+        {
+            return validation;
+        }
+
+        validation.Name = string.IsNullOrWhiteSpace(setup.Name) ? id : setup.Name;
+        foreach (KeyValuePair<string, string> source in setup.SourceSchemaIds)
+        {
+            validation.SourceSchemaIds[source.Key] = source.Value;
+        }
+
+        return validation;
+    }
+
+    private static IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> CreateSourceMetadata(
+        IReadOnlyDictionary<string, string> sourceSchemaIds,
+        IReadOnlyDictionary<string, IStructureSchema> sourceSchemas)
+    {
+        Dictionary<string, ButterMorphDesignerSourceMetadata> sourceMetadata = new(StringComparer.OrdinalIgnoreCase);
+        foreach (KeyValuePair<string, string> source in sourceSchemaIds)
+        {
+            if (!sourceSchemas.TryGetValue(source.Key, out IStructureSchema schema))
+            {
+                continue;
+            }
+
+            sourceMetadata[source.Key] = new ButterMorphDesignerSourceMetadata
+            {
+                DisplayName = string.IsNullOrWhiteSpace(schema.Name) ? source.Key : schema.Name,
+                Description = schema.Description,
+                Tags = string.IsNullOrWhiteSpace(schema.Key) ? [] : [schema.Key]
+            };
+        }
+
+        return sourceMetadata;
     }
 
     private static string SerializeButterMorphDefinition<T>(T definition)

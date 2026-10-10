@@ -37,6 +37,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Custom Fields", html, StringComparison.Ordinal);
         Assert.Contains("Schemas", html, StringComparison.Ordinal);
         Assert.Contains("Mappings", html, StringComparison.Ordinal);
+        Assert.Contains("Validations", html, StringComparison.Ordinal);
         Assert.Contains("Execution", html, StringComparison.Ordinal);
         Assert.Contains("Validate", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-host.js", html, StringComparison.Ordinal);
@@ -59,6 +60,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("allowedValues", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile to Summary", json, StringComparison.Ordinal);
+        Assert.Contains("Customer Profile Validation", json, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -117,6 +119,25 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         using StringContent content = new(body, Encoding.UTF8, "application/json");
 
         HttpResponseMessage response = await client.PostAsync("/api/mappings/mapping-customer-profile-to-summary/validate", content);
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"outputJson\":\"\"", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Confirms seeded validation documents run through the real engine.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededValidationRuns()
+    {
+        HttpClient client = factory.CreateClient();
+        string body = "{\"sources\":{}}";
+        using StringContent content = new(body, Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.PostAsync("/api/validations/validation-customer-profile/run", content);
         string json = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -274,6 +295,23 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         HttpResponseMessage createResponse = await client.PostAsync("/api/mappings/mapping-unsaved-test/setup", content);
         HttpResponseMessage itemResponse = await client.GetAsync("/api/mappings/mapping-unsaved-test");
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, itemResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms validation setup stays temporary until ButterMorph saves.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioValidationSetupDoesNotPersistHostItem()
+    {
+        HttpClient client = factory.CreateClient();
+        using StringContent content = new("{\"name\":\"Host Validation\",\"sourceSchemaIds\":{\"customer\":\"schema-customer-profile\"}}", Encoding.UTF8, "application/json");
+
+        HttpResponseMessage createResponse = await client.PostAsync("/api/validations/validation-unsaved-test/setup", content);
+        HttpResponseMessage itemResponse = await client.GetAsync("/api/validations/validation-unsaved-test");
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, itemResponse.StatusCode);

@@ -24,4 +24,9 @@ internal sealed class StudioStateSnapshot
     /// Gets or sets mappings.
     /// </summary>
     public IReadOnlyCollection<StudioMapping> Mappings { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets validations.
+    /// </summary>
+    public IReadOnlyCollection<StudioValidation> Validations { get; set; } = [];
 }

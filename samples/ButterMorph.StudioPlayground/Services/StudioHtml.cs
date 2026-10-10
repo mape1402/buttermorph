@@ -18,7 +18,7 @@ internal static class StudioHtml
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
-              <link rel="stylesheet" href="/studio.css?v=8">
+              <link rel="stylesheet" href="/studio.css?v=9">
               <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=3"></script>
             </head>
             <body data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
@@ -34,6 +34,7 @@ internal static class StudioHtml
                     <button data-section="customFields">Custom Fields</button>
                     <button data-section="schemas">Schemas</button>
                     <button data-section="mappings">Mappings</button>
+                    <button data-section="validations">Validations</button>
                     <button data-section="execution">Execution</button>
                   </nav>
                 </aside>
@@ -58,12 +59,14 @@ internal static class StudioHtml
                       <article><strong id="metric-fields">0</strong><span>Custom fields</span></article>
                       <article><strong id="metric-schemas">0</strong><span>Schemas</span></article>
                       <article><strong id="metric-mappings">0</strong><span>Mappings</span></article>
+                      <article><strong id="metric-validations">0</strong><span>Validations</span></article>
                     </div>
                   </section>
                   <section id="customTypes" class="studio-section" data-kind="customTypes"></section>
                   <section id="customFields" class="studio-section" data-kind="customFields"></section>
                   <section id="schemas" class="studio-section" data-kind="schemas"></section>
                   <section id="mappings" class="studio-section" data-kind="mappings"></section>
+                  <section id="validations" class="studio-section" data-kind="validations"></section>
                   <section id="execution" class="studio-section">
                     <div class="work-card">
                       <div class="card-header">
@@ -90,7 +93,7 @@ internal static class StudioHtml
                   </section>
                 </main>
               </div>
-              <script src="/studio.js?v=8"></script>
+              <script src="/studio.js?v=10"></script>
             </body>
             </html>
             """;

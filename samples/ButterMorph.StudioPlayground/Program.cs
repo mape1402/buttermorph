@@ -20,6 +20,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<StudioStore>();
         builder.Services.AddSingleton<StudioButterMorphHost>();
         builder.Services.AddSingleton<IButterMorphDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
+        builder.Services.AddSingleton<IButterMorphValidationDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
         builder.Services.AddSingleton<IButterMorphSchemaTypeDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
         builder.Services.AddSingleton<IButterMorphFieldMetadataDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
         builder.Services.AddSingleton<IButterMorphPayloadSchemaDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());
