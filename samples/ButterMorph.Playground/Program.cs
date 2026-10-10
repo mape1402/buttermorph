@@ -404,7 +404,7 @@ public partial class Program
       </div>
     </section>
   </main>
-  <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js{{QueryMarker()}}v=2"></script>
+  <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js{{QueryMarker()}}v=3"></script>
   <script>
     let selectedContext = "";
     const queryMarker = "{{QueryMarker()}}";
