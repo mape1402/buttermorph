@@ -73,6 +73,9 @@ document.addEventListener("DOMContentLoaded", function () {
           if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+/)) {
             return "variable-3";
           }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\s*:)/)) {
+            return "property";
+          }
           if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\()/)) {
             return "builtin";
           }

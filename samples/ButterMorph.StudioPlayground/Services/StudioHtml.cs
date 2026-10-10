@@ -19,7 +19,7 @@ internal static class StudioHtml
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
               <link rel="stylesheet" href="/studio.css?v=8">
-              <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=2"></script>
+              <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=3"></script>
             </head>
             <body data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
               <div class="studio-shell">
