@@ -268,6 +268,7 @@
   function renderMappingDetail(item) {
     return `
       <div class="action-row">
+        <button class="primary-button" data-open-designer="/buttermorph/mappings/viewer" data-key="${item.id}">View Mapping</button>
         <button class="primary-button" data-open-designer="/buttermorph/designer" data-key="${item.id}">Open Designer</button>
         <button class="ghost-button" data-save-mapping-settings="${item.id}" data-key="${item.id}">Save Setup</button>
         <button class="danger-button" data-delete="mappings" data-key="${item.id}">Delete</button>
@@ -292,6 +293,7 @@
   function renderValidationDetail(item) {
     return `
       <div class="action-row">
+        <button class="primary-button" data-open-designer="/buttermorph/validations/viewer" data-key="${item.id}">View Validation</button>
         <button class="primary-button" data-open-designer="/buttermorph/validations/designer" data-key="${item.id}">Open Designer</button>
         <button class="ghost-button" data-save-validation-settings="${item.id}" data-key="${item.id}">Save Setup</button>
         <button class="primary-button" data-run-validation="${item.id}" data-key="${item.id}">Run Validation</button>
@@ -362,11 +364,14 @@
     const injectionQuery = extraQuery || "";
     const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
     const isSchemaViewer = route === "/buttermorph/payload-schema/viewer";
+    const isMappingViewer = route === "/buttermorph/mappings/viewer";
+    const isValidationViewer = route === "/buttermorph/validations/viewer";
     const isValidationDesigner = route === "/buttermorph/validations/designer";
+    const isViewer = isSchemaViewer || isMappingViewer || isValidationViewer;
     window.ButterMorphHost.openFrame(url, {
-      title: isSchemaViewer ? "ButterMorph Schema Viewer" : isValidationDesigner ? "ButterMorph Validation Designer" : "ButterMorph Designer",
-      width: isSchemaViewer ? 833 : 1420,
-      height: 900,
+      title: isSchemaViewer ? "ButterMorph Schema Viewer" : isMappingViewer ? "ButterMorph Mapping Viewer" : isValidationViewer ? "ButterMorph Validation Viewer" : isValidationDesigner ? "ButterMorph Validation Designer" : "ButterMorph Designer",
+      width: isViewer ? 960 : 1420,
+      height: isViewer ? 820 : 900,
       themeMode
     });
   }

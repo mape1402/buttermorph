@@ -1,0 +1,98 @@
+@page "/buttermorph/validations/viewer"
+@model ButterMorph.Web.Razor.ValidationViewerModel
+@{
+    Layout = null;
+    string keyVersion = string.IsNullOrWhiteSpace(Model.Viewer.Version)
+        ? Model.Viewer.Key
+        : Model.Viewer.Key + " - " + Model.Viewer.Version;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ButterMorph Validation Viewer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.css?v=1" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.js?v=1" defer></script>
+</head>
+<body class="bm-document-viewer-page"
+      style="@Model.ThemeStyle"
+      data-bm-theme-mode="@Model.ThemeMode"
+      data-document-active-view="@Model.ActiveView">
+    <main class="bm-document-viewer-shell">
+        <header class="bm-document-viewer-topbar">
+            <div>
+                <h1>@Model.Viewer.Name</h1>
+                <p class="bm-document-viewer-key">@keyVersion</p>
+                <p class="bm-document-viewer-description">@Model.Viewer.Description</p>
+            </div>
+            @if (Model.ShowViewSwitch)
+            {
+                <div class="bm-document-view-switch" role="tablist" aria-label="Validation viewer mode">
+                    <button type="button" data-document-view-button="ux" aria-selected="@(Model.ActiveView == "ux" ? "true" : "false")">Validation</button>
+                    <button type="button" data-document-view-button="dsl" aria-selected="@(Model.ActiveView == "dsl" ? "true" : "false")">DSL</button>
+                </div>
+            }
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Message))
+        {
+            <section class="bm-document-viewer-message">@Model.Message</section>
+        }
+
+        @if (Model.UserFriendlyEnabled)
+        {
+            <section class="bm-document-viewer-surface" data-document-view-panel="ux">
+                <section class="bm-document-viewer-browser">
+                    <div class="bm-document-viewer-toolbar">
+                        <nav class="bm-document-breadcrumb" data-document-breadcrumb="true" aria-label="Validation path"></nav>
+                        <div class="bm-document-viewer-search">
+                            <label class="bm-document-sr-only" for="document-viewer-search">Search validation rules</label>
+                            <input id="document-viewer-search" type="search" data-document-search="true" aria-label="Search validation rules" placeholder="Search validations" />
+                        </div>
+                    </div>
+                    <div class="bm-document-structure" data-document-structure="true">
+                        <div class="bm-document-node-list" data-document-node-list="true" role="tree" aria-label="Validation structure"></div>
+                        <div class="bm-document-search-results" data-document-search-results="true" hidden></div>
+                    </div>
+                </section>
+            </section>
+        }
+
+        @if (Model.DslEnabled)
+        {
+            <section class="bm-document-viewer-dsl" data-document-view-panel="dsl">
+                <div class="bm-document-dsl-editor" data-document-dsl-editor="true">
+                    <textarea data-document-dsl-source="true" readonly>@Model.RawDsl</textarea>
+                </div>
+            </section>
+        }
+
+        @if (!Model.UserFriendlyEnabled && !Model.DslEnabled)
+        {
+            <section class="bm-card">
+                <p class="bm-empty">Validation viewer is disabled by host configuration.</p>
+            </section>
+        }
+
+        <div class="bm-document-detail-dialog" data-document-detail-dialog="true" hidden>
+            <div class="bm-document-detail-backdrop" data-document-detail-close="true"></div>
+            <article class="bm-document-detail-popover" role="dialog" aria-modal="true" aria-labelledby="document-detail-title">
+                <header>
+                    <div>
+                        <h2 id="document-detail-title" data-document-detail-title="true"></h2>
+                        <p data-document-detail-path="true"></p>
+                    </div>
+                    <button type="button" data-document-detail-close="true" aria-label="Close details">x</button>
+                </header>
+                <div data-document-detail-body="true"></div>
+            </article>
+        </div>
+    </main>
+    <script id="document-viewer-data" type="application/json">@Html.Raw(Model.ViewerDataJson)</script>
+</body>
+</html>

@@ -225,6 +225,115 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that the read-only mapping viewer renders both user-friendly and DSL views by default.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task MappingViewerRendersUserFriendlyAndDslViews()
+    {
+        FakeButterMorphMappingViewerHost host = CreateMappingViewerHost();
+        HttpClient client = CreateMappingViewerHostClient(host);
+
+        string html = await client.GetStringAsync("/buttermorph/mappings/viewer?context=mapping-customer");
+
+        Assert.Equal(1, host.LoadCalls);
+        Assert.Contains("Customer Mapping", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-node-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-detail-dialog=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("$customer.Name", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-document-viewer.js", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that mapping viewer surfaces can be limited to DSL only.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task MappingViewerCanRenderDslOnly()
+    {
+        FakeButterMorphMappingViewerHost host = CreateMappingViewerHost();
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphMappingViewerHost>(host);
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.MappingViewer.EnabledViews = ButterMorphDocumentViewerViews.Dsl;
+                    options.MappingViewer.DefaultView = ButterMorphDocumentViewerView.Dsl;
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/mappings/viewer?context=mapping-customer");
+
+        Assert.Contains("data-document-active-view=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-document-view-button=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the read-only validation viewer renders both user-friendly and DSL views by default.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationViewerRendersUserFriendlyAndDslViews()
+    {
+        FakeButterMorphValidationViewerHost host = CreateValidationViewerHost();
+        HttpClient client = CreateValidationViewerHostClient(host);
+
+        string html = await client.GetStringAsync("/buttermorph/validations/viewer?context=validation-customer");
+
+        Assert.Equal(1, host.LoadCalls);
+        Assert.Contains("Customer Validation", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("Quantity must be greater than 10.", html, StringComparison.Ordinal);
+        Assert.Contains("gt($customer.Quantity, 10)", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-document-viewer.css", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that validation viewer surfaces can be limited to the user-friendly view only.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationViewerCanRenderUserFriendlyOnly()
+    {
+        FakeButterMorphValidationViewerHost host = CreateValidationViewerHost();
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphValidationViewerHost>(host);
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.ValidationViewer.EnabledViews = ButterMorphDocumentViewerViews.UserFriendly;
+                    options.ValidationViewer.DefaultView = ButterMorphDocumentViewerView.UserFriendly;
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/validations/viewer?context=validation-customer");
+
+        Assert.Contains("data-document-active-view=\"ux\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that the validation designer renders independently from the mapping designer.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -2576,6 +2685,32 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         return factory.CreateClient();
     }
 
+    // Creates a test client with a fake mapping viewer host integration.
+    private HttpClient CreateMappingViewerHostClient(FakeButterMorphMappingViewerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphMappingViewerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a test client with a fake validation viewer host integration.
+    private HttpClient CreateValidationViewerHostClient(FakeButterMorphValidationViewerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphValidationViewerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
     // Creates a schema viewer host loaded with a representative payload schema.
     private static FakeButterMorphPayloadSchemaViewerHost CreateSchemaViewerHost()
     {
@@ -2584,6 +2719,79 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             LoadResult = new ButterMorphPayloadSchemaViewerLoadResult
             {
                 JsonSchema = SchemaViewerJson()
+            }
+        };
+    }
+
+    // Creates a mapping viewer host loaded with a representative mapping document.
+    private static FakeButterMorphMappingViewerHost CreateMappingViewerHost()
+    {
+        return new FakeButterMorphMappingViewerHost
+        {
+            LoadResult = new ButterMorphMappingViewerLoadResult
+            {
+                Key = "mapping-customer",
+                Name = "Customer Mapping",
+                TargetSchema = CreateDesignerSchema("Customer"),
+                Document = new TransformationDocument
+                {
+                    TargetSchema = CreateDesignerSchema("Customer"),
+                    Mappings =
+                    [
+                        new TransformationMapping
+                        {
+                            TargetPath = "Name",
+                            SourceExpression = new PathExpression
+                            {
+                                Path = "$customer.Name"
+                            }
+                        }
+                    ]
+                },
+                DslContent = "target {\n  Name: $customer.Name\n}"
+            }
+        };
+    }
+
+    // Creates a validation viewer host loaded with a representative validation document.
+    private static FakeButterMorphValidationViewerHost CreateValidationViewerHost()
+    {
+        return new FakeButterMorphValidationViewerHost
+        {
+            LoadResult = new ButterMorphValidationViewerLoadResult
+            {
+                Key = "validation-customer",
+                Name = "Customer Validation",
+                Document = new ValidationDocument
+                {
+                    Statements =
+                    [
+                        new ValidationAssertion
+                        {
+                            Message = "Quantity must be greater than 10.",
+                            Expression = new FunctionCallExpression
+                            {
+                                FunctionKey = "gt",
+                                Arguments =
+                                [
+                                    new PathExpression
+                                    {
+                                        Path = "$customer.Quantity"
+                                    },
+                                    new ScalarLiteralExpression
+                                    {
+                                        Value = new ScalarValue
+                                        {
+                                            DataType = "Number",
+                                            RawValue = "10"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                DslContent = "validate {\n  assert gt($customer.Quantity, 10): \"Quantity must be greater than 10.\"\n}"
             }
         };
     }
