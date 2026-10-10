@@ -12,17 +12,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Schema Viewer</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=10" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=11" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=8" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=9" defer></script>
 </head>
 <body class="bm-schema-viewer-page"
       style="@Model.ThemeStyle"
       data-bm-theme-mode="@Model.ThemeMode"
-      data-schema-active-view="@Model.ActiveView"
-      data-monaco-loader-url="@Model.MonacoLoaderUrl"
-      data-monaco-vs-base-url="@Model.MonacoVsBaseUrl">
+      data-schema-active-view="@Model.ActiveView">
     <main class="bm-schema-viewer-shell">
         <header class="bm-schema-viewer-topbar">
             <div>
@@ -68,7 +68,7 @@
         @if (Model.JsonEnabled)
         {
             <section class="bm-schema-viewer-json" data-schema-view-panel="json">
-                <div class="bm-schema-json-editor bm-schema-json-loading" data-schema-json-editor="true">
+                <div class="bm-schema-json-editor" data-schema-json-editor="true">
                     <textarea data-schema-json-source="true" readonly>@Model.RawJson</textarea>
                 </div>
             </section>

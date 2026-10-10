@@ -85,7 +85,7 @@
         const iframe = document.createElement("iframe");
         iframe.id = frameId;
         iframe.className = "buttermorph-host-frame";
-        iframe.src = withEmbeddedParameters(url);
+        iframe.src = withEmbeddedParameters(url, currentThemeMode);
         iframe.title = settings.title || "ButterMorph";
         iframe.addEventListener("load", function () {
             syncFrameTheme(iframe);
@@ -112,10 +112,11 @@
         unlockBodyScroll();
     }
 
-    function withEmbeddedParameters(url) {
+    function withEmbeddedParameters(url, themeMode) {
         const destination = new URL(url, window.location.origin);
         destination.searchParams.set("embedded", "true");
         destination.searchParams.set("popup", "true");
+        destination.searchParams.set("themeMode", normalizeThemeMode(themeMode));
         return destination.pathname + destination.search + destination.hash;
     }
 

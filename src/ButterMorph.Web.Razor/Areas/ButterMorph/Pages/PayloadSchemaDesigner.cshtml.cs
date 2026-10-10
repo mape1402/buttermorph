@@ -49,12 +49,12 @@ public sealed class PayloadSchemaDesignerModel : PageModel
     /// <summary>
     /// Gets the host-configured designer theme style.
     /// </summary>
-    public string ThemeStyle => ButterMorphDesignerThemeStyle.Build(options);
+    public string ThemeStyle => this.BuildThemeStyle(options);
 
     /// <summary>
     /// Gets the host-configured designer theme mode.
     /// </summary>
-    public string ThemeMode => options.Theme.DefaultMode.ToString().ToLowerInvariant();
+    public string ThemeMode => this.ResolveThemeModeName(options);
 
     /// <summary>
     /// Gets or sets the payload JSON Schema.

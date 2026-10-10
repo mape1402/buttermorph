@@ -128,7 +128,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("\"root\":", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
         Assert.Contains("minLength", html, StringComparison.Ordinal);
+        Assert.Contains("vendor/codemirror/codemirror.min.js", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-schema-viewer.js", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-monaco-loader-url", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -160,6 +162,34 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-schema-view-button=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that embedded viewers can render the host-selected theme mode on first paint.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerUsesRequestedThemeModeForInitialRender()
+    {
+        FakeButterMorphPayloadSchemaViewerHost host = CreateSchemaViewerHost();
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(host);
+                services.Configure<ButterMorphRazorDesignerOptions>(options =>
+                {
+                    options.Theme.UseDarkMode();
+                });
+            });
+        });
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile&themeMode=light");
+
+        Assert.Contains("data-bm-theme-mode=\"light\"", html, StringComparison.Ordinal);
+        Assert.Contains("color-scheme:light", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("color-scheme:dark", html, StringComparison.Ordinal);
     }
 
     /// <summary>

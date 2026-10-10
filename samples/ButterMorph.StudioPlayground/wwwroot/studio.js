@@ -1,7 +1,9 @@
 (() => {
   const storageKey = "ButterMorph.StudioPlayground.State";
+  const themeStorageKey = "ButterMorph.StudioPlayground.ThemeMode";
   let state = { customTypes: [], customFields: [], schemas: [], mappings: [] };
   let selected = { customTypes: "", customFields: "", schemas: "", mappings: "" };
+  let themeMode = normalizeThemeMode(localStorage.getItem(themeStorageKey) || "dark");
 
   const titles = {
     dashboard: "Dashboard",
@@ -14,6 +16,9 @@
 
   document.querySelectorAll(".studio-sidebar button").forEach(button => {
     button.addEventListener("click", () => showSection(button.dataset.section));
+  });
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    setStudioTheme(themeMode === "dark" ? "light" : "dark");
   });
   document.getElementById("refresh-state").addEventListener("click", loadState);
   document.getElementById("validate-mapping").addEventListener("click", validateSelectedMapping);
@@ -29,7 +34,44 @@
     }
   });
 
+  setStudioTheme(themeMode, { persist: false });
   loadState();
+
+  function normalizeThemeMode(mode) {
+    return String(mode || "").toLowerCase() === "light" ? "light" : "dark";
+  }
+
+  function setStudioTheme(mode, options = {}) {
+    themeMode = normalizeThemeMode(mode);
+    const targetAttributes = {
+      "data-studio-theme": themeMode,
+      "data-bm-theme-mode": themeMode,
+      "data-theme": themeMode
+    };
+
+    Object.keys(targetAttributes).forEach(attribute => {
+      document.documentElement.setAttribute(attribute, targetAttributes[attribute]);
+      document.body.setAttribute(attribute, targetAttributes[attribute]);
+    });
+    document.documentElement.style.colorScheme = themeMode;
+    document.body.style.colorScheme = themeMode;
+
+    const button = document.getElementById("theme-toggle");
+    if (button) {
+      const nextMode = themeMode === "dark" ? "Light" : "Dark";
+      button.textContent = `${nextMode} mode`;
+      button.setAttribute("aria-label", `Switch to ${nextMode.toLowerCase()} mode`);
+      button.title = `Switch to ${nextMode.toLowerCase()} mode`;
+    }
+
+    if (window.ButterMorphHost && typeof window.ButterMorphHost.setThemeMode === "function") {
+      window.ButterMorphHost.setThemeMode(themeMode);
+    }
+
+    if (options.persist !== false) {
+      localStorage.setItem(themeStorageKey, themeMode);
+    }
+  }
 
   async function loadState() {
     const persisted = readPersistedState();
@@ -258,7 +300,8 @@
     window.ButterMorphHost.openFrame(url, {
       title: isSchemaViewer ? "ButterMorph Schema Viewer" : "ButterMorph Designer",
       width: isSchemaViewer ? 833 : 1420,
-      height: 900
+      height: 900,
+      themeMode
     });
   }
 
