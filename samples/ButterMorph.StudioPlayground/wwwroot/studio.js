@@ -1,8 +1,8 @@
 (() => {
   const storageKey = "ButterMorph.StudioPlayground.State";
   const themeStorageKey = "ButterMorph.StudioPlayground.ThemeMode";
-  let state = { customTypes: [], customFields: [], schemas: [], mappings: [] };
-  let selected = { customTypes: "", customFields: "", schemas: "", mappings: "" };
+  let state = { customTypes: [], customFields: [], schemas: [], mappings: [], validations: [] };
+  let selected = { customTypes: "", customFields: "", schemas: "", mappings: "", validations: "" };
   let themeMode = normalizeThemeMode(localStorage.getItem(themeStorageKey) || "dark");
 
   const titles = {
@@ -11,6 +11,7 @@
     customFields: "Custom Fields",
     schemas: "Schemas",
     mappings: "Mappings",
+    validations: "Validations",
     execution: "Execution"
   };
 
@@ -76,6 +77,12 @@
   async function loadState() {
     const persisted = readPersistedState();
     if (persisted) {
+      if (persisted.__needsValidationSeed) {
+        const response = await fetch("/api/state", { cache: "no-store" });
+        const seeded = await response.json();
+        persisted.validations = Array.isArray(seeded.validations) ? seeded.validations : [];
+      }
+
       state = persisted;
       await syncStateToBackend();
       await reloadStateFromBackend();
@@ -101,8 +108,15 @@
       if (!json) {
         return null;
       }
-      const parsed = JSON.parse(json);
-      return parsed && Array.isArray(parsed.customTypes) ? parsed : null;
+    const parsed = JSON.parse(json);
+      if (!parsed || !Array.isArray(parsed.customTypes)) {
+        return null;
+      }
+
+      const needsValidationSeed = !Array.isArray(parsed.validations);
+      parsed.validations = needsValidationSeed ? [] : parsed.validations;
+      Object.defineProperty(parsed, "__needsValidationSeed", { value: needsValidationSeed, enumerable: false });
+      return parsed;
     } catch {
       return null;
     }
@@ -126,6 +140,7 @@
     renderCrud("customFields", "Custom Field", item => item.name || item.key, item => item.dataType + " · " + item.appliesToJson);
     renderCrud("schemas", "Schema", item => item.name || item.key, item => item.key + " · " + item.version);
     renderCrud("mappings", "Mapping", item => item.name || item.id, item => item.targetSchemaId || "No target selected");
+    renderCrud("validations", "Validation", item => item.name || item.id, item => sourceSummary(item.sourceSchemaIds));
     renderExecutionPicker();
   }
 
@@ -134,6 +149,7 @@
     document.getElementById("metric-fields").textContent = state.customFields.length;
     document.getElementById("metric-schemas").textContent = state.schemas.length;
     document.getElementById("metric-mappings").textContent = state.mappings.length;
+    document.getElementById("metric-validations").textContent = state.validations.length;
   }
 
   function renderCrud(kind, label, titleSelector, subtitleSelector) {
@@ -173,6 +189,10 @@
     section.querySelectorAll("[data-save-mapping-settings]").forEach(button => button.addEventListener("click", () => saveMappingSettings(button.dataset.key)));
     section.querySelectorAll("[data-add-mapping-source]").forEach(button => button.addEventListener("click", () => addMappingSourceRow(button.dataset.addMappingSource)));
     section.querySelectorAll("[data-remove-mapping-source]").forEach(button => button.addEventListener("click", () => removeMappingSourceRow(button)));
+    section.querySelectorAll("[data-save-validation-settings]").forEach(button => button.addEventListener("click", () => saveValidationSettings(button.dataset.key)));
+    section.querySelectorAll("[data-add-validation-source]").forEach(button => button.addEventListener("click", () => addValidationSourceRow(button.dataset.addValidationSource)));
+    section.querySelectorAll("[data-remove-validation-source]").forEach(button => button.addEventListener("click", () => removeValidationSourceRow(button)));
+    section.querySelectorAll("[data-run-validation]").forEach(button => button.addEventListener("click", () => runValidationDocument(button.dataset.runValidation)));
   }
 
   function renderDetail(kind, item) {
@@ -181,6 +201,9 @@
     }
     if (kind === "mappings") {
       return renderMappingDetail(item);
+    }
+    if (kind === "validations") {
+      return renderValidationDetail(item);
     }
     const route = kind === "customTypes" ? "/buttermorph/schema-types/designer" : "/buttermorph/metadata-fields/designer";
     return `
@@ -266,6 +289,44 @@
       <pre>${escapeHtml(item.dslContent || "No DSL saved yet.")}</pre>`;
   }
 
+  function renderValidationDetail(item) {
+    return `
+      <div class="action-row">
+        <button class="primary-button" data-open-designer="/buttermorph/validations/designer" data-key="${item.id}">Open Designer</button>
+        <button class="ghost-button" data-save-validation-settings="${item.id}" data-key="${item.id}">Save Setup</button>
+        <button class="primary-button" data-run-validation="${item.id}" data-key="${item.id}">Run Validation</button>
+        <button class="danger-button" data-delete="validations" data-key="${item.id}">Delete</button>
+      </div>
+      <div class="detail-grid">
+        <label>Name<input id="validation-name-${item.id}" value="${escapeAttr(item.name || "")}"></label>
+      </div>
+      <div class="mapping-source-editor">
+        <div class="mapping-source-header">
+          <strong>Sources</strong>
+          <button class="ghost-button" data-add-validation-source="${item.id}" type="button">Add Source</button>
+        </div>
+        <div data-validation-sources="${item.id}">
+          ${validationSourceRows(item.id, item.sourceSchemaIds || {})}
+        </div>
+      </div>
+      <div class="validation-runner">
+        <div>
+          <strong>Payloads</strong>
+          <div class="source-editors validation-source-editors">
+            ${Object.entries(item.sourceSchemaIds || {}).map(([alias]) => `
+              <label>${escapeHtml(alias)} JSON
+                <textarea data-validation-source-json="${escapeAttr(item.id)}:${escapeAttr(alias)}">${escapeHtml((item.sourceSamples || {})[alias] || "{}")}</textarea>
+              </label>`).join("") || "<p>Add at least one source and save setup.</p>"}
+          </div>
+        </div>
+        <div>
+          <strong>Diagnostics</strong>
+          <pre data-validation-diagnostics="${escapeAttr(item.id)}">Not validated yet.</pre>
+        </div>
+      </div>
+      <pre>${escapeHtml(item.dslContent || "No validation DSL saved yet.")}</pre>`;
+  }
+
   function checkbox(kind, schema, item) {
     const list = kind === "type" ? schema.injectedCustomTypeKeys : schema.injectedCustomFieldKeys;
     const checked = (list || []).includes(item.id) ? "checked" : "";
@@ -285,6 +346,10 @@
         openSchemaSetup(id, route);
         return;
       }
+      if (kind === "validations") {
+        openValidationSetup(id, "/buttermorph/validations/designer");
+        return;
+      }
       openDesigner(route, id, "create", "");
       return;
     }
@@ -297,8 +362,9 @@
     const injectionQuery = extraQuery || "";
     const url = `${route}?context=${encodeURIComponent(id)}${modeQuery}${injectionQuery}&popup=true&returnUrl=/`;
     const isSchemaViewer = route === "/buttermorph/payload-schema/viewer";
+    const isValidationDesigner = route === "/buttermorph/validations/designer";
     window.ButterMorphHost.openFrame(url, {
-      title: isSchemaViewer ? "ButterMorph Schema Viewer" : "ButterMorph Designer",
+      title: isSchemaViewer ? "ButterMorph Schema Viewer" : isValidationDesigner ? "ButterMorph Validation Designer" : "ButterMorph Designer",
       width: isSchemaViewer ? 833 : 1420,
       height: 900,
       themeMode
@@ -411,6 +477,65 @@
     });
   }
 
+  function openValidationSetup(id, route) {
+    const overlay = document.createElement("div");
+    overlay.className = "studio-modal-overlay";
+    overlay.innerHTML = `
+      <div class="studio-modal studio-modal-wide mapping-setup-modal">
+        <div class="studio-modal-header">
+          <strong>New Validation Setup</strong>
+          <button type="button" data-close-validation-setup>&times;</button>
+        </div>
+        <p class="studio-modal-help">Choose the source schemas that ButterMorph will receive for this validation designer session.</p>
+        <div class="mapping-setup-grid validation-setup-grid">
+          <label>Name<input id="new-validation-name" placeholder="Validation display name"></label>
+        </div>
+        <div class="mapping-source-editor">
+          <div class="mapping-source-header">
+            <div>
+              <strong>Sources</strong>
+              <span>Each source needs a unique alias used by validation expressions.</span>
+            </div>
+            <button class="ghost-button" type="button" data-add-new-validation-source>Add Source</button>
+          </div>
+          <div class="mapping-source-columns">
+            <span>Alias</span>
+            <span>Schema</span>
+            <span></span>
+          </div>
+          <div data-new-validation-sources>
+            ${validationSourceRow("new", "source", "")}
+          </div>
+        </div>
+        <div class="action-row studio-modal-actions">
+          <button class="ghost-button" type="button" data-close-validation-setup>Cancel</button>
+          <button class="primary-button" type="button" data-create-validation-with-setup>Create Validation</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close-validation-setup]").forEach(button => button.addEventListener("click", () => overlay.remove()));
+    overlay.querySelector("[data-add-new-validation-source]").addEventListener("click", () => {
+      const host = overlay.querySelector("[data-new-validation-sources]");
+      host.insertAdjacentHTML("beforeend", validationSourceRow("new", "source" + String(host.children.length + 1), ""));
+      host.querySelectorAll("[data-remove-validation-source]").forEach(button => button.onclick = () => removeValidationSourceRow(button));
+    });
+    overlay.querySelectorAll("[data-remove-validation-source]").forEach(button => button.addEventListener("click", () => removeValidationSourceRow(button)));
+    overlay.querySelector("[data-create-validation-with-setup]").addEventListener("click", async () => {
+      const setup = collectValidationSetup("new", {
+        name: overlay.querySelector("#new-validation-name").value,
+        sourceHost: overlay.querySelector("[data-new-validation-sources]")
+      });
+      if (!setup.name || Object.keys(setup.sourceSchemaIds).length === 0) {
+        alert("Validation name and at least one source are required.");
+        return;
+      }
+
+      await saveValidationSetup(id, setup);
+      overlay.remove();
+      openDesigner(route, id, "create", "");
+    });
+  }
+
   function setupCheckbox(kind, item) {
     const attr = kind === "type" ? "data-setup-type" : "data-setup-field";
     return `<label><input type="checkbox" ${attr} value="${escapeAttr(item.id)}"> ${escapeHtml(item.name || item.key)}</label>`;
@@ -438,6 +563,10 @@
     }
     if (messageType === "ButterMorphDesignerSaved") {
       selected.mappings = id;
+      return;
+    }
+    if (messageType === "ButterMorphValidationDesignerSaved") {
+      selected.validations = id;
     }
   }
 
@@ -475,6 +604,27 @@
 
   async function saveMappingSetup(id, setup) {
     await fetch(`/api/mappings/${encodeURIComponent(id)}/setup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(setup)
+    });
+  }
+
+  async function saveValidationSettings(id) {
+    const setup = collectValidationSetup(id, {
+      name: document.getElementById(`validation-name-${id}`).value,
+      sourceHost: document.querySelector(`[data-validation-sources="${id}"]`)
+    });
+    await fetch(`/api/validations/${encodeURIComponent(id)}/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(setup)
+    });
+    await reloadStateFromBackend();
+  }
+
+  async function saveValidationSetup(id, setup) {
+    await fetch(`/api/validations/${encodeURIComponent(id)}/setup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(setup)
@@ -526,6 +676,57 @@
   }
 
   function removeMappingSourceRow(button) {
+    const row = button.closest(".mapping-source-row");
+    const host = row?.parentElement;
+    if (!row || !host || host.querySelectorAll(".mapping-source-row").length <= 1) {
+      return;
+    }
+    row.remove();
+  }
+
+  function collectValidationSetup(id, values) {
+    const sourceSchemaIds = {};
+    const selector = id === "new" ? "[data-validation-source-row='new']" : `[data-validation-source-row="${id}"]`;
+    values.sourceHost.querySelectorAll(selector).forEach(row => {
+      const alias = row.querySelector("[data-validation-source-alias]")?.value.trim() || "";
+      const schemaId = row.querySelector("[data-validation-source-schema]")?.value || "";
+      if (alias && schemaId) {
+        sourceSchemaIds[alias] = schemaId;
+      }
+    });
+    return {
+      name: values.name || "",
+      sourceSchemaIds
+    };
+  }
+
+  function validationSourceRows(id, sourceSchemaIds) {
+    const entries = Object.entries(sourceSchemaIds || {});
+    if (entries.length === 0) {
+      return validationSourceRow(id, "source", "");
+    }
+    return entries.map(([alias, schemaId]) => validationSourceRow(id, alias, schemaId)).join("");
+  }
+
+  function validationSourceRow(id, alias, schemaId) {
+    return `
+      <div class="mapping-source-row" data-validation-source-row="${escapeAttr(id)}">
+        <label>Alias<input data-validation-source-alias value="${escapeAttr(alias)}"></label>
+        <label>Schema<select data-validation-source-schema>${schemaOptions(schemaId)}</select></label>
+        <button class="danger-button" type="button" data-remove-validation-source="${escapeAttr(id)}">Remove</button>
+      </div>`;
+  }
+
+  function addValidationSourceRow(id) {
+    const host = document.querySelector(`[data-validation-sources="${id}"]`);
+    if (!host) {
+      return;
+    }
+    host.insertAdjacentHTML("beforeend", validationSourceRow(id, "source" + String(host.children.length + 1), ""));
+    host.querySelectorAll("[data-remove-validation-source]").forEach(button => button.onclick = () => removeValidationSourceRow(button));
+  }
+
+  function removeValidationSourceRow(button) {
     const row = button.closest(".mapping-source-row");
     const host = row?.parentElement;
     if (!row || !host || host.querySelectorAll(".mapping-source-row").length <= 1) {
@@ -596,6 +797,30 @@
     document.getElementById("execution-diagnostics").textContent = (result.diagnostics || []).join("\n") || (result.succeeded ? "Validation passed" : "No diagnostics");
   }
 
+  async function runValidationDocument(id) {
+    const sources = {};
+    document.querySelectorAll(`[data-validation-source-json^="${id}:"]`).forEach(textarea => {
+      const alias = textarea.dataset.validationSourceJson.slice(id.length + 1);
+      sources[alias] = textarea.value;
+    });
+    const response = await fetch(`/api/validations/${encodeURIComponent(id)}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sources })
+    });
+    const result = await response.json();
+    const validation = state.validations.find(item => item.id === id);
+    if (validation) {
+      validation.sourceSamples = sources;
+      persistState();
+    }
+
+    const diagnostics = document.querySelector(`[data-validation-diagnostics="${id}"]`);
+    if (diagnostics) {
+      diagnostics.textContent = (result.diagnostics || []).join("\n") || (result.succeeded ? "Validation document passed" : "No diagnostics");
+    }
+  }
+
   function showSection(sectionName) {
     document.querySelectorAll(".studio-sidebar button").forEach(button => button.classList.toggle("active", button.dataset.section === sectionName));
     document.querySelectorAll(".studio-section").forEach(section => section.classList.toggle("active", section.id === sectionName));
@@ -616,6 +841,11 @@
     } catch {
       return null;
     }
+  }
+
+  function sourceSummary(sourceSchemaIds) {
+    const count = Object.keys(sourceSchemaIds || {}).length;
+    return count === 1 ? "1 source" : `${count} sources`;
   }
 
   function escapeHtml(value) {

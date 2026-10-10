@@ -150,6 +150,7 @@ internal static class StudioSeedData
         store.SaveSchema(customerProfile);
         store.SaveSchema(customerSummary);
         store.SaveMapping(CreateCustomerProfileToSummaryMapping(customerProfile, customerSummary));
+        store.SaveValidation(CreateCustomerProfileValidation(customerProfile));
     }
 
     // Builds and stores one custom type using the ButterMorph schema type builder.
@@ -421,5 +422,97 @@ internal static class StudioSeedData
             """;
 
         return mapping;
+    }
+
+    // Creates the seeded validation document and sample source data.
+    private static StudioValidation CreateCustomerProfileValidation(StudioSchema sourceSchema)
+    {
+        StudioValidation validation = new()
+        {
+            Id = "validation-customer-profile",
+            Name = "Customer Profile Validation",
+            Document = new ValidationDocument
+            {
+                Assertions =
+                [
+                    Assertion(
+                        "Customer id is required.",
+                        "$customer.Id",
+                        Function("exists", Path("$customer.Id"))),
+                    Assertion(
+                        "Customer must be active.",
+                        "$customer.Status",
+                        Function("eq", Path("$customer.Status"), Text("Active")))
+                ]
+            },
+            DslContent = """
+                validate {
+                  assert exists($customer.Id): "Customer id is required."
+                  assert eq($customer.Status, "Active"): "Customer must be active."
+                }
+                """
+        };
+
+        validation.SourceSchemaIds["customer"] = sourceSchema.Id;
+        validation.SourceSamples["customer"] = """
+            {
+              "Name": "Northwind Trading",
+              "Id": "01J4Z7Z4Z4Z4Z4Z4Z4Z4Z4Z4Z4",
+              "RFC": "NTR990101ABC",
+              "Contacts": [
+                {
+                  "Key": "main",
+                  "Email": "billing@northwind.example",
+                  "Phone": "5512345678"
+                }
+              ],
+              "Status": "Active"
+            }
+            """;
+
+        return validation;
+    }
+
+    // Creates a validation assertion.
+    private static IValidationAssertion Assertion(string message, string path, ITransformationExpression expression)
+    {
+        return new ValidationAssertion
+        {
+            Message = message,
+            Path = path,
+            Expression = expression
+        };
+    }
+
+    // Creates a function expression.
+    private static ITransformationExpression Function(string functionKey, params ITransformationExpression[] arguments)
+    {
+        return new FunctionCallExpression
+        {
+            FunctionKey = functionKey,
+            Arguments = arguments
+        };
+    }
+
+    // Creates a path expression.
+    private static ITransformationExpression Path(string path)
+    {
+        return new PathExpression
+        {
+            Path = path
+        };
+    }
+
+    // Creates a text scalar expression.
+    private static ITransformationExpression Text(string value)
+    {
+        return new ScalarLiteralExpression
+        {
+            Value = new ScalarValue
+            {
+                DataType = "String",
+                RawValue = value
+            }
+        };
     }
 }

@@ -14,6 +14,8 @@ internal sealed class StudioStore
     private readonly ConcurrentDictionary<string, StudioSchema> schemas = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioMapping> mappings = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioMappingSetup> mappingSetups = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioValidation> validations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioValidationSetup> validationSetups = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets all custom types.
@@ -34,6 +36,11 @@ internal sealed class StudioStore
     /// Gets all mappings.
     /// </summary>
     public IReadOnlyCollection<StudioMapping> Mappings => mappings.Values.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+
+    /// <summary>
+    /// Gets all validations.
+    /// </summary>
+    public IReadOnlyCollection<StudioValidation> Validations => validations.Values.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
 
     /// <summary>
     /// Saves a custom type.
@@ -76,12 +83,31 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Saves a validation.
+    /// </summary>
+    /// <param name="item">The validation.</param>
+    public void SaveValidation(StudioValidation item)
+    {
+        item.SavedAt = DateTimeOffset.UtcNow;
+        validations[item.Id] = item;
+    }
+
+    /// <summary>
     /// Saves a temporary mapping setup.
     /// </summary>
     /// <param name="item">The setup.</param>
     public void SaveMappingSetup(StudioMappingSetup item)
     {
         mappingSetups[item.Id] = item;
+    }
+
+    /// <summary>
+    /// Saves a temporary validation setup.
+    /// </summary>
+    /// <param name="item">The setup.</param>
+    public void SaveValidationSetup(StudioValidationSetup item)
+    {
+        validationSetups[item.Id] = item;
     }
 
     /// <summary>
@@ -94,6 +120,7 @@ internal sealed class StudioStore
         customFields.Clear();
         schemas.Clear();
         mappings.Clear();
+        validations.Clear();
 
         foreach (StudioCustomType item in snapshot.CustomTypes)
         {
@@ -124,6 +151,14 @@ internal sealed class StudioStore
             if (!string.IsNullOrWhiteSpace(item.Id))
             {
                 mappings[item.Id] = item;
+            }
+        }
+
+        foreach (StudioValidation item in snapshot.Validations)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                validations[item.Id] = item;
             }
         }
     }
@@ -173,6 +208,17 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Attempts to get a validation.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    /// <param name="item">The validation.</param>
+    /// <returns>True when found.</returns>
+    public bool TryGetValidation(string id, out StudioValidation item)
+    {
+        return validations.TryGetValue(id, out item);
+    }
+
+    /// <summary>
     /// Attempts to get a temporary mapping setup.
     /// </summary>
     /// <param name="id">The host-owned id.</param>
@@ -184,12 +230,32 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Attempts to get a temporary validation setup.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    /// <param name="item">The validation setup.</param>
+    /// <returns>True when found.</returns>
+    public bool TryGetValidationSetup(string id, out StudioValidationSetup item)
+    {
+        return validationSetups.TryGetValue(id, out item);
+    }
+
+    /// <summary>
     /// Deletes a temporary mapping setup.
     /// </summary>
     /// <param name="id">The host-owned id.</param>
     public void DeleteMappingSetup(string id)
     {
         mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup);
+    }
+
+    /// <summary>
+    /// Deletes a temporary validation setup.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    public void DeleteValidationSetup(string id)
+    {
+        validationSetups.TryRemove(id, out StudioValidationSetup removedSetup);
     }
 
     /// <summary>
@@ -206,6 +272,7 @@ internal sealed class StudioStore
             "customFields" => customFields.TryRemove(id, out StudioCustomField removedField),
             "schemas" => schemas.TryRemove(id, out StudioSchema removedSchema),
             "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping) | mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup),
+            "validations" => validations.TryRemove(id, out StudioValidation removedValidation) | validationSetups.TryRemove(id, out StudioValidationSetup removedValidationSetup),
             _ => false
         };
     }

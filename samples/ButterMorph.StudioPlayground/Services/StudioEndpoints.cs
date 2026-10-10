@@ -120,6 +120,48 @@ internal static class StudioEndpoints
             store.SaveMappingSetup(setup);
             return Results.Json(new { setup.Id, setup.Name, setup.TargetSchemaId, setup.SourceSchemaIds, setup.ShowSchemaActions });
         });
+        app.MapPost("/api/validations/{id}/settings", async (string id, StudioStore store, HttpRequest request) =>
+        {
+            StudioValidationSettingsRequest body = await JsonSerializer.DeserializeAsync<StudioValidationSettingsRequest>(request.Body, JsonOptions) ?? new StudioValidationSettingsRequest();
+            if (!store.TryGetValidation(id, out StudioValidation validation))
+            {
+                validation = new StudioValidation { Id = id, Name = body.Name };
+            }
+
+            validation.Name = string.IsNullOrWhiteSpace(body.Name) ? validation.Name : body.Name;
+            validation.SourceSchemaIds.Clear();
+            foreach (KeyValuePair<string, string> source in body.SourceSchemaIds)
+            {
+                if (!string.IsNullOrWhiteSpace(source.Key) && !string.IsNullOrWhiteSpace(source.Value))
+                {
+                    validation.SourceSchemaIds[source.Key] = source.Value;
+                }
+            }
+
+            validation.Document ??= new ValidationDocument();
+            store.SaveValidation(validation);
+            return Results.Json(validation);
+        });
+        app.MapPost("/api/validations/{id}/setup", async (string id, StudioStore store, HttpRequest request) =>
+        {
+            StudioValidationSettingsRequest body = await JsonSerializer.DeserializeAsync<StudioValidationSettingsRequest>(request.Body, JsonOptions) ?? new StudioValidationSettingsRequest();
+            StudioValidationSetup setup = new()
+            {
+                Id = id,
+                Name = body.Name
+            };
+
+            foreach (KeyValuePair<string, string> source in body.SourceSchemaIds)
+            {
+                if (!string.IsNullOrWhiteSpace(source.Key) && !string.IsNullOrWhiteSpace(source.Value))
+                {
+                    setup.SourceSchemaIds[source.Key] = source.Value;
+                }
+            }
+
+            store.SaveValidationSetup(setup);
+            return Results.Json(new { setup.Id, setup.Name, setup.SourceSchemaIds });
+        });
         app.MapPost("/api/mappings/{id}/execute", async (
             string id,
             StudioStore store,
@@ -166,6 +208,29 @@ internal static class StudioEndpoints
 
             return Results.Json(Validate(mapping, body, store, host, engine));
         });
+        app.MapPost("/api/validations/{id}/run", async (
+            string id,
+            StudioStore store,
+            StudioButterMorphHost host,
+            IButterMorphEngine engine,
+            HttpRequest request) =>
+        {
+            StudioExecutionRequest body = await JsonSerializer.DeserializeAsync<StudioExecutionRequest>(request.Body, JsonOptions) ?? new StudioExecutionRequest();
+            if (!store.TryGetValidation(id, out StudioValidation validation))
+            {
+                return Results.NotFound();
+            }
+
+            foreach (KeyValuePair<string, string> source in body.Sources)
+            {
+                validation.SourceSamples[source.Key] = source.Value;
+            }
+
+            validation.Document = host.ResolveValidationDocument(validation);
+            store.SaveValidation(validation);
+
+            return Results.Json(RunValidation(validation, body, engine));
+        });
     }
 
     private static IResult CreateState(StudioStore store)
@@ -185,6 +250,15 @@ internal static class StudioEndpoints
                 mapping.DslContent,
                 mapping.ShowSchemaActions,
                 mapping.SavedAt
+            }),
+            validations = store.Validations.Select(validation => new
+            {
+                validation.Id,
+                validation.Name,
+                validation.SourceSchemaIds,
+                validation.SourceSamples,
+                validation.DslContent,
+                validation.SavedAt
             })
         });
     }
@@ -209,6 +283,11 @@ internal static class StudioEndpoints
         if (kind == "mappings" && store.TryGetMapping(id, out StudioMapping mapping))
         {
             return Results.Json(mapping);
+        }
+
+        if (kind == "validations" && store.TryGetValidation(id, out StudioValidation validation))
+        {
+            return Results.Json(validation);
         }
 
         return Results.NotFound();
@@ -300,6 +379,47 @@ internal static class StudioEndpoints
         };
     }
 
+    private static StudioExecutionView RunValidation(StudioValidation validation, StudioExecutionRequest request, IButterMorphEngine engine)
+    {
+        JsonReader reader = new();
+        Dictionary<string, IStructureGraph> sources = new(StringComparer.OrdinalIgnoreCase);
+        List<DiagnosticEntry> diagnostics = [];
+
+        foreach (KeyValuePair<string, string> source in validation.SourceSchemaIds)
+        {
+            string json = request.Sources.TryGetValue(source.Key, out string postedJson)
+                ? postedJson
+                : validation.SourceSamples.GetValueOrDefault(source.Key, "{}");
+
+            try
+            {
+                sources[source.Key] = reader.Read(new StructureInput
+                {
+                    Content = json,
+                    Format = "json"
+                });
+            }
+            catch (JsonException exception)
+            {
+                diagnostics.Add(CreateDiagnostic("BMSP002", exception.Message, source.Key));
+            }
+        }
+
+        ValidationResult result = engine.Validate(new ValidationRequest
+        {
+            Sources = sources,
+            Definition = validation.Document
+        });
+        diagnostics.AddRange(result.Diagnostics);
+
+        return new StudioExecutionView
+        {
+            Succeeded = diagnostics.Count == 0,
+            OutputJson = string.Empty,
+            Diagnostics = diagnostics.Select(item => item.Code + ": " + item.Message).ToArray()
+        };
+    }
+
     private static Dictionary<string, IStructureSchema> CreateSchemaLookup(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas)
     {
         Dictionary<string, IStructureSchema> schemas = new(StringComparer.OrdinalIgnoreCase);
@@ -335,6 +455,7 @@ internal static class StudioEndpoints
             "customFields" => "New Custom Field",
             "schemas" => "New Schema",
             "mappings" => "New Mapping",
+            "validations" => "New Validation",
             _ => "New Item"
         };
     }

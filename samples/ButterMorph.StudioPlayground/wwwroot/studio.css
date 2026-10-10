@@ -185,7 +185,7 @@ textarea {
 .metric-grid {
   display: grid;
   gap: .75rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-top: .75rem;
 }
 
@@ -509,6 +509,49 @@ pre {
   min-height: 180px;
   resize: vertical;
   width: 100%;
+}
+
+.validation-runner {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-bottom: .75rem;
+}
+
+.validation-runner > div {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .65rem;
+}
+
+.validation-runner strong {
+  display: block;
+  margin-bottom: .45rem;
+}
+
+.validation-runner label {
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  font-size: .68rem;
+  font-weight: 800;
+  gap: .15rem;
+}
+
+.validation-runner textarea {
+  background: var(--panel);
+  border: 1px solid var(--strong);
+  border-radius: 6px;
+  color: var(--ink);
+  min-height: 160px;
+  padding: .45rem;
+  resize: vertical;
+}
+
+.validation-runner pre {
+  margin: 0;
+  min-height: 160px;
 }
 
 .source-editors {
