@@ -13,15 +13,15 @@ internal static class StudioHtml
     {
         return """
             <!doctype html>
-            <html lang="en">
+            <html lang="en" data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
-              <link rel="stylesheet" href="/studio.css?v=7">
-              <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=1"></script>
+              <link rel="stylesheet" href="/studio.css?v=8">
+              <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=2"></script>
             </head>
-            <body>
+            <body data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
               <div class="studio-shell">
                 <aside class="studio-sidebar">
                   <div class="studio-brand">
@@ -43,7 +43,10 @@ internal static class StudioHtml
                       <span class="kicker">Plug-and-play host simulation</span>
                       <h1 id="section-title">Dashboard</h1>
                     </div>
-                    <button id="refresh-state" class="ghost-button">Refresh</button>
+                    <div class="topbar-actions">
+                      <button id="theme-toggle" class="ghost-button" type="button">Light mode</button>
+                      <button id="refresh-state" class="ghost-button" type="button">Refresh</button>
+                    </div>
                   </header>
                   <section id="dashboard" class="studio-section active">
                     <div class="hero-card">
@@ -87,7 +90,7 @@ internal static class StudioHtml
                   </section>
                 </main>
               </div>
-              <script src="/studio.js?v=7"></script>
+              <script src="/studio.js?v=8"></script>
             </body>
             </html>
             """;

@@ -69,12 +69,12 @@ public sealed class DesignerModel : PageModel
     /// <summary>
     /// Gets the host-configured designer theme style.
     /// </summary>
-    public string ThemeStyle => ButterMorphDesignerThemeStyle.Build(_options);
+    public string ThemeStyle => this.BuildThemeStyle(_options);
 
     /// <summary>
     /// Gets the host-configured designer theme mode.
     /// </summary>
-    public string ThemeMode => _options.Theme.DefaultMode.ToString().ToLowerInvariant();
+    public string ThemeMode => this.ResolveThemeModeName(_options);
 
     /// <summary>
     /// Gets or sets the source path.

@@ -6,8 +6,8 @@
   const nodesById = new Map();
   const parentById = new Map();
   let currentNode = root;
-  let monacoStarted = false;
-  let monacoEditor = null;
+  let jsonEditorStarted = false;
+  let jsonCodeEditor = null;
 
   function readViewerData(node) {
     if (!node) {
@@ -48,8 +48,8 @@
     });
 
     if (normalized === "json") {
-      startMonaco();
-      layoutMonaco();
+      initializeJsonEditor();
+      refreshJsonEditor();
     }
   }
 
@@ -354,85 +354,128 @@
     return empty;
   }
 
-  function startMonaco() {
+  function configureJsonMode() {
+    if (!window.CodeMirror || window.CodeMirror.modes.buttermorphJson) {
+      return;
+    }
+
+    window.CodeMirror.defineMode("buttermorphJson", function () {
+      function readString(stream) {
+        let escaped = false;
+        let foundEnd = false;
+        stream.next();
+
+        while (!stream.eol()) {
+          const character = stream.next();
+          if (character === "\"" && !escaped) {
+            foundEnd = true;
+            break;
+          }
+          escaped = character === "\\" && !escaped;
+          if (character !== "\\") {
+            escaped = false;
+          }
+        }
+
+        if (!foundEnd) {
+          return "string";
+        }
+
+        const next = stream.string.slice(stream.pos).match(/^\s*:/);
+        return next ? "property" : "string";
+      }
+
+      return {
+        token: function (stream) {
+          if (stream.eatSpace()) {
+            return null;
+          }
+
+          const character = stream.peek();
+          if (character === "\"") {
+            return readString(stream);
+          }
+
+          if (/[{}\[\]]/.test(character)) {
+            stream.next();
+            return "bracket";
+          }
+
+          if (/[:,]/.test(character)) {
+            stream.next();
+            return "operator";
+          }
+
+          if (character === "-" || /\d/.test(character)) {
+            stream.eat("-");
+            stream.eatWhile(/\d/);
+            if (stream.eat(".")) {
+              stream.eatWhile(/\d/);
+            }
+            if (stream.eat(/[eE]/)) {
+              stream.eat(/[+\-]/);
+              stream.eatWhile(/\d/);
+            }
+            return "number";
+          }
+
+          if (/[A-Za-z]/.test(character)) {
+            stream.eatWhile(/[A-Za-z]/);
+            return "atom";
+          }
+
+          stream.next();
+          return null;
+        }
+      };
+    });
+  }
+
+  function initializeJsonEditor() {
     const host = document.querySelector("[data-schema-json-editor]");
     const source = document.querySelector("[data-schema-json-source]");
-    if (monacoStarted || !host || !source) {
+    if (jsonEditorStarted || !host || !source) {
       return;
     }
 
-    monacoStarted = true;
-    host.classList.add("bm-schema-json-loading");
-    source.hidden = true;
-    if (window.monaco && window.monaco.editor) {
-      createMonaco(host, source);
+    jsonEditorStarted = true;
+    if (!window.CodeMirror) {
       return;
     }
 
-    const loaderUrl = body.getAttribute("data-monaco-loader-url") || "";
-    if (!loaderUrl) {
-      host.classList.remove("bm-schema-json-loading");
-      source.hidden = false;
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = loaderUrl;
-    script.onload = function () {
-      if (!window.require) {
-        return;
-      }
-
-      const vsBaseUrl = body.getAttribute("data-monaco-vs-base-url") || "";
-      if (vsBaseUrl) {
-        window.require.config({ paths: { vs: vsBaseUrl } });
-      }
-
-      window.require(["vs/editor/editor.main"], function () {
-        createMonaco(host, source);
-      });
-    };
-    document.head.appendChild(script);
-  }
-
-  function createMonaco(host, source) {
-    let target = host.querySelector(".bm-schema-json-monaco");
-    if (!target) {
-      target = document.createElement("div");
-      target.className = "bm-schema-json-monaco";
-      host.appendChild(target);
-    }
-
-    source.hidden = true;
-    monacoEditor = window.monaco.editor.create(target, {
-      value: source.value,
-      language: "json",
+    configureJsonMode();
+    jsonCodeEditor = window.CodeMirror.fromTextArea(source, {
+      mode: "buttermorphJson",
+      theme: "buttermorph-json",
+      lineNumbers: true,
+      indentUnit: 2,
+      tabSize: 2,
+      lineWrapping: false,
       readOnly: true,
-      automaticLayout: true,
-      minimap: { enabled: false },
-      scrollBeyondLastLine: false,
-      theme: body.getAttribute("data-bm-theme-mode") === "dark" ? "vs-dark" : "vs"
+      viewportMargin: Infinity
     });
-    host.classList.remove("bm-schema-json-loading");
-    layoutMonaco();
+    refreshJsonEditor();
   }
 
-  function layoutMonaco() {
-    if (!monacoEditor) {
+  function refreshJsonEditor() {
+    if (!jsonCodeEditor) {
       return;
     }
 
     window.requestAnimationFrame(function () {
-      monacoEditor.layout();
+      jsonCodeEditor.refresh();
     });
   }
 
-  function preloadMonaco() {
+  function preloadJsonEditor() {
     if (!document.querySelector("[data-schema-json-editor]")) {
       return;
     }
 
-    window.setTimeout(startMonaco, 0);
+    window.setTimeout(function () {
+      initializeJsonEditor();
+      refreshJsonEditor();
+    }, 0);
   }
 
   function escapeHtml(value) {
@@ -447,11 +490,9 @@
   wireDetailsDialog();
   setCurrentNode(root);
   setActiveView(body.getAttribute("data-schema-active-view"));
-  preloadMonaco();
+  preloadJsonEditor();
 
   window.addEventListener("message", function () {
-    if (monacoEditor && window.monaco && window.monaco.editor) {
-      window.monaco.editor.setTheme(body.getAttribute("data-bm-theme-mode") === "dark" ? "vs-dark" : "vs");
-    }
+    refreshJsonEditor();
   });
 }());

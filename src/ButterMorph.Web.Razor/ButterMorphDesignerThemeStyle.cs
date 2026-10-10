@@ -13,13 +13,23 @@ internal static class ButterMorphDesignerThemeStyle
         return Build(options.Theme);
     }
 
+    internal static string Build(ButterMorphRazorDesignerOptions options, ButterMorphDesignerThemeMode mode)
+    {
+        return Build(options.Theme, mode);
+    }
+
     internal static string Build(ButterMorphDesignerThemeOptions theme)
     {
+        return Build(theme, theme.DefaultMode);
+    }
+
+    internal static string Build(ButterMorphDesignerThemeOptions theme, ButterMorphDesignerThemeMode mode)
+    {
         StringBuilder builder = new();
-        ButterMorphDesignerThemePaletteOptions activePalette = theme.GetPalette(theme.DefaultMode);
+        ButterMorphDesignerThemePaletteOptions activePalette = theme.GetPalette(mode);
 
         builder.Append("color-scheme:");
-        builder.Append(theme.DefaultMode == ButterMorphDesignerThemeMode.Dark ? "dark" : "light");
+        builder.Append(mode == ButterMorphDesignerThemeMode.Dark ? "dark" : "light");
         builder.Append(';');
 
         AppendPalette(builder, "light", theme.Light);
