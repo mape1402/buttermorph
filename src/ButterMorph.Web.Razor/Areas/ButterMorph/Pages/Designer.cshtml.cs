@@ -1630,6 +1630,7 @@ public sealed class DesignerModel : PageModel
                 Path = CreateSourcePath(sourceKey, node.Path),
                 Name = node.Name,
                 Kind = node.Kind,
+                Description = node.Description,
                 DataType = node.DataType
             });
         }

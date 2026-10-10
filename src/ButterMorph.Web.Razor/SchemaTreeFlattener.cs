@@ -21,6 +21,7 @@ internal static class SchemaTreeFlattener
             Path = node.Path,
             Name = node.Name,
             Kind = node.Kind,
+            Description = ResolveDescription(node.Metadata),
             DataType = node.DataType
         });
 
@@ -28,5 +29,15 @@ internal static class SchemaTreeFlattener
         {
             AddNode(child, depth + 1, nodes);
         }
+    }
+
+    private static string ResolveDescription(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.TryGetValue("description", out string description) && !string.IsNullOrWhiteSpace(description))
+        {
+            return description.Trim();
+        }
+
+        return string.Empty;
     }
 }

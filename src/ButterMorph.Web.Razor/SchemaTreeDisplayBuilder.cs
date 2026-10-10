@@ -114,6 +114,7 @@ internal static class SchemaTreeDisplayBuilder
             Path = path,
             Name = node.Name,
             Kind = node.Kind,
+            Description = ResolveDescription(node.Metadata),
             DataType = node.DataType,
             Children = children,
             IsExpanded = true,
@@ -133,6 +134,16 @@ internal static class SchemaTreeDisplayBuilder
             ProjectionTargetPath = activeProjection.TargetPath,
             ProjectionFieldPath = projectionFieldPath
         };
+    }
+
+    private static string ResolveDescription(IReadOnlyDictionary<string, string> metadata)
+    {
+        if (metadata.TryGetValue("description", out string description) && !string.IsNullOrWhiteSpace(description))
+        {
+            return description.Trim();
+        }
+
+        return string.Empty;
     }
 
     private static string CreateSourcePath(string sourceKey, string schemaPath)

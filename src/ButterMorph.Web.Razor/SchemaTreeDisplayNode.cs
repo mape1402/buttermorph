@@ -28,6 +28,11 @@ public sealed class SchemaTreeDisplayNode
     public SchemaNodeKind Kind { get; set; }
 
     /// <summary>
+    /// Gets or sets the schema node description.
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the scalar data type.
     /// </summary>
     public string DataType { get; set; } = string.Empty;

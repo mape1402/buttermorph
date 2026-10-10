@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const key = item.querySelector(".bm-function-key");
       const kind = item.querySelector(".bm-function-kind");
       const template = item.getAttribute("data-function-template") || "";
-      const description = item.getAttribute("title") || "";
+      const description = item.getAttribute("data-function-description") || item.getAttribute("title") || "";
       if (key && template.length > 0) {
         const functionKey = key.textContent;
         suggestions.push({

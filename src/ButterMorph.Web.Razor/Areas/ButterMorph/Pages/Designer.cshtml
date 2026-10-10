@@ -11,11 +11,11 @@
     <title>ButterMorph Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css?v=codemirror-5-65-16" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=designer-sidebar-hover-1" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=designer-tooltips-intellisense-5" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=dsl-token-theme-1"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=designer-tooltips-intellisense-1"></script>
 </head>
 <body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-workbench"
@@ -99,7 +99,7 @@
                                             <summary class="bm-source-group-header">
                                                 <span class="bm-source-title-wrap">
                                                     <span class="bm-node-name bm-source-title" tabindex="0">@source.DisplayName</span>
-                                                    <span class="bm-source-tooltip" role="tooltip">
+                                                    <span class="bm-sidebar-tooltip bm-source-tooltip" role="tooltip">
                                                         <span><strong>Id</strong><span>@source.Key</span></span>
                                                         @if (!string.IsNullOrWhiteSpace(source.Description))
                                                         {
@@ -162,10 +162,17 @@
                                                         draggable="true"
                                                         data-function-template="@function.Template"
                                                         data-function-search-text="@function.Category @function.Key @function.DisplayName @function.Description"
-                                                        title="@function.Description">
+                                                        data-function-description="@function.Description">
                                                     <span class="bm-function-key">@function.Key</span>
                                                     <span class="bm-function-kind">@function.ValueKind</span>
                                                     <span class="bm-function-template">@function.Template</span>
+                                                    @if (!string.IsNullOrWhiteSpace(function.Description))
+                                                    {
+                                                        <span class="bm-sidebar-tooltip bm-function-tooltip" role="tooltip">
+                                                            <span class="bm-sidebar-tooltip-title">Description</span>
+                                                            <span class="bm-sidebar-tooltip-text">@function.Description</span>
+                                                        </span>
+                                                    }
                                                 </button>
                                             }
                                         </div>
