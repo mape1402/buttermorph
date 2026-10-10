@@ -22,6 +22,8 @@
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-viewer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-viewer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-viewer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-viewer.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-document-viewer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-document-viewer.css" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-document-viewer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-document-viewer.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-builder.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-builder.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-metadata-editor.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-metadata-editor.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-type-version-editor.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-type-version-editor.js" />

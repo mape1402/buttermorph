@@ -14,6 +14,8 @@ using ButterMorph.Web.Razor;
 internal sealed class StudioButterMorphHost :
     IButterMorphDesignerHost,
     IButterMorphValidationDesignerHost,
+    IButterMorphMappingViewerHost,
+    IButterMorphValidationViewerHost,
     IButterMorphSchemaTypeDesignerHost,
     IButterMorphFieldMetadataDesignerHost,
     IButterMorphPayloadSchemaDesignerHost,
@@ -125,6 +127,64 @@ internal sealed class StudioButterMorphHost :
         {
             Succeeded = true,
             Message = "Validation saved into Studio host."
+        });
+    }
+
+    /// <inheritdoc />
+    Task<ButterMorphMappingViewerLoadResult> IButterMorphMappingViewerHost.Load(ButterMorphMappingViewerLoadRequest request)
+    {
+        if (!store.TryGetMapping(request.ContextKey, out StudioMapping mapping))
+        {
+            return Task.FromResult(new ButterMorphMappingViewerLoadResult
+            {
+                Key = request.ContextKey,
+                Name = request.ContextKey,
+                DslContent = string.Empty,
+                Message = "Mapping was not found in Studio host."
+            });
+        }
+
+        IStructureSchema targetSchema = null;
+        if (store.TryGetSchema(mapping.TargetSchemaId, out StudioSchema target) &&
+            TryImportSchema(target, out IStructureSchema importedTarget))
+        {
+            targetSchema = importedTarget;
+        }
+
+        return Task.FromResult(new ButterMorphMappingViewerLoadResult
+        {
+            Key = mapping.Id,
+            Name = mapping.Name,
+            Description = "Mapping document",
+            Document = ResolveMappingDocument(mapping),
+            TargetSchema = targetSchema,
+            DslContent = mapping.DslContent,
+            Message = string.Empty
+        });
+    }
+
+    /// <inheritdoc />
+    Task<ButterMorphValidationViewerLoadResult> IButterMorphValidationViewerHost.Load(ButterMorphValidationViewerLoadRequest request)
+    {
+        if (!store.TryGetValidation(request.ContextKey, out StudioValidation validation))
+        {
+            return Task.FromResult(new ButterMorphValidationViewerLoadResult
+            {
+                Key = request.ContextKey,
+                Name = request.ContextKey,
+                DslContent = string.Empty,
+                Message = "Validation was not found in Studio host."
+            });
+        }
+
+        return Task.FromResult(new ButterMorphValidationViewerLoadResult
+        {
+            Key = validation.Id,
+            Name = validation.Name,
+            Description = "Validation document",
+            Document = ResolveValidationDocument(validation),
+            DslContent = validation.DslContent,
+            Message = string.Empty
         });
     }
 

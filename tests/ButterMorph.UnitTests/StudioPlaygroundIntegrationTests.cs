@@ -146,6 +146,59 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
     }
 
     /// <summary>
+    /// Confirms the Studio sample exposes read-only mapping and validation viewer actions.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioScriptIncludesDocumentViewerActions()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string script = await client.GetStringAsync("/studio.js");
+
+        Assert.Contains("View Mapping", script, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/mappings/viewer", script, StringComparison.Ordinal);
+        Assert.Contains("View Validation", script, StringComparison.Ordinal);
+        Assert.Contains("/buttermorph/validations/viewer", script, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms seeded mappings can be opened in the read-only mapping viewer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededMappingViewerRenders()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/buttermorph/mappings/viewer?context=mapping-customer-profile-to-summary");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Customer Profile to Summary", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("CustomerId", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms seeded validations can be opened in the read-only validation viewer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededValidationViewerRenders()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/buttermorph/validations/viewer?context=validation-customer-profile");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Customer Profile Validation", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("Customer id is required.", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms schema injection settings are host-owned and editable.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>

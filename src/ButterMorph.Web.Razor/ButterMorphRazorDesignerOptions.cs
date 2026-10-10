@@ -16,6 +16,16 @@ public sealed class ButterMorphRazorDesignerOptions
     public ButterMorphSchemaViewerOptions SchemaViewer { get; } = new();
 
     /// <summary>
+    /// Gets the read-only mapping viewer options.
+    /// </summary>
+    public ButterMorphDocumentViewerOptions MappingViewer { get; } = new();
+
+    /// <summary>
+    /// Gets the read-only validation viewer options.
+    /// </summary>
+    public ButterMorphDocumentViewerOptions ValidationViewer { get; } = new();
+
+    /// <summary>
     /// Gets or sets a value indicating whether schema action buttons are shown by default.
     /// </summary>
     public bool ShowSchemaActions { get; set; } = true;
