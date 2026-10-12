@@ -49,11 +49,14 @@ ButterMorph does not persist host data. That is intentional: the same NuGet pack
 
 | Package | Purpose |
 | --- | --- |
+| `ButterMorph.Contracts` | Shared attributes and contracts used by generated code, host services, and shared business type assemblies. |
 | `ButterMorph` | Core runtime, typed model, expressions, native functions, mapping and validation documents, semantics, DSL, modeling builders, and dependency injection. |
 | `ButterMorph.Json` | JSON graph reader/writer adapters for runtime input/output. |
 | `ButterMorph.Json.Schema` | JSON Schema import/export compatibility for ButterMorph schemas. |
 | `ButterMorph.SchemaDesign` | Headless schema design services, custom type definitions, custom field definitions, payload schema definitions, and hydrators. |
 | `ButterMorph.Design` | Headless mapping design sessions, schema exploration, capability exploration, diagnostics, and DSL integration. |
+| `ButterMorph.Language` | Language adapter contracts, host-owned type mapping documents, type bundle metadata, and neutral code generation models. |
+| `ButterMorph.Language.CSharp` | Official C# language adapter for schema code generation and C# primitive/custom type mappings. |
 | `ButterMorph.Web.Razor` | Reusable Razor Pages UI for mapping, custom types, custom fields, and schema designers. |
 
 ## Install / Reference
@@ -63,20 +66,27 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="2.0.0" />
-<PackageReference Include="ButterMorph.Json" Version="2.0.0" />
+<PackageReference Include="ButterMorph" Version="2.1.0" />
+<PackageReference Include="ButterMorph.Json" Version="2.1.0" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="2.0.0" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.0" />
+```
+
+Language adapters and code generation:
+
+```xml
+<PackageReference Include="ButterMorph.Language" Version="2.1.0" />
+<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.0" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="2.0.0" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.0" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -87,19 +97,16 @@ Register ButterMorph services in your host application:
 
 ```csharp
 using ButterMorph.DependencyInjection;
-using ButterMorph.Design;
-using ButterMorph.Json.Schema;
-using ButterMorph.SchemaDesign;
+using ButterMorph.Language.CSharp;
 using ButterMorph.Web.Razor;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
-builder.Services.AddButterMorph();
-builder.Services.AddButterMorphJsonSchema();
-builder.Services.AddButterMorphSchemaDesign();
-builder.Services.AddButterMorphDesign();
-builder.Services.AddButterMorphRazorDesigner();
+builder.Services
+    .AddButterMorph()
+    .AddRazorDesigner()
+    .AddCSharpLanguageAdapter();
 
 var app = builder.Build();
 
@@ -118,6 +125,8 @@ Then implement the host interfaces you need:
 - `IButterMorphValidationDesignerHost` for validations.
 
 The host interfaces are the persistence boundary. ButterMorph calls `Load(...)` when a designer opens and `Save(...)` when the user saves.
+
+`AddRazorDesigner()` registers the reusable Razor UI plus the design-time schema, mapping, validation, and JSON Schema services it needs. `AddCSharpLanguageAdapter()` is optional and enables C# code generation in the schema viewer.
 
 ### Designer Theme
 
@@ -186,6 +195,11 @@ After calling `app.MapButterMorphDesigner("/buttermorph")`, the reusable UI is m
 | `/buttermorph/schema-types/designer` | Custom data type designer. |
 | `/buttermorph/metadata-fields/designer` | Custom metadata field designer. |
 | `/buttermorph/payload-schema/designer` | Payload schema designer. |
+| `/buttermorph/payload-schema/viewer` | Schema viewer with friendly schema navigation, raw JSON, and optional generated code. |
+| `/buttermorph/mappings/viewer` | Mapping viewer with friendly summary and raw ButterMorph DSL. |
+| `/buttermorph/validations/viewer` | Validation viewer with friendly summary and raw ButterMorph DSL. |
+| `/buttermorph/language-type-bundles/designer` | Language type bundle discovery surface for host-owned shared type metadata. |
+| `/buttermorph/language-type-mappings/designer` | Language type mapping document designer. |
 
 Each designer receives a technical `context` query parameter from the host. The `context` value is only a correlation key for the host session. It is not part of the ButterMorph schema or mapping payload.
 
@@ -208,6 +222,51 @@ A typical save flow looks like this:
 7. ButterMorph notifies the opener and closes the designer surface.
 
 Operational values such as `Succeeded`, diagnostics, browser popup context, and host IDs are not part of the clean payloads.
+
+## Document Import, Export, and Viewers
+
+Capture views include local import actions for drafts:
+
+- payload schemas import JSON schema documents;
+- mappings import ButterMorph DSL files with the `.bmh` extension;
+- validations import ButterMorph validation DSL files with the `.bmh` extension.
+
+Importing replaces only the open designer draft. ButterMorph still calls the host only when the user saves.
+
+The schema, mapping, and validation viewers provide a user-friendly view and a raw document view. Raw schema JSON and `.bmh` DSL can be copied or exported. Schema viewers can also show generated code when the host provides one type mapping document per language.
+
+## Language Type Mapping and Code Generation
+
+Language adapters are regular NuGet packages. `ButterMorph.Language` defines the adapter contracts and document models; `ButterMorph.Language.CSharp` provides the official C# adapter.
+
+Hosts own language type mapping documents. A type mapping document selects one language, references the language type bundles used by the mapping, and maps ButterMorph data types to language-native types:
+
+```json
+{
+  "key": "csharp-type-mappings",
+  "name": "C# Type Mappings",
+  "description": "Maps ButterMorph types to C# types.",
+  "language": "csharp",
+  "bundles": [
+    { "key": "sample-shared-types" }
+  ],
+  "mappings": [
+    {
+      "buttermorph": {
+        "key": "RFC",
+        "version": "1.0.0",
+        "reference": "#/$defs/RFC@1.0.0"
+      },
+      "targetLanguage": {
+        "key": "ButterMorph.SampleSharedTypes.Rfc",
+        "version": "1.0.0"
+      }
+    }
+  ]
+}
+```
+
+The host decides which bundle documents and which type mapping document are available to a designer or viewer. The schema viewer intentionally receives at most one type mapping document per language so the code tab can show a simple language selector such as C#, TypeScript, or Java.
 
 ## Schema Design Model
 
