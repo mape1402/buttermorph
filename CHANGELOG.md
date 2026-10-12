@@ -7,6 +7,32 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.0] - 2026-10-12
+
+### Added
+- Added user-friendly schema, mapping, and validation viewers with raw document views, copy, and export actions.
+- Added schema code generation through language adapters, including generated C# snippets from host-selected type mapping documents.
+- Added host-owned language type bundles and language type mapping documents for connecting ButterMorph data types to language-native primitives and shared business types.
+- Added `ButterMorph.Language` for language adapter contracts, type mapping documents, bundle metadata, and code generation models.
+- Added `ButterMorph.Language.CSharp` as the official C# language adapter package.
+- Added import actions for schema, mapping, and validation capture views. Schema import accepts JSON documents; mapping and validation import accepts ButterMorph DSL `.bmh` files.
+- Added export and copy actions for schema JSON, generated code, mapping DSL, and validation DSL.
+
+### Changed
+- Moved C# code generation out of the Razor UI package and into the standalone `ButterMorph.Language.CSharp` adapter.
+- Updated Razor designer registration to support builder chaining with optional language adapters.
+- Refined designer theme tokens, raw/code editor rendering, source/function tooltips, schema viewer navigation, and property alias capture.
+
+### Fixed
+- Fixed dark and light mode contrast issues across mapping, validation, schema viewer, raw JSON, DSL editors, and modal surfaces.
+- Fixed C# generated code formatting with XML summary comments, cleaner type names for array items, and `using` directives for bundle namespaces.
+
+### Compatibility
+- Existing schema, mapping, and validation host contracts remain host-owned. Importing documents in the UI updates only the local designer draft; the host is notified only when the user saves.
+- Hosts that want C# code generation should reference `ButterMorph.Language.CSharp` and register `AddCSharpLanguageAdapter()`.
+
+---
+
 ## [v2.0.0] - 2026-09-25
 
 ### Added
