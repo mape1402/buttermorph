@@ -180,7 +180,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-alias-dialog=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-alias-breadcrumb=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-alias-search=\"true\"", html, StringComparison.Ordinal);
-        Assert.Contains("Property aliases", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-alias-mode=\"properties\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-alias-mode=\"types\"", html, StringComparison.Ordinal);
+        Assert.Contains("Aliases", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-type-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-field-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);
@@ -215,16 +217,51 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
             new StringContent(body, Encoding.UTF8, "application/json"));
         string json = await response.Content.ReadAsStringAsync();
+        string code = ReadString(json, "code");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("public sealed class CustomerProfile", json, StringComparison.Ordinal);
-        Assert.Contains("using Company.SharedTypes;", json, StringComparison.Ordinal);
-        Assert.Contains("TextValue Name", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("namespace ButterMorph.Generated;", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("Company.SharedTypes.TextValue Name", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("ButterMorphField", json, StringComparison.Ordinal);
-        Assert.Contains("Name", json, StringComparison.Ordinal);
+        Assert.Contains("public sealed class CustomerProfile", code, StringComparison.Ordinal);
+        Assert.Contains("public sealed class CustomerProfileContact", code, StringComparison.Ordinal);
+        Assert.Contains("List<CustomerProfileContact> Contacts", code, StringComparison.Ordinal);
+        Assert.Contains("using Company.SharedTypes;", code, StringComparison.Ordinal);
+        Assert.Contains("TextValue Name", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("namespace ButterMorph.Generated;", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("CustomerProfileContacts", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Company.SharedTypes.TextValue Name", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("ButterMorphField", code, StringComparison.Ordinal);
+        Assert.Contains("Name", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms generated nested type names can be overridden independently from member aliases.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerGeneratesCodeWithTypeNameAliases()
+    {
+        FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
+        HttpClient client = CreateSchemaViewerHostClient(schemaHost, new FakeButterMorphLanguageTypeMappingHost());
+        ButterMorphLanguageMappingProfile profile = CreateCSharpTypeMappingProfile();
+        profile.TypeNameMappings =
+        [
+            new ButterMorphLanguageTypeNameMapping { FieldPath = "Contacts", TypeName = "CustomerContactMethod" }
+        ];
+        string body = JsonSerializer.Serialize(profile, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        string json = await response.Content.ReadAsStringAsync();
+        string code = ReadString(json, "code");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("public sealed class CustomerContactMethod", code, StringComparison.Ordinal);
+        Assert.Contains("List<CustomerContactMethod> Contacts", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("CustomerProfileContact", code, StringComparison.Ordinal);
     }
 
     /// <summary>
