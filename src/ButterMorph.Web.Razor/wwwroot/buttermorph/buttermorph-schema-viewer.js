@@ -14,6 +14,7 @@
   let codeEditor = null;
   let activeProfile = cloneProfile(resolveInitialProfile());
   let codeToastTimer = null;
+  let jsonToastTimer = null;
   let aliasCurrentNode = root;
   let aliasEditingPath = "";
   let typeAliasEditingPath = "";
@@ -501,6 +502,41 @@
     }, 0);
   }
 
+  function wireJsonWorkspace() {
+    if (!document.querySelector("[data-schema-view-panel='json']")) {
+      return;
+    }
+
+    const exportButton = document.querySelector("[data-schema-json-export]");
+    if (exportButton) {
+      exportButton.addEventListener("click", function () {
+        downloadTextFile(getCurrentJsonValue(), resolveJsonExportFileName());
+        showJsonToast("File exported");
+      });
+    }
+
+    const copy = document.querySelector("[data-schema-json-copy]");
+    if (copy) {
+      copy.addEventListener("click", function () {
+        copyCodeToClipboard(getCurrentJsonValue())
+          .then(function () {
+            showJsonToast("Copied to clipboard");
+          })
+          .catch(function () {
+            showJsonToast("Copy failed");
+          });
+      });
+    }
+  }
+
+  function getCurrentJsonValue() {
+    return jsonCodeEditor ? jsonCodeEditor.getValue() : (document.querySelector("[data-schema-json-source]") || {}).value || "";
+  }
+
+  function resolveJsonExportFileName() {
+    return sanitizeFileName(data.key || data.name || "schema") + ".json";
+  }
+
   function resolveInitialProfile() {
     const profiles = codeData.profiles || [];
     const activeId = codeData.activeProfileId || "";
@@ -581,7 +617,10 @@
   }
 
   function exportCodeFile(value) {
-    const fileName = resolveExportFileName();
+    downloadTextFile(value, resolveExportFileName());
+  }
+
+  function downloadTextFile(value, fileName) {
     const blob = new Blob([value || ""], { type: "text/plain;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -671,17 +710,25 @@
   }
 
   function showCodeToast(message) {
-    const toast = document.querySelector("[data-schema-code-toast]");
+    codeToastTimer = showToast("[data-schema-code-toast]", message, codeToastTimer);
+  }
+
+  function showJsonToast(message) {
+    jsonToastTimer = showToast("[data-schema-json-toast]", message, jsonToastTimer);
+  }
+
+  function showToast(selector, message, timer) {
+    const toast = document.querySelector(selector);
     if (!toast) {
-      return;
+      return timer;
     }
 
     toast.textContent = message || "";
     toast.hidden = false;
     toast.classList.add("is-visible");
 
-    window.clearTimeout(codeToastTimer);
-    codeToastTimer = window.setTimeout(function () {
+    window.clearTimeout(timer);
+    return window.setTimeout(function () {
       toast.classList.remove("is-visible");
       window.setTimeout(function () {
         if (!toast.classList.contains("is-visible")) {
@@ -1308,6 +1355,7 @@
   wireSearch();
   wireDetailsDialog();
   wireAliasDialog();
+  wireJsonWorkspace();
   wireCodeWorkspace();
   renderCodeWorkspace();
   setCurrentNode(root);

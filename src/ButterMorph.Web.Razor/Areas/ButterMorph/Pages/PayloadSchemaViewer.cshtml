@@ -14,10 +14,10 @@
     <title>ButterMorph Schema Viewer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=19" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=20" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=15" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=16" defer></script>
 </head>
 <body class="bm-schema-viewer-page"
       style="@Model.ThemeStyle"
@@ -72,8 +72,15 @@
         @if (Model.JsonEnabled)
         {
             <section class="bm-schema-viewer-json" data-schema-view-panel="json">
-                <div class="bm-schema-json-editor" data-schema-json-editor="true">
-                    <textarea data-schema-json-source="true" readonly>@Model.RawJson</textarea>
+                <div class="bm-schema-json-shell">
+                    <header class="bm-schema-json-toolbar">
+                        <button type="button" data-schema-json-export="true">Export</button>
+                        <button type="button" data-schema-json-copy="true">Copy</button>
+                    </header>
+                    <div class="bm-schema-json-toast" data-schema-json-toast="true" role="status" aria-live="polite" hidden></div>
+                    <div class="bm-schema-json-editor" data-schema-json-editor="true">
+                        <textarea data-schema-json-source="true" readonly>@Model.RawJson</textarea>
+                    </div>
                 </div>
             </section>
         }

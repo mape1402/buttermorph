@@ -8,6 +8,7 @@
   let currentNode = root;
   let dslEditorStarted = false;
   let dslCodeEditor = null;
+  let dslToastTimer = null;
 
   function readViewerData(node) {
     if (!node) {
@@ -423,6 +424,114 @@
     }, 0);
   }
 
+  function wireDslWorkspace() {
+    if (!document.querySelector("[data-document-view-panel='dsl']")) {
+      return;
+    }
+
+    const exportButton = document.querySelector("[data-document-dsl-export]");
+    if (exportButton) {
+      exportButton.addEventListener("click", function () {
+        downloadTextFile(getCurrentDslValue(), resolveDslExportFileName());
+        showDslToast("File exported");
+      });
+    }
+
+    const copy = document.querySelector("[data-document-dsl-copy]");
+    if (copy) {
+      copy.addEventListener("click", function () {
+        copyTextToClipboard(getCurrentDslValue())
+          .then(function () {
+            showDslToast("Copied to clipboard");
+          })
+          .catch(function () {
+            showDslToast("Copy failed");
+          });
+      });
+    }
+  }
+
+  function getCurrentDslValue() {
+    return dslCodeEditor ? dslCodeEditor.getValue() : (document.querySelector("[data-document-dsl-source]") || {}).value || "";
+  }
+
+  function resolveDslExportFileName() {
+    return sanitizeFileName(data.key || data.name || data.documentType || "buttermorph") + ".bmh";
+  }
+
+  function downloadTextFile(value, fileName) {
+    const blob = new Blob([value || ""], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function copyTextToClipboard(value) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value || "");
+    }
+
+    return new Promise(function (resolve, reject) {
+      const fallback = document.createElement("textarea");
+      fallback.value = value || "";
+      fallback.setAttribute("readonly", "readonly");
+      fallback.style.position = "fixed";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+
+      try {
+        if (document.execCommand("copy")) {
+          resolve();
+        } else {
+          reject(new Error("Copy command failed."));
+        }
+      } catch (error) {
+        reject(error);
+      } finally {
+        fallback.remove();
+      }
+    });
+  }
+
+  function showDslToast(message) {
+    const toast = document.querySelector("[data-document-dsl-toast]");
+    if (!toast) {
+      return;
+    }
+
+    toast.textContent = message || "";
+    toast.hidden = false;
+    toast.classList.add("is-visible");
+
+    window.clearTimeout(dslToastTimer);
+    dslToastTimer = window.setTimeout(function () {
+      toast.classList.remove("is-visible");
+      window.setTimeout(function () {
+        if (!toast.classList.contains("is-visible")) {
+          toast.hidden = true;
+        }
+      }, 180);
+    }, 1600);
+  }
+
+  function sanitizeFileName(value) {
+    const sanitized = String(value || "")
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return sanitized || "buttermorph";
+  }
+
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (character) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character];
@@ -433,6 +542,7 @@
   wireViewSwitch();
   wireSearch();
   wireDetailsDialog();
+  wireDslWorkspace();
   setCurrentNode(root);
   setActiveView(body.getAttribute("data-document-active-view"));
   preloadDslEditor();

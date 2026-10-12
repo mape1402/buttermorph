@@ -128,6 +128,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-view-panel=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-export=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-copy=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-node-list=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-detail-dialog=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("\"root\":", html, StringComparison.Ordinal);
@@ -423,6 +426,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-schema-view-button=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-view-panel=\"json\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-export=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-json-copy=\"true\"", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -504,6 +509,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-dsl-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-export=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-copy=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-node-list=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-detail-dialog=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("$customer.Name", html, StringComparison.Ordinal);
@@ -538,6 +546,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-document-view-button=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-export=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-copy=\"true\"", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -559,6 +569,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-document-view-panel=\"ux\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-view-panel=\"dsl\"", html, StringComparison.Ordinal);
         Assert.Contains("data-document-dsl-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-export=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-copy=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-document-dsl-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("Quantity must be greater than 10.", html, StringComparison.Ordinal);
         Assert.Contains("gt($customer.Quantity, 10)", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-document-viewer.css", html, StringComparison.Ordinal);
