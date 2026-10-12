@@ -2,6 +2,7 @@ namespace ButterMorph.StudioPlayground;
 
 using ButterMorph.DependencyInjection;
 using ButterMorph.Json.Schema;
+using ButterMorph.Language.CSharp;
 using ButterMorph.StudioPlayground.Services;
 using ButterMorph.Web.Razor;
 
@@ -14,9 +15,11 @@ public sealed partial class Program
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddButterMorph();
         builder.Services.AddButterMorphJsonSchema();
-        builder.Services.AddButterMorphRazorDesigner(UseDarkPinkTheme);
+        builder.Services
+            .AddButterMorph()
+            .AddRazorDesigner(UseDarkPinkTheme)
+            .AddCSharpLanguageAdapter();
         builder.Services.AddSingleton<StudioStore>();
         builder.Services.AddSingleton<StudioButterMorphHost>();
         builder.Services.AddSingleton<IButterMorphDesignerHost>(provider => provider.GetRequiredService<StudioButterMorphHost>());

@@ -20,8 +20,8 @@ public static class ServiceCollectionExtensions
     /// Adds the default ButterMorph service registrations.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <returns>The configured service collection.</returns>
-    public static IServiceCollection AddButterMorph(this IServiceCollection services)
+    /// <returns>The configured ButterMorph builder.</returns>
+    public static IButterMorphBuilder AddButterMorph(this IServiceCollection services)
     {
         services.AddTransient<IButterMorphEngine, global::ButterMorph.ButterMorphEngine>();
         services.AddTransient<IDslParser, DslParser>();
@@ -45,6 +45,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IValidationEngine, ValidationEngine>();
         services.AddSingleton<IValidationRuleRegistry, ValidationRuleRegistry>();
 
-        return services;
+        return new ButterMorphBuilder(services);
     }
 }

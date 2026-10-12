@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Design\ButterMorph.Design.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Web.Razor\ButterMorph.Web.Razor.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Language.CSharp\ButterMorph.Language.CSharp.csproj" />
+    <ProjectReference Include="..\..\src\ButterMorph.Language\ButterMorph.Language.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.Playground\ButterMorph.Playground.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.SampleSharedTypes\ButterMorph.SampleSharedTypes.csproj" />

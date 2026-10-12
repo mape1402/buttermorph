@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Language</PackageId>
+    <Description>Language adapter contracts, type mapping documents, and code generation models for ButterMorph.</Description>
+    <PackageTags>buttermorph language adapters codegen type-mapping contracts</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
+  </ItemGroup>
+</Project>
