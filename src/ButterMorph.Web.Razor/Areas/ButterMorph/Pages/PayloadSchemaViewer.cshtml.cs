@@ -196,7 +196,8 @@ public sealed class PayloadSchemaViewerModel : PageModel
             {
                 key = profile.Id,
                 displayName = profile.Name,
-                languageKey = profile.LanguageKey
+                languageKey = profile.LanguageKey,
+                exportFileExtensions = NormalizeExportFileExtensions(ResolveAdapter(profile.LanguageKey))
             }),
             profiles,
             activeProfileId = activeProfile.Id,
@@ -374,6 +375,17 @@ public sealed class PayloadSchemaViewerModel : PageModel
     private IButterMorphLanguageAdapter ResolveAdapter(string languageKey)
     {
         return languageAdapters.FirstOrDefault(adapter => string.Equals(adapter.Key, languageKey, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IReadOnlyCollection<string> NormalizeExportFileExtensions(IButterMorphLanguageAdapter adapter)
+    {
+        return (adapter?.ExportFileExtensions ?? [])
+            .Where(extension => !string.IsNullOrWhiteSpace(extension))
+            .Select(extension => extension.Trim().StartsWith(".", StringComparison.Ordinal)
+                ? extension.Trim()
+                : "." + extension.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static string CreateRawJson(ButterMorphPayloadSchemaViewerLoadResult result)

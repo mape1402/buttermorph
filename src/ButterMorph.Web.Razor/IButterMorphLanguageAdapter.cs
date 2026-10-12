@@ -23,6 +23,11 @@ public interface IButterMorphLanguageAdapter
     string FileExtension { get; }
 
     /// <summary>
+    /// Gets the file extensions supported when exporting generated code.
+    /// </summary>
+    IReadOnlyCollection<string> ExportFileExtensions => string.IsNullOrWhiteSpace(FileExtension) ? [] : [FileExtension];
+
+    /// <summary>
     /// Gets the language-native types available to mapping profiles.
     /// </summary>
     /// <returns>The language type catalog.</returns>
