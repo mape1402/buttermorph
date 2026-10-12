@@ -14,10 +14,10 @@
     <title>ButterMorph Validation Viewer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.css?v=1" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.css?v=2" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-document-viewer.js?v=2" defer></script>
 </head>
 <body class="bm-document-viewer-page"
       style="@Model.ThemeStyle"
@@ -66,8 +66,15 @@
         @if (Model.DslEnabled)
         {
             <section class="bm-document-viewer-dsl" data-document-view-panel="dsl">
-                <div class="bm-document-dsl-editor" data-document-dsl-editor="true">
-                    <textarea data-document-dsl-source="true" readonly>@Model.RawDsl</textarea>
+                <div class="bm-document-dsl-shell">
+                    <header class="bm-document-dsl-toolbar">
+                        <button type="button" data-document-dsl-export="true">Export</button>
+                        <button type="button" data-document-dsl-copy="true">Copy</button>
+                    </header>
+                    <div class="bm-document-dsl-toast" data-document-dsl-toast="true" role="status" aria-live="polite" hidden></div>
+                    <div class="bm-document-dsl-editor" data-document-dsl-editor="true">
+                        <textarea data-document-dsl-source="true" readonly>@Model.RawDsl</textarea>
+                    </div>
                 </div>
             </section>
         }
