@@ -4,17 +4,17 @@ using ButterMorph.DependencyInjection;
 using ButterMorph.Design;
 using ButterMorph.Json;
 using ButterMorph.Json.Schema;
+using ButterMorph.Language.CSharp;
 using ButterMorph.SchemaDesign;
 using ButterMorph.Web.Razor;
 using System.Text.Json;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddButterMorph();
-builder.Services.AddButterMorphDesign();
-builder.Services.AddButterMorphJsonSchema();
-builder.Services.AddButterMorphSchemaDesign();
-builder.Services.AddButterMorphRazorDesigner();
+builder.Services
+    .AddButterMorph()
+    .AddRazorDesigner()
+    .AddCSharpLanguageAdapter();
 builder.Services.AddSingleton<PlaygroundMappingStore>();
 builder.Services.AddSingleton<PlaygroundValidationStore>();
 builder.Services.AddSingleton<PlaygroundSchemaStore>();

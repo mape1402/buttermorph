@@ -1,4 +1,4 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language;
 
 /// <summary>
 /// Combines adapter primitive types and host-provided custom type bundles.

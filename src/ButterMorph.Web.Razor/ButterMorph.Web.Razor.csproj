@@ -12,6 +12,7 @@
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Design\ButterMorph.Design.csproj" />
     <ProjectReference Include="..\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
+    <ProjectReference Include="..\ButterMorph.Language\ButterMorph.Language.csproj" />
     <ProjectReference Include="..\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>

@@ -1,4 +1,4 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language;
 
 /// <summary>
 /// Describes a discovered package of language-native custom types.

@@ -1,7 +1,8 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language.CSharp;
 
 using System.Text;
 using System.Text.Json;
+using ButterMorph.Language;
 using ButterMorph.SchemaDesign;
 
 /// <summary>
@@ -99,7 +100,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
     public ButterMorphCodeGenerationResult GenerateCode(PayloadSchemaDefinition definition, string rawJson, ButterMorphLanguageMappingProfile profile)
     {
         List<string> diagnostics = [];
-        SchemaViewerDisplayModel schema = SchemaViewerDisplayBuilder.Build(definition, rawJson);
+        ButterMorphCodeSchemaModel schema = ButterMorphCodeSchemaBuilder.Build(definition, rawJson);
         ButterMorphLanguageMappingProfile resolvedProfile = NormalizeProfile(profile, definition, rawJson);
         string rootTypeName = SanitizeTypeName(ResolveValue(resolvedProfile.RootTypeName, schema.Name, "Schema"));
         TypeMappingLookup typeMappings = TypeMappingLookup.Create(resolvedProfile.TypeMappings);
@@ -152,7 +153,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         GeneratedClass CreateClass(
             string className,
             string classDescription,
-            IReadOnlyCollection<SchemaViewerNodeDisplayModel> fields,
+            IReadOnlyCollection<ButterMorphCodeSchemaNode> fields,
             string parentPath,
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
@@ -168,7 +169,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             };
             HashSet<string> propertyNames = new(StringComparer.Ordinal);
 
-            foreach (SchemaViewerNodeDisplayModel field in fields)
+            foreach (ButterMorphCodeSchemaNode field in fields)
             {
                 string fieldPath = string.IsNullOrWhiteSpace(parentPath) ? field.Name : parentPath + "." + field.Name;
                 string propertyName = aliases.TryGetValue(fieldPath, out string alias)
@@ -198,7 +199,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         }
 
         string ResolveLanguageType(
-            SchemaViewerNodeDisplayModel field,
+            ButterMorphCodeSchemaNode field,
             string fieldPath,
             string containingClassName,
             ButterMorphLanguageMappingProfile activeProfile,
@@ -226,7 +227,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         }
 
         string CreateNestedClass(
-            SchemaViewerNodeDisplayModel field,
+            ButterMorphCodeSchemaNode field,
             string fieldPath,
             string containingClassName,
             ButterMorphLanguageMappingProfile activeProfile,
@@ -346,7 +347,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             .Replace(">", "&gt;", StringComparison.Ordinal);
     }
 
-    private static string ApplyNullability(string typeName, SchemaViewerNodeDisplayModel field, ButterMorphLanguageMappingProfile profile)
+    private static string ApplyNullability(string typeName, ButterMorphCodeSchemaNode field, ButterMorphLanguageMappingProfile profile)
     {
         if (field.IsRequired || !profile.UseNullableReferences || typeName.EndsWith("[]", StringComparison.Ordinal) || typeName.StartsWith("List<", StringComparison.Ordinal) || typeName.StartsWith("IReadOnlyList<", StringComparison.Ordinal))
         {
@@ -394,7 +395,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
     }
 
     private static string ResolveNestedClassName(
-        SchemaViewerNodeDisplayModel field,
+        ButterMorphCodeSchemaNode field,
         string fieldPath,
         string containingClassName,
         IReadOnlyDictionary<string, string> typeAliases,
@@ -449,7 +450,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             : value.ToLowerInvariant();
     }
 
-    private static string ResolveTypeKey(SchemaViewerNodeDisplayModel field)
+    private static string ResolveTypeKey(ButterMorphCodeSchemaNode field)
     {
         string referenceKey = ReadReferenceKey(field.Reference);
         if (!string.IsNullOrWhiteSpace(referenceKey))
@@ -466,7 +467,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         return NormalizeButterMorphType(type);
     }
 
-    private static string ResolveArrayItemTypeKey(SchemaViewerNodeDisplayModel field)
+    private static string ResolveArrayItemTypeKey(ButterMorphCodeSchemaNode field)
     {
         string referenceKey = ReadReferenceKey(field.ItemReference);
         if (!string.IsNullOrWhiteSpace(referenceKey))
@@ -484,12 +485,12 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         return "object";
     }
 
-    private static string ResolveTypeVersion(SchemaViewerNodeDisplayModel field)
+    private static string ResolveTypeVersion(ButterMorphCodeSchemaNode field)
     {
         return ReadReferenceVersion(field.Reference);
     }
 
-    private static string ResolveArrayItemTypeVersion(SchemaViewerNodeDisplayModel field)
+    private static string ResolveArrayItemTypeVersion(ButterMorphCodeSchemaNode field)
     {
         return ReadReferenceVersion(field.ItemReference);
     }
@@ -510,7 +511,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         return normalized.ToLowerInvariant();
     }
 
-    private static bool IsArray(SchemaViewerNodeDisplayModel field)
+    private static bool IsArray(ButterMorphCodeSchemaNode field)
     {
         return string.Equals(field.Kind, "array", StringComparison.OrdinalIgnoreCase) ||
             (field.DataType ?? string.Empty).StartsWith("array of ", StringComparison.OrdinalIgnoreCase);

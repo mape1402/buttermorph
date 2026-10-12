@@ -1,4 +1,4 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language;
 
 /// <summary>
 /// Maps one ButterMorph schema field path to one language member name.

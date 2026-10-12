@@ -1,4 +1,4 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language;
 
 /// <summary>
 /// Describes code generation settings and type mappings for one target language.

@@ -1,4 +1,4 @@
-namespace ButterMorph.Web.Razor;
+namespace ButterMorph.Language;
 
 /// <summary>
 /// Maps one ButterMorph type key to one language-native type.

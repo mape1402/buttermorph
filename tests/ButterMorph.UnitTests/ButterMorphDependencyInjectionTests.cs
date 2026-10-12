@@ -2,6 +2,9 @@ namespace ButterMorph.UnitTests;
 
 using ButterMorph.Abstractions;
 using ButterMorph.DependencyInjection;
+using ButterMorph.Language;
+using ButterMorph.Language.CSharp;
+using ButterMorph.Web.Razor;
 using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
@@ -9,6 +12,54 @@ using Microsoft.Extensions.DependencyInjection;
 /// </summary>
 public sealed class ButterMorphDependencyInjectionTests
 {
+    /// <summary>
+    /// Confirms that the default registration exposes the composable ButterMorph builder.
+    /// </summary>
+    [Fact]
+    public void AddButterMorphReturnsComposableBuilder()
+    {
+        ServiceCollection services = new();
+
+        IButterMorphBuilder builder = services.AddButterMorph();
+
+        Assert.Same(services, builder.Services);
+    }
+
+    /// <summary>
+    /// Confirms that the Razor designer does not register a language adapter by itself.
+    /// </summary>
+    [Fact]
+    public void AddRazorDesignerDoesNotRegisterLanguageAdapterByDefault()
+    {
+        ServiceCollection services = new();
+        services
+            .AddButterMorph()
+            .AddRazorDesigner();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        Assert.Empty(provider.GetServices<IButterMorphLanguageAdapter>());
+        Assert.NotNull(provider.GetRequiredService<IButterMorphLanguageTypeResolver>());
+    }
+
+    /// <summary>
+    /// Confirms that language adapters can be added through the ButterMorph builder.
+    /// </summary>
+    [Fact]
+    public void AddCSharpLanguageAdapterRegistersAdapterThroughBuilder()
+    {
+        ServiceCollection services = new();
+        services
+            .AddButterMorph()
+            .AddRazorDesigner()
+            .AddCSharpLanguageAdapter();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IButterMorphLanguageAdapter adapter = Assert.Single(provider.GetServices<IButterMorphLanguageAdapter>());
+        Assert.Equal("csharp", adapter.Key);
+    }
+
     /// <summary>
     /// Confirms that dependency injection resolves the public engine interface.
     /// </summary>
