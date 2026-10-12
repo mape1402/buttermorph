@@ -175,7 +175,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-view-panel=\"code\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-source=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-language=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-code-aliases=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-toast=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-alias-dialog=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-alias-breadcrumb=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-alias-search=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("Property aliases", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-type-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-field-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);

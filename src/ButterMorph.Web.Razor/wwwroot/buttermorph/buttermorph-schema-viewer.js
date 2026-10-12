@@ -14,6 +14,9 @@
   let codeEditor = null;
   let activeProfile = cloneProfile(resolveInitialProfile());
   let codeToastTimer = null;
+  let aliasCurrentNode = root;
+  let aliasEditingPath = "";
+  let aliasSearchTerm = "";
 
   function readViewerData(node) {
     if (!node) {
@@ -528,13 +531,21 @@
     const language = document.querySelector("[data-schema-code-language]");
     if (language) {
       language.addEventListener("change", function () {
+        persistActiveProfile();
         const nextProfile = (codeData.profiles || []).find(function (profile) {
           return (profile.id || profile.key || "") === language.value;
         });
         activeProfile = cloneProfile(nextProfile || activeProfile);
+        aliasEditingPath = "";
         renderCodeWorkspace();
+        renderAliasRows();
         generateCode();
       });
+    }
+
+    const aliases = document.querySelector("[data-schema-code-aliases]");
+    if (aliases) {
+      aliases.addEventListener("click", openAliasDialog);
     }
 
     const copy = document.querySelector("[data-schema-code-copy]");
@@ -549,6 +560,20 @@
             showCodeToast("Copy failed");
           });
       });
+    }
+  }
+
+  function persistActiveProfile() {
+    if (!activeProfile || !codeData.profiles) {
+      return;
+    }
+
+    const activeId = activeProfile.id || activeProfile.key || "";
+    const index = codeData.profiles.findIndex(function (profile) {
+      return (profile.id || profile.key || "") === activeId;
+    });
+    if (index >= 0) {
+      codeData.profiles[index] = cloneProfile(activeProfile);
     }
   }
 
@@ -599,6 +624,295 @@
         }
       }, 180);
     }, 1600);
+  }
+
+  function openAliasDialog() {
+    const dialog = document.querySelector("[data-schema-alias-dialog]");
+    if (!dialog) {
+      return;
+    }
+
+    aliasEditingPath = "";
+    aliasCurrentNode = root;
+    aliasSearchTerm = "";
+    const search = document.querySelector("[data-schema-alias-search]");
+    if (search) {
+      search.value = "";
+    }
+    renderAliasRows();
+    dialog.hidden = false;
+  }
+
+  function closeAliasDialog() {
+    const dialog = document.querySelector("[data-schema-alias-dialog]");
+    if (dialog) {
+      dialog.hidden = true;
+    }
+    aliasEditingPath = "";
+    aliasCurrentNode = root;
+    aliasSearchTerm = "";
+  }
+
+  function wireAliasDialog() {
+    document.querySelectorAll("[data-schema-alias-close]").forEach(function (button) {
+      button.addEventListener("click", closeAliasDialog);
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeAliasDialog();
+      }
+    });
+    const search = document.querySelector("[data-schema-alias-search]");
+    if (search) {
+      search.addEventListener("input", function () {
+        aliasSearchTerm = search.value.trim().toLowerCase();
+        aliasEditingPath = "";
+        renderAliasRows();
+      });
+    }
+  }
+
+  function renderAliasRows() {
+    const list = document.querySelector("[data-schema-alias-list]");
+    if (!list) {
+      return;
+    }
+
+    renderAliasBreadcrumb();
+
+    const sourceFields = aliasSearchTerm ? (data.fields || []) : (aliasCurrentNode.children || []);
+    const fields = sourceFields.filter(function (node) {
+      return !!node.path;
+    }).filter(function (node) {
+      return !aliasSearchTerm || createAliasSearchText(node).indexOf(aliasSearchTerm) >= 0;
+    });
+    list.innerHTML = "";
+    if (!fields.length) {
+      list.appendChild(createEmpty(aliasSearchTerm ? "No matching properties." : "No properties available."));
+      return;
+    }
+
+    if (aliasSearchTerm) {
+      const resultHeader = document.createElement("div");
+      resultHeader.className = "bm-schema-alias-result-header";
+      resultHeader.textContent = fields.length + " result" + (fields.length === 1 ? "" : "s");
+      list.appendChild(resultHeader);
+    }
+
+    const header = document.createElement("div");
+    header.className = "bm-schema-alias-header";
+    header.innerHTML = "<span>Property key / alias</span><span></span>";
+    list.appendChild(header);
+
+    fields.forEach(function (node) {
+      list.appendChild(createAliasRow(node, !!aliasSearchTerm));
+    });
+  }
+
+  function createAliasRow(node, isSearchResult) {
+    const row = document.createElement("div");
+    row.className = "bm-schema-alias-row";
+    const currentAlias = getAlias(node.path);
+    const isEditing = aliasEditingPath === node.path;
+    if (isEditing) {
+      row.classList.add("is-editing");
+    }
+
+    const key = document.createElement("div");
+    key.className = "bm-schema-alias-key";
+
+    const title = document.createElement("div");
+    title.className = "bm-schema-alias-title";
+    const name = document.createElement("strong");
+    name.textContent = node.name || node.path || "(unnamed)";
+    title.appendChild(name);
+    if (currentAlias && !isEditing) {
+      const separator = document.createElement("span");
+      separator.className = "bm-schema-alias-separator";
+      separator.textContent = "-";
+      title.appendChild(separator);
+
+      const alias = document.createElement("span");
+      alias.className = "bm-schema-alias-inline";
+      alias.textContent = currentAlias;
+      title.appendChild(alias);
+    }
+    key.appendChild(title);
+
+    if (node.dataType) {
+      const type = document.createElement("span");
+      type.className = "bm-schema-alias-type";
+      type.textContent = isSearchResult && node.path ? node.dataType + " - " + node.path : node.dataType;
+      key.appendChild(type);
+    }
+    row.appendChild(key);
+
+    if (isEditing) {
+      const aliasCell = document.createElement("div");
+      aliasCell.className = "bm-schema-alias-value";
+      renderAliasEditor(aliasCell, node.path, currentAlias);
+      row.appendChild(aliasCell);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "bm-schema-alias-actions";
+    if (isEditing) {
+      const save = document.createElement("button");
+      save.type = "button";
+      save.textContent = "Save";
+      save.addEventListener("click", function () {
+        const input = row.querySelector("[data-schema-alias-input]");
+        setAlias(node.path, input ? input.value : "");
+      });
+      actions.appendChild(save);
+
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", function () {
+        aliasEditingPath = "";
+        renderAliasRows();
+      });
+      actions.appendChild(cancel);
+    } else {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", function () {
+        aliasEditingPath = node.path;
+        renderAliasRows();
+        const input = document.querySelector("[data-schema-alias-input]");
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+      actions.appendChild(edit);
+
+      if (currentAlias) {
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.textContent = "Clear";
+        clear.addEventListener("click", function () {
+          setAlias(node.path, "");
+        });
+        actions.appendChild(clear);
+      }
+
+      if ((node.children || []).length > 0) {
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = node.kind === "array" ? "Open items" : "Open";
+        open.addEventListener("click", function () {
+          aliasEditingPath = "";
+          aliasSearchTerm = "";
+          const search = document.querySelector("[data-schema-alias-search]");
+          if (search) {
+            search.value = "";
+          }
+          aliasCurrentNode = node;
+          renderAliasRows();
+        });
+        actions.appendChild(open);
+      }
+    }
+    row.appendChild(actions);
+    return row;
+  }
+
+  function renderAliasBreadcrumb() {
+    const breadcrumb = document.querySelector("[data-schema-alias-breadcrumb]");
+    if (!breadcrumb) {
+      return;
+    }
+
+    breadcrumb.innerHTML = "";
+    buildTrail(aliasCurrentNode).forEach(function (node, index, trail) {
+      if (index > 0) {
+        const separator = document.createElement("span");
+        separator.className = "bm-schema-breadcrumb-separator";
+        separator.textContent = "/";
+        breadcrumb.appendChild(separator);
+      }
+
+      if (index === trail.length - 1) {
+        const current = document.createElement("span");
+        current.className = "bm-schema-breadcrumb-current";
+        current.textContent = formatBreadcrumbName(node);
+        breadcrumb.appendChild(current);
+        return;
+      }
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = formatBreadcrumbName(node);
+      button.addEventListener("click", function () {
+        aliasEditingPath = "";
+        aliasSearchTerm = "";
+        const search = document.querySelector("[data-schema-alias-search]");
+        if (search) {
+          search.value = "";
+        }
+        aliasCurrentNode = node;
+        renderAliasRows();
+      });
+      breadcrumb.appendChild(button);
+    });
+  }
+
+  function renderAliasEditor(container, path, value) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = value || "";
+    input.placeholder = path || "Property key";
+    input.setAttribute("data-schema-alias-input", "true");
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        setAlias(path, input.value);
+      }
+      if (event.key === "Escape") {
+        aliasEditingPath = "";
+        renderAliasRows();
+      }
+    });
+    container.appendChild(input);
+  }
+
+  function createAliasSearchText(node) {
+    return [
+      createSearchText(node),
+      getAlias(node.path)
+    ].join(" ").toLowerCase();
+  }
+
+  function getAlias(path) {
+    const mapping = ((activeProfile && activeProfile.memberMappings) || []).find(function (item) {
+      return item && item.fieldPath === path;
+    });
+    return mapping ? (mapping.memberName || "") : "";
+  }
+
+  function setAlias(path, value) {
+    if (!activeProfile) {
+      return;
+    }
+
+    const alias = (value || "").trim();
+    const mappings = (activeProfile.memberMappings || []).filter(function (item) {
+      return item && item.fieldPath !== path;
+    });
+    if (alias) {
+      mappings.push({
+        fieldPath: path,
+        memberName: alias
+      });
+    }
+
+    activeProfile.memberMappings = mappings;
+    aliasEditingPath = "";
+    persistActiveProfile();
+    renderAliasRows();
+    generateCode();
   }
 
   function renderCodeWorkspace() {
@@ -766,6 +1080,7 @@
   wireViewSwitch();
   wireSearch();
   wireDetailsDialog();
+  wireAliasDialog();
   wireCodeWorkspace();
   renderCodeWorkspace();
   setCurrentNode(root);
