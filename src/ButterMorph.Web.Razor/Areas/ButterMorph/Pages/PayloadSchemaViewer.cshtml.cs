@@ -180,10 +180,13 @@ public sealed class PayloadSchemaViewerModel : PageModel
         }
 
         ButterMorphLanguageTypeMappingLoadResult loadResult = await LoadTypeMappings();
-        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = CreateProfiles(definition, loadResult);
+        string activeMappingKey = string.IsNullOrWhiteSpace(loadResult.ActiveDocumentKey)
+            ? loadResult.ActiveProfileId
+            : loadResult.ActiveDocumentKey;
+        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = CreateProfiles(definition, loadResult, activeMappingKey);
         ButterMorphLanguageMappingProfile activeProfile = ResolveActiveProfile(
             profiles,
-            string.IsNullOrWhiteSpace(loadResult.ActiveDocumentKey) ? loadResult.ActiveProfileId : loadResult.ActiveDocumentKey);
+            activeMappingKey);
         IButterMorphLanguageAdapter activeAdapter = ResolveAdapter(activeProfile.LanguageKey) ?? languageAdapters.First();
         ButterMorphCodeGenerationResult generationResult = activeAdapter.GenerateCode(definition, RawJson, activeProfile);
 
@@ -196,7 +199,6 @@ public sealed class PayloadSchemaViewerModel : PageModel
                 languageKey = profile.LanguageKey
             }),
             profiles,
-            documents = loadResult.Documents,
             activeProfileId = activeProfile.Id,
             result = generationResult
         }, ViewerJsonOptions);
@@ -215,7 +217,10 @@ public sealed class PayloadSchemaViewerModel : PageModel
         return new ButterMorphLanguageTypeMappingLoadResult();
     }
 
-    private IReadOnlyCollection<ButterMorphLanguageMappingProfile> CreateProfiles(PayloadSchemaDefinition definition, ButterMorphLanguageTypeMappingLoadResult loadResult)
+    private IReadOnlyCollection<ButterMorphLanguageMappingProfile> CreateProfiles(
+        PayloadSchemaDefinition definition,
+        ButterMorphLanguageTypeMappingLoadResult loadResult,
+        string activeMappingKey)
     {
         List<ButterMorphLanguageMappingProfile> profiles = [];
         IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> documents = ResolveDocuments(loadResult);
@@ -223,46 +228,79 @@ public sealed class PayloadSchemaViewerModel : PageModel
         bool hasHostProfiles = loadResult.Profiles.Count > 0;
         foreach (IButterMorphLanguageAdapter adapter in languageAdapters)
         {
-            ButterMorphLanguageTypeMappingDocument[] adapterDocuments = documents
-                .Where(document => string.Equals(document.Language, adapter.Key, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            if (adapterDocuments.Length > 0)
+            ButterMorphLanguageTypeMappingDocument adapterDocument = ResolveDocumentForLanguage(documents, adapter.Key, activeMappingKey);
+            if (adapterDocument != null)
             {
-                foreach (ButterMorphLanguageTypeMappingDocument document in adapterDocuments)
-                {
-                    ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
-                    profiles.Add(ButterMorphLanguageTypeMappingDocumentConverter.ToProfile(
-                        document,
-                        adapter.CreateDefaultProfile(definition, RawJson)));
-                }
+                ButterMorphLanguageTypeMappingDocumentConverter.Normalize(adapterDocument);
+                profiles.Add(PrepareViewerProfile(
+                    ButterMorphLanguageTypeMappingDocumentConverter.ToProfile(
+                        adapterDocument,
+                        adapter.CreateDefaultProfile(definition, RawJson)),
+                    adapter));
 
                 continue;
             }
 
-            ButterMorphLanguageMappingProfile[] adapterProfiles = hasHostDocuments
-                ? []
-                : loadResult.Profiles
-                .Where(profile => string.Equals(ResolveProfileLanguage(profile), adapter.Key, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-            if (adapterProfiles.Length > 0)
+            ButterMorphLanguageMappingProfile adapterProfile = hasHostDocuments
+                ? null
+                : ResolveProfileForLanguage(loadResult.Profiles, adapter.Key, activeMappingKey);
+            if (adapterProfile != null)
             {
-                foreach (ButterMorphLanguageMappingProfile hostProfile in adapterProfiles)
-                {
-                    profiles.Add(MergeWithDefaultProfile(adapter.CreateDefaultProfile(definition, RawJson), hostProfile));
-                }
+                profiles.Add(PrepareViewerProfile(
+                    MergeWithDefaultProfile(adapter.CreateDefaultProfile(definition, RawJson), adapterProfile),
+                    adapter));
             }
             else if (!hasHostDocuments && !hasHostProfiles)
             {
-                profiles.Add(adapter.CreateDefaultProfile(definition, RawJson));
+                profiles.Add(PrepareViewerProfile(adapter.CreateDefaultProfile(definition, RawJson), adapter));
             }
         }
 
         if (profiles.Count == 0)
         {
-            profiles.Add(languageAdapters.First().CreateDefaultProfile(definition, RawJson));
+            IButterMorphLanguageAdapter fallbackAdapter = languageAdapters.First();
+            profiles.Add(PrepareViewerProfile(fallbackAdapter.CreateDefaultProfile(definition, RawJson), fallbackAdapter));
         }
 
         return profiles;
+    }
+
+    private static ButterMorphLanguageTypeMappingDocument ResolveDocumentForLanguage(
+        IEnumerable<ButterMorphLanguageTypeMappingDocument> documents,
+        string languageKey,
+        string activeMappingKey)
+    {
+        ButterMorphLanguageTypeMappingDocument[] languageDocuments = documents
+            .Where(document => string.Equals(document.Language, languageKey, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return languageDocuments.FirstOrDefault(document => string.Equals(document.Key, activeMappingKey, StringComparison.OrdinalIgnoreCase))
+            ?? languageDocuments.FirstOrDefault();
+    }
+
+    private static ButterMorphLanguageMappingProfile ResolveProfileForLanguage(
+        IEnumerable<ButterMorphLanguageMappingProfile> profiles,
+        string languageKey,
+        string activeMappingKey)
+    {
+        ButterMorphLanguageMappingProfile[] languageProfiles = profiles
+            .Where(profile => string.Equals(ResolveProfileLanguage(profile), languageKey, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return languageProfiles.FirstOrDefault(profile =>
+                string.Equals(profile.Id, activeMappingKey, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(profile.Key, activeMappingKey, StringComparison.OrdinalIgnoreCase))
+            ?? languageProfiles.FirstOrDefault();
+    }
+
+    private static ButterMorphLanguageMappingProfile PrepareViewerProfile(
+        ButterMorphLanguageMappingProfile profile,
+        IButterMorphLanguageAdapter adapter)
+    {
+        profile.Name = adapter.DisplayName;
+        profile.LanguageKey = adapter.Key;
+        profile.Language = adapter.Key;
+        return profile;
     }
 
     private static IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> ResolveDocuments(ButterMorphLanguageTypeMappingLoadResult loadResult)

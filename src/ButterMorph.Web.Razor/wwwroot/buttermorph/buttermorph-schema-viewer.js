@@ -566,7 +566,7 @@
     (codeData.profiles || []).forEach(function (profile) {
       const option = document.createElement("option");
       option.value = profile.id || profile.key || "";
-      option.textContent = (profile.name || profile.key || profile.languageKey || "Package") + " - " + (profile.language || profile.languageKey || "");
+      option.textContent = profile.name || profile.language || profile.languageKey || "Language";
       option.selected = option.value === (activeProfile.id || activeProfile.key || "");
       select.appendChild(option);
     });
