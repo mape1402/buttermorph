@@ -111,7 +111,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         HashSet<string> referencedNamespaces = new(StringComparer.Ordinal);
 
         List<GeneratedClass> classes = [];
-        classes.Add(CreateClass(rootTypeName, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, typeNameMappings, diagnostics, referencedNamespaces));
+        classes.Add(CreateClass(rootTypeName, schema.Root.Description, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, typeNameMappings, diagnostics, referencedNamespaces));
         bool usesFieldAttribute = classes
             .SelectMany(item => item.Properties)
             .Any(property => property.EmitAttribute);
@@ -150,6 +150,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
 
         GeneratedClass CreateClass(
             string className,
+            string classDescription,
             IReadOnlyCollection<SchemaViewerNodeDisplayModel> fields,
             string parentPath,
             ButterMorphLanguageMappingProfile activeProfile,
@@ -161,7 +162,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         {
             GeneratedClass generatedClass = new()
             {
-                Name = className
+                Name = className,
+                Description = classDescription ?? string.Empty
             };
             HashSet<string> propertyNames = new(StringComparer.Ordinal);
 
@@ -183,6 +185,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                     SchemaName = field.Name,
                     Path = fieldPath,
                     Name = propertyName,
+                    Description = field.Description,
                     TypeName = ApplyNullability(languageType, field, activeProfile),
                     IsRequired = activeProfile.UseRequiredMembers && field.IsRequired,
                     EmitAttribute = activeProfile.EmitAttributes && !string.Equals(propertyName, field.Name, StringComparison.Ordinal),
@@ -239,7 +242,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                 return nestedClassName;
             }
 
-            classes.Add(CreateClass(nestedClassName, field.Children, fieldPath, activeProfile, mappings, aliases, typeAliases, generationDiagnostics, referencedTypeNamespaces));
+            classes.Add(CreateClass(nestedClassName, field.Description, field.Children, fieldPath, activeProfile, mappings, aliases, typeAliases, generationDiagnostics, referencedTypeNamespaces));
             return nestedClassName;
         }
     }
@@ -256,12 +259,20 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
 
     private static void WriteClass(StringBuilder builder, GeneratedClass generatedClass)
     {
+        WriteSummary(builder, generatedClass.Description, string.Empty);
         builder.Append("public sealed class ");
         builder.AppendLine(generatedClass.Name);
         builder.AppendLine("{");
 
-        foreach (GeneratedProperty property in generatedClass.Properties)
+        for (int index = 0; index < generatedClass.Properties.Count; index++)
         {
+            GeneratedProperty property = generatedClass.Properties[index];
+            if (index > 0)
+            {
+                builder.AppendLine();
+            }
+
+            WriteSummary(builder, ResolvePropertySummary(property), "    ");
             if (property.EmitAttribute)
             {
                 builder.Append("    [ButterMorphField(\"");
@@ -288,6 +299,50 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         }
 
         builder.AppendLine("}");
+    }
+
+    private static void WriteSummary(StringBuilder builder, string description, string indentation)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return;
+        }
+
+        builder.Append(indentation);
+        builder.AppendLine("/// <summary>");
+        foreach (string line in NormalizeSummaryLines(description))
+        {
+            builder.Append(indentation);
+            builder.Append("/// ");
+            builder.AppendLine(EscapeXmlComment(line));
+        }
+
+        builder.Append(indentation);
+        builder.AppendLine("/// </summary>");
+    }
+
+    private static string ResolvePropertySummary(GeneratedProperty property)
+    {
+        string summary = "Gets or sets " + property.Name + ".";
+        return string.IsNullOrWhiteSpace(property.Description)
+            ? summary
+            : summary + Environment.NewLine + property.Description;
+    }
+
+    private static IEnumerable<string> NormalizeSummaryLines(string description)
+    {
+        return (description ?? string.Empty)
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static string EscapeXmlComment(string value)
+    {
+        return (value ?? string.Empty)
+            .Replace("&", "&amp;", StringComparison.Ordinal)
+            .Replace("<", "&lt;", StringComparison.Ordinal)
+            .Replace(">", "&gt;", StringComparison.Ordinal);
     }
 
     private static string ApplyNullability(string typeName, SchemaViewerNodeDisplayModel field, ButterMorphLanguageMappingProfile profile)
@@ -707,6 +762,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
     {
         public string Name { get; set; } = string.Empty;
 
+        public string Description { get; set; } = string.Empty;
+
         public List<GeneratedProperty> Properties { get; } = [];
     }
 
@@ -717,6 +774,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         public string Path { get; set; } = string.Empty;
 
         public string Name { get; set; } = string.Empty;
+
+        public string Description { get; set; } = string.Empty;
 
         public string TypeName { get; set; } = string.Empty;
 
