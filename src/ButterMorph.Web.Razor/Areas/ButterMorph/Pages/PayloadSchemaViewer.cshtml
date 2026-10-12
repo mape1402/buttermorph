@@ -14,10 +14,10 @@
     <title>ButterMorph Schema Viewer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=18" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=19" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=13" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=14" defer></script>
 </head>
 <body class="bm-schema-viewer-page"
       style="@Model.ThemeStyle"
@@ -126,11 +126,15 @@
             <article class="bm-schema-alias-popover" role="dialog" aria-modal="true" aria-labelledby="schema-alias-title">
                 <header>
                     <div>
-                        <h2 id="schema-alias-title">Property aliases</h2>
-                        <p>Empty aliases use the property key.</p>
+                        <h2 id="schema-alias-title">Aliases</h2>
+                        <p data-schema-alias-help="true">Empty aliases use the property key.</p>
                     </div>
                     <button type="button" data-schema-alias-close="true" aria-label="Close aliases">x</button>
                 </header>
+                <div class="bm-schema-alias-tabs" role="tablist" aria-label="Alias type">
+                    <button type="button" class="is-active" data-schema-alias-mode="properties">Properties</button>
+                    <button type="button" data-schema-alias-mode="types">Types</button>
+                </div>
                 <div class="bm-schema-alias-toolbar">
                     <nav class="bm-schema-alias-breadcrumb" data-schema-alias-breadcrumb="true" aria-label="Alias property path"></nav>
                     <div class="bm-schema-alias-search">

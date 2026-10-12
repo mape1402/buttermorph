@@ -16,6 +16,8 @@
   let codeToastTimer = null;
   let aliasCurrentNode = root;
   let aliasEditingPath = "";
+  let typeAliasEditingPath = "";
+  let aliasDialogMode = "properties";
   let aliasSearchTerm = "";
 
   function readViewerData(node) {
@@ -519,7 +521,8 @@
       useRequiredMembers: true,
       collectionType: "List",
       typeMappings: [],
-      memberMappings: []
+      memberMappings: [],
+      typeNameMappings: []
     }));
   }
 
@@ -537,6 +540,7 @@
         });
         activeProfile = cloneProfile(nextProfile || activeProfile);
         aliasEditingPath = "";
+        typeAliasEditingPath = "";
         renderCodeWorkspace();
         renderAliasRows();
         generateCode();
@@ -633,7 +637,9 @@
     }
 
     aliasEditingPath = "";
+    typeAliasEditingPath = "";
     aliasCurrentNode = root;
+    aliasDialogMode = "properties";
     aliasSearchTerm = "";
     const search = document.querySelector("[data-schema-alias-search]");
     if (search) {
@@ -649,7 +655,9 @@
       dialog.hidden = true;
     }
     aliasEditingPath = "";
+    typeAliasEditingPath = "";
     aliasCurrentNode = root;
+    aliasDialogMode = "properties";
     aliasSearchTerm = "";
   }
 
@@ -667,9 +675,18 @@
       search.addEventListener("input", function () {
         aliasSearchTerm = search.value.trim().toLowerCase();
         aliasEditingPath = "";
+        typeAliasEditingPath = "";
         renderAliasRows();
       });
     }
+    document.querySelectorAll("[data-schema-alias-mode]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        aliasDialogMode = button.getAttribute("data-schema-alias-mode") || "properties";
+        aliasEditingPath = "";
+        typeAliasEditingPath = "";
+        renderAliasRows();
+      });
+    });
   }
 
   function renderAliasRows() {
@@ -678,11 +695,12 @@
       return;
     }
 
+    renderAliasMode();
     renderAliasBreadcrumb();
 
     const sourceFields = aliasSearchTerm ? (data.fields || []) : (aliasCurrentNode.children || []);
     const fields = sourceFields.filter(function (node) {
-      return !!node.path;
+      return !!node.path && isAliasRowCandidate(node);
     }).filter(function (node) {
       return !aliasSearchTerm || createAliasSearchText(node).indexOf(aliasSearchTerm) >= 0;
     });
@@ -701,7 +719,9 @@
 
     const header = document.createElement("div");
     header.className = "bm-schema-alias-header";
-    header.innerHTML = "<span>Property key / alias</span><span></span>";
+    header.innerHTML = aliasDialogMode === "types"
+      ? "<span>Schema type / generated type</span><span></span>"
+      : "<span>Property key / alias</span><span></span>";
     list.appendChild(header);
 
     fields.forEach(function (node) {
@@ -709,11 +729,34 @@
     });
   }
 
+  function renderAliasMode() {
+    document.querySelectorAll("[data-schema-alias-mode]").forEach(function (button) {
+      const mode = button.getAttribute("data-schema-alias-mode") || "properties";
+      button.classList.toggle("is-active", mode === aliasDialogMode);
+    });
+
+    const help = document.querySelector("[data-schema-alias-help]");
+    if (help) {
+      help.textContent = aliasDialogMode === "types"
+        ? "Empty type aliases use the generated type name."
+        : "Empty aliases use the property key.";
+    }
+  }
+
+  function isAliasRowCandidate(node) {
+    if (aliasDialogMode !== "types") {
+      return true;
+    }
+
+    return (node.children || []).length > 0 || stringEquals(node.kind, "object");
+  }
+
   function createAliasRow(node, isSearchResult) {
     const row = document.createElement("div");
     row.className = "bm-schema-alias-row";
-    const currentAlias = getAlias(node.path);
-    const isEditing = aliasEditingPath === node.path;
+    const isTypeMode = aliasDialogMode === "types";
+    const currentAlias = isTypeMode ? getTypeAlias(node.path) : getAlias(node.path);
+    const isEditing = isTypeMode ? typeAliasEditingPath === node.path : aliasEditingPath === node.path;
     if (isEditing) {
       row.classList.add("is-editing");
     }
@@ -742,7 +785,14 @@
     if (node.dataType) {
       const type = document.createElement("span");
       type.className = "bm-schema-alias-type";
-      type.textContent = isSearchResult && node.path ? node.dataType + " - " + node.path : node.dataType;
+      const details = [node.dataType];
+      if (isTypeMode) {
+        details.push("default " + createDefaultTypeAlias(node));
+      }
+      if (isSearchResult && node.path) {
+        details.push(node.path);
+      }
+      type.textContent = details.join(" - ");
       key.appendChild(type);
     }
     row.appendChild(key);
@@ -750,7 +800,7 @@
     if (isEditing) {
       const aliasCell = document.createElement("div");
       aliasCell.className = "bm-schema-alias-value";
-      renderAliasEditor(aliasCell, node.path, currentAlias);
+      renderAliasEditor(aliasCell, node.path, currentAlias, isTypeMode);
       row.appendChild(aliasCell);
     }
 
@@ -762,7 +812,11 @@
       save.textContent = "Save";
       save.addEventListener("click", function () {
         const input = row.querySelector("[data-schema-alias-input]");
-        setAlias(node.path, input ? input.value : "");
+        if (isTypeMode) {
+          setTypeAlias(node.path, input ? input.value : "");
+        } else {
+          setAlias(node.path, input ? input.value : "");
+        }
       });
       actions.appendChild(save);
 
@@ -771,6 +825,7 @@
       cancel.textContent = "Cancel";
       cancel.addEventListener("click", function () {
         aliasEditingPath = "";
+        typeAliasEditingPath = "";
         renderAliasRows();
       });
       actions.appendChild(cancel);
@@ -779,7 +834,11 @@
       edit.type = "button";
       edit.textContent = "Edit";
       edit.addEventListener("click", function () {
-        aliasEditingPath = node.path;
+        if (isTypeMode) {
+          typeAliasEditingPath = node.path;
+        } else {
+          aliasEditingPath = node.path;
+        }
         renderAliasRows();
         const input = document.querySelector("[data-schema-alias-input]");
         if (input) {
@@ -794,7 +853,11 @@
         clear.type = "button";
         clear.textContent = "Clear";
         clear.addEventListener("click", function () {
-          setAlias(node.path, "");
+          if (isTypeMode) {
+            setTypeAlias(node.path, "");
+          } else {
+            setAlias(node.path, "");
+          }
         });
         actions.appendChild(clear);
       }
@@ -805,6 +868,7 @@
         open.textContent = node.kind === "array" ? "Open items" : "Open";
         open.addEventListener("click", function () {
           aliasEditingPath = "";
+          typeAliasEditingPath = "";
           aliasSearchTerm = "";
           const search = document.querySelector("[data-schema-alias-search]");
           if (search) {
@@ -848,6 +912,7 @@
       button.textContent = formatBreadcrumbName(node);
       button.addEventListener("click", function () {
         aliasEditingPath = "";
+        typeAliasEditingPath = "";
         aliasSearchTerm = "";
         const search = document.querySelector("[data-schema-alias-search]");
         if (search) {
@@ -860,18 +925,23 @@
     });
   }
 
-  function renderAliasEditor(container, path, value) {
+  function renderAliasEditor(container, path, value, isTypeMode) {
     const input = document.createElement("input");
     input.type = "text";
     input.value = value || "";
-    input.placeholder = path || "Property key";
+    input.placeholder = isTypeMode ? "Generated type name" : (path || "Property key");
     input.setAttribute("data-schema-alias-input", "true");
     input.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
-        setAlias(path, input.value);
+        if (isTypeMode) {
+          setTypeAlias(path, input.value);
+        } else {
+          setAlias(path, input.value);
+        }
       }
       if (event.key === "Escape") {
         aliasEditingPath = "";
+        typeAliasEditingPath = "";
         renderAliasRows();
       }
     });
@@ -881,7 +951,9 @@
   function createAliasSearchText(node) {
     return [
       createSearchText(node),
-      getAlias(node.path)
+      getAlias(node.path),
+      getTypeAlias(node.path),
+      isAliasRowCandidate(node) ? createDefaultTypeAlias(node) : ""
     ].join(" ").toLowerCase();
   }
 
@@ -913,6 +985,100 @@
     persistActiveProfile();
     renderAliasRows();
     generateCode();
+  }
+
+  function getTypeAlias(path) {
+    const mapping = ((activeProfile && activeProfile.typeNameMappings) || []).find(function (item) {
+      return item && item.fieldPath === path;
+    });
+    return mapping ? (mapping.typeName || "") : "";
+  }
+
+  function setTypeAlias(path, value) {
+    if (!activeProfile) {
+      return;
+    }
+
+    const alias = (value || "").trim();
+    const mappings = (activeProfile.typeNameMappings || []).filter(function (item) {
+      return item && item.fieldPath !== path;
+    });
+    if (alias) {
+      mappings.push({
+        fieldPath: path,
+        typeName: alias
+      });
+    }
+
+    activeProfile.typeNameMappings = mappings;
+    typeAliasEditingPath = "";
+    persistActiveProfile();
+    renderAliasRows();
+    generateCode();
+  }
+
+  function createDefaultTypeAlias(node) {
+    const trail = buildTrail(node);
+    let typeName = sanitizeCodeIdentifier(activeProfile.rootTypeName || data.name || "Schema");
+    trail.slice(1).forEach(function (item) {
+      const segment = isArrayNode(item) ? singularizeName(item.name || "") : (item.name || "");
+      typeName += sanitizeCodeIdentifier(segment);
+    });
+
+    return typeName || "GeneratedType";
+  }
+
+  function isArrayNode(node) {
+    return stringEquals(node.kind, "array") || ((node.dataType || "").toLowerCase().indexOf("array of ") === 0);
+  }
+
+  function singularizeName(value) {
+    const name = (value || "").trim();
+    if (name.length <= 1) {
+      return name;
+    }
+
+    const lower = name.toLowerCase();
+    if (lower.endsWith("ies") && name.length > 3) {
+      return name.slice(0, -3) + matchCase(name[name.length - 3], "y");
+    }
+
+    if (lower.endsWith("ches") || lower.endsWith("shes") || lower.endsWith("sses") || lower.endsWith("xes") || lower.endsWith("zes")) {
+      return name.slice(0, -2);
+    }
+
+    if (lower.endsWith("s") && !lower.endsWith("ss") && !lower.endsWith("us") && !lower.endsWith("is")) {
+      return name.slice(0, -1);
+    }
+
+    return name;
+  }
+
+  function matchCase(sample, value) {
+    return sample && sample === sample.toUpperCase() ? value.toUpperCase() : value.toLowerCase();
+  }
+
+  function sanitizeCodeIdentifier(value) {
+    let output = "";
+    let capitalizeNext = true;
+    Array.prototype.forEach.call(value || "", function (character) {
+      if (/[A-Za-z0-9_]/.test(character)) {
+        output += capitalizeNext ? character.toUpperCase() : character;
+        capitalizeNext = false;
+      } else {
+        capitalizeNext = true;
+      }
+    });
+
+    if (!output) {
+      return "";
+    }
+
+    return /^[0-9]/.test(output) ? "_" + output : output;
+  }
+
+  function stringEquals(left, right) {
+    return String(left || "").toLowerCase() === String(right || "").toLowerCase();
   }
 
   function renderCodeWorkspace() {

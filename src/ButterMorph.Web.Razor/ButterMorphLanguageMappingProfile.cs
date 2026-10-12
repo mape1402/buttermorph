@@ -93,4 +93,9 @@ public sealed class ButterMorphLanguageMappingProfile
     /// Gets or sets optional schema-field to member-name mappings for generated code.
     /// </summary>
     public List<ButterMorphLanguageMemberMapping> MemberMappings { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets optional schema-field to generated type-name mappings for generated code.
+    /// </summary>
+    public List<ButterMorphLanguageTypeNameMapping> TypeNameMappings { get; set; } = [];
 }

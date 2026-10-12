@@ -684,7 +684,7 @@
   border-radius: 12px;
   box-shadow: 0 24px 70px rgba(26, 26, 46, 0.26);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   height: min(72dvh, 620px);
   left: 50%;
   overflow: hidden;
@@ -731,6 +731,36 @@
   background: var(--bm-danger-soft);
   border-color: var(--bm-danger-border);
   color: var(--bm-danger-text);
+}
+
+.bm-schema-alias-tabs {
+  align-items: center;
+  border-bottom: 1px solid var(--bm-border);
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.5rem 0.72rem;
+}
+
+.bm-schema-alias-tabs button {
+  background: var(--bm-surface);
+  border-color: color-mix(in srgb, var(--bm-primary) 18%, var(--bm-border));
+  box-shadow: none;
+  color: color-mix(in srgb, var(--bm-muted) 78%, var(--bm-primary));
+  font-size: 0.76rem;
+  min-height: 30px;
+  padding: 0.22rem 0.65rem;
+}
+
+.bm-schema-alias-tabs button:hover {
+  background: color-mix(in srgb, var(--bm-primary) 6%, var(--bm-surface));
+  border-color: var(--bm-accent-border);
+  color: var(--bm-accent-text);
+}
+
+.bm-schema-alias-tabs button.is-active {
+  background: color-mix(in srgb, var(--bm-primary) 10%, var(--bm-surface));
+  border-color: color-mix(in srgb, var(--bm-primary) 36%, var(--bm-border-strong));
+  color: var(--bm-accent-text-strong);
 }
 
 .bm-schema-alias-toolbar {

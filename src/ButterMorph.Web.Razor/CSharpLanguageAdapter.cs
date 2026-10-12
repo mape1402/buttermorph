@@ -100,14 +100,18 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         ButterMorphLanguageMappingProfile resolvedProfile = NormalizeProfile(profile, definition, rawJson);
         string rootTypeName = SanitizeTypeName(ResolveValue(resolvedProfile.RootTypeName, schema.Name, "Schema"));
         TypeMappingLookup typeMappings = TypeMappingLookup.Create(resolvedProfile.TypeMappings);
-        Dictionary<string, string> memberMappings = resolvedProfile.MemberMappings
+        Dictionary<string, string> memberMappings = (resolvedProfile.MemberMappings ?? [])
             .Where(mapping => !string.IsNullOrWhiteSpace(mapping.FieldPath) && !string.IsNullOrWhiteSpace(mapping.MemberName))
             .GroupBy(mapping => mapping.FieldPath, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().MemberName, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> typeNameMappings = (resolvedProfile.TypeNameMappings ?? [])
+            .Where(mapping => !string.IsNullOrWhiteSpace(mapping.FieldPath) && !string.IsNullOrWhiteSpace(mapping.TypeName))
+            .GroupBy(mapping => mapping.FieldPath, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().TypeName, StringComparer.OrdinalIgnoreCase);
         HashSet<string> referencedNamespaces = new(StringComparer.Ordinal);
 
         List<GeneratedClass> classes = [];
-        classes.Add(CreateClass(rootTypeName, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, diagnostics, referencedNamespaces));
+        classes.Add(CreateClass(rootTypeName, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, typeNameMappings, diagnostics, referencedNamespaces));
         bool usesFieldAttribute = classes
             .SelectMany(item => item.Properties)
             .Any(property => property.EmitAttribute);
@@ -151,6 +155,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
             IReadOnlyDictionary<string, string> aliases,
+            IReadOnlyDictionary<string, string> typeAliases,
             List<string> generationDiagnostics,
             ISet<string> referencedTypeNamespaces)
         {
@@ -172,7 +177,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                     generationDiagnostics.Add($"Property name collision at '{fieldPath}' resolved as '{propertyName}'.");
                 }
 
-                string languageType = ResolveLanguageType(field, fieldPath, className, activeProfile, mappings, generationDiagnostics, referencedTypeNamespaces);
+                string languageType = ResolveLanguageType(field, fieldPath, className, activeProfile, mappings, typeAliases, generationDiagnostics, referencedTypeNamespaces);
                 generatedClass.Properties.Add(new GeneratedProperty
                 {
                     SchemaName = field.Name,
@@ -194,13 +199,14 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             string containingClassName,
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
+            IReadOnlyDictionary<string, string> typeAliases,
             List<string> generationDiagnostics,
             ISet<string> referencedTypeNamespaces)
         {
             if (IsArray(field))
             {
                 string itemType = field.Children.Count > 0
-                    ? CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics, referencedTypeNamespaces)
+                    ? CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, typeAliases, true, generationDiagnostics, referencedTypeNamespaces)
                     : ResolveMappedType(ResolveArrayItemTypeKey(field), ResolveArrayItemTypeVersion(field), mappings, generationDiagnostics, referencedTypeNamespaces);
                 return activeProfile.CollectionType == "Array"
                     ? itemType + "[]"
@@ -209,7 +215,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
 
             if (field.Children.Count > 0 || string.Equals(field.Kind, "object", StringComparison.OrdinalIgnoreCase))
             {
-                return CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics, referencedTypeNamespaces);
+                return CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, typeAliases, false, generationDiagnostics, referencedTypeNamespaces);
             }
 
             return ResolveMappedType(ResolveTypeKey(field), ResolveTypeVersion(field), mappings, generationDiagnostics, referencedTypeNamespaces);
@@ -222,16 +228,18 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
             IReadOnlyDictionary<string, string> aliases,
+            IReadOnlyDictionary<string, string> typeAliases,
+            bool isCollectionItem,
             List<string> generationDiagnostics,
             ISet<string> referencedTypeNamespaces)
         {
-            string nestedClassName = SanitizeTypeName(containingClassName + field.Name);
+            string nestedClassName = ResolveNestedClassName(field, fieldPath, containingClassName, typeAliases, isCollectionItem);
             if (classes.Any(item => string.Equals(item.Name, nestedClassName, StringComparison.Ordinal)))
             {
                 return nestedClassName;
             }
 
-            classes.Add(CreateClass(nestedClassName, field.Children, fieldPath, activeProfile, mappings, aliases, generationDiagnostics, referencedTypeNamespaces));
+            classes.Add(CreateClass(nestedClassName, field.Children, fieldPath, activeProfile, mappings, aliases, typeAliases, generationDiagnostics, referencedTypeNamespaces));
             return nestedClassName;
         }
     }
@@ -327,6 +335,62 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             "IReadOnlyList" => "IReadOnlyList",
             _ => "List"
         };
+    }
+
+    private static string ResolveNestedClassName(
+        SchemaViewerNodeDisplayModel field,
+        string fieldPath,
+        string containingClassName,
+        IReadOnlyDictionary<string, string> typeAliases,
+        bool isCollectionItem)
+    {
+        if (typeAliases.TryGetValue(fieldPath, out string alias) && !string.IsNullOrWhiteSpace(alias))
+        {
+            return SanitizeTypeName(alias);
+        }
+
+        string fieldName = isCollectionItem ? SingularizeCollectionName(field.Name) : field.Name;
+        return SanitizeTypeName(containingClassName + fieldName);
+    }
+
+    private static string SingularizeCollectionName(string value)
+    {
+        string name = (value ?? string.Empty).Trim();
+        if (name.Length <= 1)
+        {
+            return name;
+        }
+
+        if (name.EndsWith("ies", StringComparison.OrdinalIgnoreCase) && name.Length > 3)
+        {
+            return name[..^3] + MatchCase(name[^3], "y");
+        }
+
+        if (name.EndsWith("ches", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("shes", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("sses", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("xes", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("zes", StringComparison.OrdinalIgnoreCase))
+        {
+            return name[..^2];
+        }
+
+        if (name.EndsWith("s", StringComparison.OrdinalIgnoreCase) &&
+            !name.EndsWith("ss", StringComparison.OrdinalIgnoreCase) &&
+            !name.EndsWith("us", StringComparison.OrdinalIgnoreCase) &&
+            !name.EndsWith("is", StringComparison.OrdinalIgnoreCase))
+        {
+            return name[..^1];
+        }
+
+        return name;
+    }
+
+    private static string MatchCase(char sample, string value)
+    {
+        return char.IsUpper(sample)
+            ? value.ToUpperInvariant()
+            : value.ToLowerInvariant();
     }
 
     private static string ResolveTypeKey(SchemaViewerNodeDisplayModel field)
