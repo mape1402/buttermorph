@@ -11,11 +11,11 @@
     <title>ButterMorph Validation Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.css?v=codemirror-5-65-16" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=designer-tooltips-intellisense-5" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=designer-import-1" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/validation-designer.js?v=designer-tooltips-intellisense-1"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/validation-designer.js?v=validation-import-1"></script>
 </head>
 <body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-workbench bm-validation-workbench"
@@ -29,9 +29,13 @@
                 <p class="bm-kicker">ButterMorph</p>
                 <h1>Validation Designer</h1>
             </div>
-            <div class="bm-view-toggle" role="group" aria-label="Designer view">
-                <button type="button" class="bm-view-button" data-view="Visual">Visual Designer</button>
-                <button type="button" class="bm-view-button" data-view="Dsl">DSL</button>
+            <div class="bm-topbar-controls">
+                <button type="button" class="bm-document-import-button" data-dsl-import-button="true">Import</button>
+                <input type="file" accept=".bmh,text/plain" data-dsl-import-file="true" hidden />
+                <div class="bm-view-toggle" role="group" aria-label="Designer view">
+                    <button type="button" class="bm-view-button" data-view="Visual">Visual Designer</button>
+                    <button type="button" class="bm-view-button" data-view="Dsl">DSL</button>
+                </div>
             </div>
         </header>
 

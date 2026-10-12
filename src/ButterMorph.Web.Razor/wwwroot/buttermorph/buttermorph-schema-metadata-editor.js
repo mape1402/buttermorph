@@ -15,6 +15,7 @@
 
     const definition = normalizeDefinition(readJson(definitionNode.textContent || "{}", { fields: [] }));
     window.ButterMorphPayloadMetadataSync = validateAndSyncMetadata;
+    window.ButterMorphPayloadMetadataLoad = loadMetadata;
     renderFields();
     updateSummary();
 
@@ -62,6 +63,14 @@
         hiddenInput.value = JSON.stringify(currentMetadata);
         updateSummary();
         return true;
+    }
+
+    function loadMetadata(metadata) {
+        currentMetadata = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+        hiddenInput.value = JSON.stringify(currentMetadata);
+        renderFields();
+        updateSummary();
+        clearValidation();
     }
 
     function renderFields() {

@@ -620,6 +620,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Contains("Validation Designer", html, StringComparison.Ordinal);
         Assert.Contains("Save validations", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-import-button=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("Validation rules", html, StringComparison.Ordinal);
         Assert.Contains("Add field rule", html, StringComparison.Ordinal);
         Assert.Contains("Add group assertion", html, StringComparison.Ordinal);
@@ -1926,8 +1927,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
 
-        Assert.Contains("buttermorph-schema.css?v=22", html, StringComparison.Ordinal);
-        Assert.Contains("buttermorph-schema-builder.js?v=19", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema.css?v=schema-import-1", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-builder.js?v=schema-import-1", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"schema-import-button\"", html, StringComparison.Ordinal);
         Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
         Assert.DoesNotContain("returnUrl=/", html, StringComparison.Ordinal);
@@ -2167,6 +2169,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
 
         Assert.Equal(1, host.LoadCalls);
         Assert.Contains("customer", html, StringComparison.Ordinal);
+        Assert.Contains("data-dsl-import-button=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-open-modal=\"source\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-open-modal=\"output\"", html, StringComparison.Ordinal);

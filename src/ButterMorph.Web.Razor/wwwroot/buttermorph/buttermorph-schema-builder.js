@@ -4,6 +4,8 @@
     const addRootButton = document.getElementById("add-root-field");
     const template = document.getElementById("schema-field-template");
     const hiddenSchemaInput = document.getElementById("payload-schema-json");
+    const importButton = document.getElementById("schema-import-button");
+    const importFileInput = document.getElementById("schema-import-file");
     const catalog = mergeCatalogs(defaultCatalog(), readCatalog("schema-type-catalog", []));
     const metadataCatalog = readCatalog("field-metadata-catalog", []);
     const modalStack = [];
@@ -23,6 +25,31 @@
     });
 
     window.ButterMorphPayloadSchemaSync = syncPayloadSchemaInput;
+    window.ButterMorphPayloadSchemaImport = importSchemaText;
+
+    importButton?.addEventListener("click", function () {
+        importFileInput?.click();
+    });
+
+    importFileInput?.addEventListener("change", function () {
+        const file = importFileInput.files && importFileInput.files.length > 0 ? importFileInput.files[0] : null;
+        if (!file) {
+            return;
+        }
+
+        if (!window.confirm("Importing will replace the current schema draft. Continue?")) {
+            importFileInput.value = "";
+            return;
+        }
+
+        file.text().then(function (text) {
+            importSchemaText(text);
+        }).catch(function () {
+            showSchemaMessage("Schema import failed. The selected file could not be read.");
+        }).finally(function () {
+            importFileInput.value = "";
+        });
+    });
 
     form.addEventListener("submit", function (event) {
         if (!syncPayloadSchemaInput()) {
@@ -125,6 +152,83 @@
             rootList.appendChild(createPopulatedFieldNode(entry[0], entry[1], true, entry[1].required === true));
         });
         updateSummaries();
+    }
+
+    function importSchemaText(text) {
+        let schema = null;
+        try {
+            schema = JSON.parse(text || "{}");
+        } catch (error) {
+            showSchemaMessage("Schema import failed. The selected file is not valid JSON.");
+            return false;
+        }
+
+        if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+            showSchemaMessage("Schema import failed. The selected file must contain a JSON object.");
+            return false;
+        }
+
+        if (schema.type !== "object" || !schema.properties || typeof schema.properties !== "object" || Array.isArray(schema.properties)) {
+            showSchemaMessage("Schema import failed. The schema root must be an object with properties.");
+            return false;
+        }
+
+        setImportFieldValue("SchemaKey", schema.key);
+        setImportFieldValue("SchemaName", schema.name || schema.title);
+        setImportFieldValue("SchemaDescription", schema.description);
+        setImportFieldValue("SchemaVersion", schema.version);
+        setImportFieldValue("SchemaVersionComment", schema.versionComment);
+        loadImportedSchemaMetadata(schema.metadata);
+        hiddenSchemaInput.value = JSON.stringify(schema);
+        rootList.innerHTML = "";
+        hydrateFromHiddenSchema();
+        showSchemaStatus("Schema imported. Review and save.");
+        return true;
+    }
+
+    function setImportFieldValue(name, value) {
+        if (value === undefined || value === null) {
+            return;
+        }
+        const input = document.querySelector("[name='" + name + "']");
+        if (input) {
+            input.value = String(value);
+        }
+    }
+
+    function loadImportedSchemaMetadata(metadata) {
+        const normalized = metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+
+        if (window.ButterMorphPayloadMetadataLoad) {
+            window.ButterMorphPayloadMetadataLoad(normalized);
+            return;
+        }
+
+        const input = document.getElementById("schema-metadata-json");
+        if (input) {
+            input.value = JSON.stringify(normalized);
+        }
+    }
+
+    function showSchemaStatus(message) {
+        let status = document.querySelector("[data-schema-import-status='true']");
+        if (!message) {
+            status?.remove();
+            return;
+        }
+        if (!status) {
+            status = document.createElement("div");
+            status.className = "bm-schema-import-status";
+            status.setAttribute("data-schema-import-status", "true");
+            if (form && form.parentElement) {
+                form.parentElement.insertBefore(status, form);
+            }
+        }
+        status.textContent = message;
+        window.clearTimeout(showSchemaStatus.timer);
+        showSchemaStatus.timer = window.setTimeout(function () {
+            status?.remove();
+        }, 4000);
     }
 
     function createFieldNode() {
