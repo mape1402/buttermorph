@@ -176,6 +176,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-code-source=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-language=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-aliases=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-code-export=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-alias-dialog=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-alias-breadcrumb=\"true\"", html, StringComparison.Ordinal);
@@ -191,6 +192,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("using Billing.SharedTypes;", html, StringComparison.Ordinal);
         Assert.Contains("TextValue Name", html, StringComparison.Ordinal);
         Assert.Contains("\"displayName\":\"C#\"", html, StringComparison.Ordinal);
+        Assert.Contains("\"exportFileExtensions\":[\".cs\"]", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Customer C#", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Billing C#", html, StringComparison.Ordinal);
     }
@@ -226,6 +228,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("List<CustomerProfileContact> Contacts", code, StringComparison.Ordinal);
         Assert.Contains("using Company.SharedTypes;", code, StringComparison.Ordinal);
         Assert.Contains("TextValue Name", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("#nullable enable", code, StringComparison.Ordinal);
         Assert.Contains("/// Atlas-style customer profile schema.", code, StringComparison.Ordinal);
         Assert.Contains("/// Gets or sets Name.\n    /// Customer full name.", code, StringComparison.Ordinal);
         Assert.Contains("/// Customer full name.", code, StringComparison.Ordinal);

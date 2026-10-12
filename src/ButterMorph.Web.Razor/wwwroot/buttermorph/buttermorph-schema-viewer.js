@@ -552,10 +552,19 @@
       aliases.addEventListener("click", openAliasDialog);
     }
 
+    const exportButton = document.querySelector("[data-schema-code-export]");
+    if (exportButton) {
+      exportButton.addEventListener("click", function () {
+        const value = getCurrentCodeValue();
+        exportCodeFile(value);
+        showCodeToast("File exported");
+      });
+    }
+
     const copy = document.querySelector("[data-schema-code-copy]");
     if (copy) {
       copy.addEventListener("click", function () {
-        const value = codeEditor ? codeEditor.getValue() : (document.querySelector("[data-schema-code-source]") || {}).value || "";
+        const value = getCurrentCodeValue();
         copyCodeToClipboard(value)
           .then(function () {
             showCodeToast("Copied to clipboard");
@@ -565,6 +574,58 @@
           });
       });
     }
+  }
+
+  function getCurrentCodeValue() {
+    return codeEditor ? codeEditor.getValue() : (document.querySelector("[data-schema-code-source]") || {}).value || "";
+  }
+
+  function exportCodeFile(value) {
+    const fileName = resolveExportFileName();
+    const blob = new Blob([value || ""], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function resolveExportFileName() {
+    const baseName = sanitizeFileName((activeProfile && activeProfile.rootTypeName) || data.name || data.key || "schema");
+    return baseName + resolveExportExtension();
+  }
+
+  function resolveExportExtension() {
+    const metadata = resolveActiveLanguageMetadata();
+    const extensions = metadata.exportFileExtensions || metadata.fileExtensions || [];
+    const extension = (extensions.find(function (item) { return item; }) || metadata.fileExtension || ".txt").trim();
+    return extension.charAt(0) === "." ? extension : "." + extension;
+  }
+
+  function resolveActiveLanguageMetadata() {
+    const languages = codeData.languages || [];
+    const activeId = activeProfile ? (activeProfile.id || activeProfile.key || "") : "";
+    const activeLanguageKey = activeProfile ? (activeProfile.languageKey || activeProfile.language || "") : "";
+    return languages.find(function (language) {
+      return (language.key || "") === activeId;
+    }) || languages.find(function (language) {
+      return equalsIgnoreCase(language.languageKey || language.key, activeLanguageKey);
+    }) || {};
+  }
+
+  function sanitizeFileName(value) {
+    const sanitized = String(value || "")
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return sanitized || "schema";
   }
 
   function persistActiveProfile() {

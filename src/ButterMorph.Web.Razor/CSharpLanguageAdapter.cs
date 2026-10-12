@@ -35,6 +35,9 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
     public string FileExtension => ".cs";
 
     /// <inheritdoc />
+    public IReadOnlyCollection<string> ExportFileExtensions => [".cs"];
+
+    /// <inheritdoc />
     public string LanguageKey => Key;
 
     /// <inheritdoc />
@@ -117,8 +120,6 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             .Any(property => property.EmitAttribute);
 
         StringBuilder builder = new();
-        builder.AppendLine("#nullable enable");
-        builder.AppendLine();
         builder.AppendLine("using System;");
         builder.AppendLine("using System.Collections.Generic;");
         if (usesFieldAttribute)

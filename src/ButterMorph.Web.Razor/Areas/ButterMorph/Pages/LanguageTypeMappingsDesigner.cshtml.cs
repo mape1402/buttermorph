@@ -132,6 +132,7 @@ public sealed class LanguageTypeMappingsDesignerModel : PageModel
                 adapter.Key,
                 adapter.DisplayName,
                 adapter.FileExtension,
+                exportFileExtensions = adapter.ExportFileExtensions,
                 types = languageTypes
             });
         }
