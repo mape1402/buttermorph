@@ -14,10 +14,10 @@
     <title>ButterMorph Schema Viewer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.css?v=codemirror-5-65-16" />
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=16" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.css?v=18" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=11" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-viewer.js?v=13" defer></script>
 </head>
 <body class="bm-schema-viewer-page"
       style="@Model.ThemeStyle"
@@ -83,6 +83,7 @@
             <section class="bm-schema-viewer-code" data-schema-view-panel="code">
                 <div class="bm-schema-code-shell">
                     <header class="bm-schema-code-toolbar">
+                        <button type="button" data-schema-code-aliases="true">Aliases</button>
                         <label class="bm-schema-code-language">
                             <span>Language</span>
                             <select data-schema-code-language="true"></select>
@@ -118,6 +119,26 @@
                     <button type="button" data-schema-detail-close="true" aria-label="Close property details">x</button>
                 </header>
                 <div data-schema-detail-body="true"></div>
+            </article>
+        </div>
+        <div class="bm-schema-alias-dialog" data-schema-alias-dialog="true" hidden>
+            <div class="bm-schema-alias-backdrop" data-schema-alias-close="true"></div>
+            <article class="bm-schema-alias-popover" role="dialog" aria-modal="true" aria-labelledby="schema-alias-title">
+                <header>
+                    <div>
+                        <h2 id="schema-alias-title">Property aliases</h2>
+                        <p>Empty aliases use the property key.</p>
+                    </div>
+                    <button type="button" data-schema-alias-close="true" aria-label="Close aliases">x</button>
+                </header>
+                <div class="bm-schema-alias-toolbar">
+                    <nav class="bm-schema-alias-breadcrumb" data-schema-alias-breadcrumb="true" aria-label="Alias property path"></nav>
+                    <div class="bm-schema-alias-search">
+                        <label class="bm-schema-sr-only" for="schema-alias-search">Search properties</label>
+                        <input id="schema-alias-search" type="search" data-schema-alias-search="true" aria-label="Search properties" placeholder="Search properties" autocomplete="off" />
+                    </div>
+                </div>
+                <div class="bm-schema-alias-list" data-schema-alias-list="true"></div>
             </article>
         </div>
     </main>
