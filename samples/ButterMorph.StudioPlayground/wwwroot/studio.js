@@ -1,8 +1,8 @@
 (() => {
-  const storageKey = "ButterMorph.StudioPlayground.State";
+  const storageKey = "ButterMorph.StudioPlayground.State.v2";
   const themeStorageKey = "ButterMorph.StudioPlayground.ThemeMode";
-  let state = { customTypes: [], customFields: [], languageTypeProfiles: [], languageTypeBundles: [], schemas: [], mappings: [], validations: [] };
-  let selected = { customTypes: "", customFields: "", languageTypeBundles: "", schemas: "", mappings: "", validations: "" };
+  let state = { customTypes: [], customFields: [], languageTypeMappings: [], languageTypeBundles: [], schemas: [], mappings: [], validations: [] };
+  let selected = { customTypes: "", customFields: "", languageTypeBundles: "", typeMappings: "", schemas: "", mappings: "", validations: "" };
   let themeMode = normalizeThemeMode(localStorage.getItem(themeStorageKey) || "dark");
 
   const titles = {
@@ -34,6 +34,9 @@
     if (type.startsWith("ButterMorph")) {
       if (type === "ButterMorphLanguageTypeBundleSaved" && event.data.bundle) {
         await saveLanguageTypeBundle(event.data.bundle);
+      }
+      if (type === "ButterMorphLanguageTypeMappingsSaved" && event.data.document) {
+        await saveLanguageTypeMapping(event.data.document);
       }
 
       selectSavedItem(type, event.data.contextKey || "");
@@ -90,7 +93,7 @@
           persisted.validations = Array.isArray(seeded.validations) ? seeded.validations : [];
         }
         if (persisted.__needsLanguageTypeSeed) {
-          persisted.languageTypeProfiles = Array.isArray(seeded.languageTypeProfiles) ? seeded.languageTypeProfiles : [];
+          persisted.languageTypeMappings = Array.isArray(seeded.languageTypeMappings) ? seeded.languageTypeMappings : [];
         }
         if (persisted.__needsLanguageBundleSeed) {
           persisted.languageTypeBundles = Array.isArray(seeded.languageTypeBundles) ? seeded.languageTypeBundles : [];
@@ -128,10 +131,14 @@
       }
 
       const needsValidationSeed = !Array.isArray(parsed.validations);
-      const needsLanguageTypeSeed = !Array.isArray(parsed.languageTypeProfiles);
+      const legacyProfiles = Array.isArray(parsed.languageTypeProfiles) ? parsed.languageTypeProfiles : [];
+      const needsLanguageTypeSeed = !Array.isArray(parsed.languageTypeMappings) && legacyProfiles.length === 0;
       const needsLanguageBundleSeed = !Array.isArray(parsed.languageTypeBundles);
       parsed.validations = needsValidationSeed ? [] : parsed.validations;
-      parsed.languageTypeProfiles = needsLanguageTypeSeed ? [] : parsed.languageTypeProfiles;
+      parsed.languageTypeMappings = Array.isArray(parsed.languageTypeMappings)
+        ? parsed.languageTypeMappings
+        : legacyProfiles.map(legacyTypeMappingDocument);
+      delete parsed.languageTypeProfiles;
       parsed.languageTypeBundles = needsLanguageBundleSeed ? [] : parsed.languageTypeBundles;
       Object.defineProperty(parsed, "__needsValidationSeed", { value: needsValidationSeed, enumerable: false });
       Object.defineProperty(parsed, "__needsLanguageTypeSeed", { value: needsLanguageTypeSeed, enumerable: false });
@@ -141,6 +148,36 @@
     } catch {
       return null;
     }
+  }
+
+  function legacyTypeMappingDocument(item) {
+    const profile = item.profile || item.Profile || {};
+    const language = profile.language || profile.languageKey || item.languageKey || "";
+    const key = profile.key || profile.id || item.id || (language ? language + "-type-mappings" : "type-mapping-document");
+    return {
+      id: key,
+      languageKey: language,
+      document: {
+        key,
+        name: profile.name || key,
+        description: profile.description || "",
+        language,
+        bundles: [],
+        mappings: (profile.typeMappings || profile.TypeMappings || []).map(mapping => ({
+          butterMorph: {
+            key: mapping.butterMorphType || mapping.ButterMorphType || "",
+            version: mapping.butterMorphTypeVersion || mapping.ButterMorphTypeVersion || "",
+            reference: `#/dataTypes/${mapping.butterMorphType || mapping.ButterMorphType || ""}@${mapping.butterMorphTypeVersion || mapping.ButterMorphTypeVersion || ""}`
+          },
+          targetLanguage: {
+            key: mapping.languageType || mapping.LanguageType || "",
+            version: mapping.languageTypeVersion || mapping.LanguageTypeVersion || "",
+            reference: mapping.languageType || mapping.LanguageType || ""
+          }
+        }))
+      },
+      savedAt: item.savedAt || item.SavedAt
+    };
   }
 
   function persistState() {
@@ -181,34 +218,61 @@
       return;
     }
 
-    const profiles = state.languageTypeProfiles || [];
+    const documents = state.languageTypeMappings || [];
     const bundles = state.languageTypeBundles || [];
     section.innerHTML = `
-      <div class="work-card">
+      <div class="work-card type-mapping-work-card">
         <div class="card-header">
-          <strong>Language type packages</strong>
+          <strong>Type mappings</strong>
           <div class="action-row">
-            <button class="ghost-button" type="button" data-open-type-bundles>New Bundle</button>
-            <button class="primary-button" type="button" data-open-type-mappings>Open Type Mappings</button>
+            <button class="ghost-button" type="button" data-open-type-bundles>Discover bundle</button>
+            <button class="primary-button" type="button" data-new-type-mapping>New package</button>
           </div>
         </div>
-        <div class="schema-preview-list">
-          ${profiles.map(item => {
-            const profile = item.profile || {};
-            const mappings = profile.typeMappings || profile.TypeMappings || [];
-            return `<div><strong>${escapeHtml(profile.name || item.name || profile.key || profile.languageKey || item.languageKey || "Package")}</strong><span>${escapeHtml(profile.language || profile.languageKey || item.languageKey || "")} · ${mappings.length} mappings</span></div>`;
-          }).join("") || "<p>No language mapping packages saved yet.</p>"}
-        </div>
-        <div class="schema-preview-list">
-          ${bundles.map(item => {
-            const bundle = item.bundle || {};
-            const types = bundle.types || bundle.Types || [];
-            return `<div><strong>${escapeHtml(bundle.assemblyKey || item.id || "Bundle")}</strong><span>${escapeHtml(bundle.languageKey || item.languageKey || "")} · ${types.length} types</span></div>`;
-          }).join("") || "<p>No language type bundles registered yet.</p>"}
+        <div class="type-mapping-overview">
+          <article>
+            <header>
+              <strong>Mapping packages</strong>
+              <span>${documents.length}</span>
+            </header>
+            <div class="type-mapping-list">
+              ${documents.map(item => {
+                const document = item.document || {};
+                const mappings = document.mappings || document.Mappings || [];
+                const id = item.id || document.key || "";
+                return `
+                  <div>
+                    <strong>${escapeHtml(document.name || item.name || document.key || item.id || "Package")}</strong>
+                    <span>${escapeHtml(document.key || item.id || "")}</span>
+                    <small>${escapeHtml(document.language || item.languageKey || "")} · ${mappings.length} mappings</small>
+                    <button class="ghost-button" type="button" data-open-type-mapping="${escapeAttr(id)}">Open</button>
+                  </div>`;
+              }).join("") || "<p>No mapping packages saved yet.</p>"}
+            </div>
+          </article>
+          <article>
+            <header>
+              <strong>Target type bundles</strong>
+              <span>${bundles.length}</span>
+            </header>
+            <div class="type-mapping-list">
+              ${bundles.map(item => {
+                const bundle = item.bundle || {};
+                const types = bundle.types || bundle.Types || [];
+                return `
+                  <div>
+                    <strong>${escapeHtml(bundle.assemblyKey || item.id || "Bundle")}</strong>
+                    <span>${escapeHtml(bundle.assemblyDescription || "")}</span>
+                    <small>${escapeHtml(bundle.languageKey || item.languageKey || "")} · ${types.length} types</small>
+                  </div>`;
+              }).join("") || "<p>No target type bundles registered yet.</p>"}
+            </div>
+          </article>
         </div>
       </div>`;
 
-    section.querySelector("[data-open-type-mappings]").addEventListener("click", openTypeMappingsDesigner);
+    section.querySelector("[data-new-type-mapping]").addEventListener("click", () => openTypeMappingsDesigner(createHostId("languageTypeMappings")));
+    section.querySelectorAll("[data-open-type-mapping]").forEach(button => button.addEventListener("click", () => openTypeMappingsDesigner(button.dataset.openTypeMapping)));
     section.querySelector("[data-open-type-bundles]").addEventListener("click", openTypeBundlesDesigner);
   }
 
@@ -517,12 +581,13 @@
     });
   }
 
-  async function openTypeMappingsDesigner() {
+  async function openTypeMappingsDesigner(id) {
     await syncStateToBackend();
-    window.ButterMorphHost.openFrame("/buttermorph/language-type-mappings/designer?popup=true&returnUrl=/", {
-      title: "ButterMorph Type Mappings",
-      width: 980,
-      height: 760,
+    const context = id ? `?context=${encodeURIComponent(id)}&popup=true&returnUrl=/` : "?popup=true&returnUrl=/";
+    window.ButterMorphHost.openFrame("/buttermorph/language-type-mappings/designer" + context, {
+      title: "Type Mappings",
+      width: 1035,
+      height: 874,
       themeMode
     });
   }
@@ -736,6 +801,7 @@
       return;
     }
     if (messageType === "ButterMorphLanguageTypeMappingsSaved") {
+      selected.typeMappings = id;
       return;
     }
     if (messageType === "ButterMorphLanguageTypeBundleSaved") {
@@ -810,6 +876,14 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(bundle)
+    });
+  }
+
+  async function saveLanguageTypeMapping(document) {
+    await fetch("/api/language-type-mappings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(document)
     });
   }
 

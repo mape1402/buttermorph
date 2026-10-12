@@ -27,6 +27,11 @@ public sealed class LanguageTypeBundleDiscoveryTests
             type.QualifiedName.Contains(nameof(TestRfc), StringComparison.Ordinal) &&
             type.Version == "2.1.0" &&
             type.Source == "bundle");
+        Assert.Contains(result.Bundle.Types, type =>
+            type.Key == "DefaultVersion" &&
+            type.QualifiedName.Contains(nameof(TestDefaultVersion), StringComparison.Ordinal) &&
+            type.Version == "1.0.0" &&
+            type.Source == "bundle");
     }
 
     /// <summary>
@@ -64,6 +69,11 @@ public sealed class LanguageTypeBundleDiscoveryTests
 
     [ButterMorphLanguageType("RFC", Name = "RFC", Version = "2.1.0", Description = "RFC Mexico")]
     private sealed class TestRfc
+    {
+    }
+
+    [ButterMorphLanguageType("DefaultVersion", Name = "Default Version", Description = "Uses the default version.")]
+    private sealed class TestDefaultVersion
     {
     }
 }

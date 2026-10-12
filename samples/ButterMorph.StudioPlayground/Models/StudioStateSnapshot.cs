@@ -31,7 +31,12 @@ internal sealed class StudioStateSnapshot
     public IReadOnlyCollection<StudioValidation> Validations { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets language type mapping profiles.
+    /// Gets or sets language type mapping documents.
+    /// </summary>
+    public IReadOnlyCollection<StudioLanguageTypeMappingDocument> LanguageTypeMappings { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets legacy language type mapping profiles.
     /// </summary>
     public IReadOnlyCollection<StudioLanguageTypeProfile> LanguageTypeProfiles { get; set; } = [];
 

@@ -44,6 +44,32 @@ internal static class StudioEndpoints
             StudioLanguageTypeBundle item = SaveLanguageTypeBundle(store, bundle);
             return Results.Json(item);
         });
+        app.MapPost("/api/language-type-mappings", async (StudioStore store, HttpRequest request) =>
+        {
+            ButterMorphLanguageTypeMappingDocument document = await JsonSerializer.DeserializeAsync<ButterMorphLanguageTypeMappingDocument>(request.Body, JsonOptions)
+                ?? new ButterMorphLanguageTypeMappingDocument();
+            if (string.IsNullOrWhiteSpace(document.Key))
+            {
+                return Results.BadRequest(new { message = "Type mapping document key is required." });
+            }
+
+            StudioLanguageTypeMappingDocument item = SaveLanguageTypeMapping(store, document);
+            return Results.Json(item);
+        });
+        app.MapPost("/api/language-type-profiles", async (StudioStore store, HttpRequest request) =>
+        {
+            ButterMorphLanguageMappingProfile profile = await JsonSerializer.DeserializeAsync<ButterMorphLanguageMappingProfile>(request.Body, JsonOptions)
+                ?? new ButterMorphLanguageMappingProfile();
+            if (string.IsNullOrWhiteSpace(profile.Key) && string.IsNullOrWhiteSpace(profile.Id))
+            {
+                return Results.BadRequest(new { message = "Type mapping package key is required." });
+            }
+
+            StudioLanguageTypeMappingDocument item = SaveLanguageTypeMapping(
+                store,
+                ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(profile));
+            return Results.Json(item);
+        });
         app.MapGet("/api/{kind}/{id}", (string kind, string id, StudioStore store) => GetItem(kind, id, store));
         app.MapPost("/api/{kind}", async (string kind, StudioStore store, HttpRequest request) =>
         {
@@ -273,7 +299,7 @@ internal static class StudioEndpoints
                 validation.DslContent,
                 validation.SavedAt
             }),
-            languageTypeProfiles = store.LanguageTypeProfiles,
+            languageTypeMappings = store.LanguageTypeMappings,
             languageTypeBundles = store.LanguageTypeBundles
         });
     }
@@ -305,9 +331,14 @@ internal static class StudioEndpoints
             return Results.Json(validation);
         }
 
-        if (kind == "languageTypeProfiles" && store.TryGetLanguageTypeProfile(id, out StudioLanguageTypeProfile languageTypeProfile))
+        if (kind == "languageTypeMappings" && store.TryGetLanguageTypeMapping(id, out StudioLanguageTypeMappingDocument languageTypeMapping))
         {
-            return Results.Json(languageTypeProfile);
+            return Results.Json(languageTypeMapping);
+        }
+
+        if (kind == "languageTypeProfiles" && store.TryGetLanguageTypeMapping(id, out StudioLanguageTypeMappingDocument legacyLanguageTypeMapping))
+        {
+            return Results.Json(legacyLanguageTypeMapping);
         }
 
         if (kind == "languageTypeBundles" && store.TryGetLanguageTypeBundle(id, out StudioLanguageTypeBundle languageTypeBundle))
@@ -332,6 +363,19 @@ internal static class StudioEndpoints
             Bundle = bundle
         };
         store.SaveLanguageTypeBundle(item);
+        return item;
+    }
+
+    private static StudioLanguageTypeMappingDocument SaveLanguageTypeMapping(StudioStore store, ButterMorphLanguageTypeMappingDocument document)
+    {
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+        StudioLanguageTypeMappingDocument item = new()
+        {
+            Id = document.Key,
+            LanguageKey = document.Language,
+            Document = document
+        };
+        store.SaveLanguageTypeMapping(item);
         return item;
     }
 

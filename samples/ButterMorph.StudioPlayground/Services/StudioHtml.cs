@@ -18,7 +18,7 @@ internal static class StudioHtml
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
-              <link rel="stylesheet" href="/studio.css?v=10">
+              <link rel="stylesheet" href="/studio.css?v=13">
               <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=3"></script>
             </head>
             <body data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
@@ -97,7 +97,7 @@ internal static class StudioHtml
                   </section>
                 </main>
               </div>
-              <script src="/studio.js?v=13"></script>
+              <script src="/studio.js?v=19"></script>
             </body>
             </html>
             """;

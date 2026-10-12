@@ -94,7 +94,7 @@ public sealed class ReflectionButterMorphLanguageTypeBundleDiscovery : IButterMo
                 Key = attribute.Key,
                 DisplayName = string.IsNullOrWhiteSpace(attribute.Name) ? type.Name : attribute.Name,
                 QualifiedName = type.FullName ?? type.Name,
-                Version = attribute.Version ?? string.Empty,
+                Version = string.IsNullOrWhiteSpace(attribute.Version) ? "1.0.0" : attribute.Version,
                 Description = attribute.Description ?? string.Empty,
                 Source = "bundle",
                 BundleKey = bundleKey

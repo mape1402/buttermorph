@@ -1,118 +1,179 @@
 (function () {
   const dataNode = document.getElementById("language-type-mapping-data");
-  const data = readData(dataNode);
-  let activeProfile = cloneProfile(resolveInitialProfile());
+  let data = null;
+  data = normalizeData(readData(dataNode));
+  let activeDocument = cloneDocument(resolveInitialDocument());
   let searchQuery = "";
 
   function readData(node) {
     if (!node) {
-      return { languages: [], butterMorphTypes: [], profiles: [] };
+      return { languages: [], butterMorphTypes: [], documents: [], bundles: [] };
     }
 
     try {
       return JSON.parse(node.textContent || "{}");
     } catch {
-      return { languages: [], butterMorphTypes: [], profiles: [] };
+      return { languages: [], butterMorphTypes: [], documents: [], bundles: [] };
     }
   }
 
-  function resolveInitialProfile() {
-    const profiles = data.profiles || [];
-    const activeId = data.activeProfileId || "";
-    return profiles.find(function (profile) {
-      return profile.id === activeId || profile.key === activeId;
-    }) || profiles[0] || createEmptyProfile();
+  function normalizeData(source) {
+    const normalized = source || {};
+    normalized.languages = normalized.languages || [];
+    normalized.butterMorphTypes = normalized.butterMorphTypes || [];
+    normalized.bundles = normalized.bundles || [];
+    normalized.documents = Array.isArray(normalized.documents)
+      ? normalized.documents.map(cloneDocument)
+      : [];
+
+    if (!normalized.documents.length && Array.isArray(normalized.profiles)) {
+      normalized.documents = normalized.profiles.map(documentFromProfile);
+    }
+
+    if (!normalized.documents.length) {
+      normalized.documents = [createEmptyDocument(normalized.languages && normalized.languages[0] ? normalized.languages[0].key : "")];
+    }
+
+    normalized.activeDocumentKey = normalized.activeDocumentKey || normalized.activeProfileId || "";
+    return normalized;
   }
 
-  function createEmptyProfile(languageKey) {
-    const language = languageKey || (data.languages && data.languages[0] ? data.languages[0].key : "");
-    const key = language ? language + "-type-mappings" : "type-mapping-package";
+  function resolveInitialDocument() {
+    const activeKey = data.activeDocumentKey || "";
+    return (data.documents || []).find(function (document) {
+      return document.key === activeKey;
+    }) || data.documents[0] || createEmptyDocument();
+  }
+
+  function createEmptyDocument(languageKey) {
+    const sourceData = typeof data === "undefined" ? {} : data;
+    const language = languageKey || (sourceData.languages && sourceData.languages[0] ? sourceData.languages[0].key : "");
     return {
-      id: key,
-      key,
-      name: "New type mapping package",
+      key: "",
+      name: "",
       description: "",
       language,
-      languageKey: language,
-      collectionType: "List",
-      typeMappings: [],
-      memberMappings: []
+      bundles: [],
+      mappings: []
     };
   }
 
-  function cloneProfile(profile) {
-    const clone = JSON.parse(JSON.stringify(profile || createEmptyProfile()));
-    clone.key = clone.key || clone.id || "";
-    clone.id = clone.id || clone.key || "";
+  function documentFromProfile(profile) {
+    const language = profile.language || profile.languageKey || "";
+    const key = profile.key || profile.id || (language ? language + "-type-mappings" : "type-mapping-document");
+    return {
+      key,
+      name: profile.name || key,
+      description: profile.description || "",
+      language,
+      bundles: [],
+      mappings: (profile.typeMappings || profile.TypeMappings || []).map(function (mapping) {
+        return {
+          butterMorph: {
+            key: mapping.butterMorphType || mapping.ButterMorphType || "",
+            version: mapping.butterMorphTypeVersion || mapping.ButterMorphTypeVersion || "",
+            reference: butterMorphReference(mapping.butterMorphType || mapping.ButterMorphType || "", mapping.butterMorphTypeVersion || mapping.ButterMorphTypeVersion || "")
+          },
+          targetLanguage: {
+            key: mapping.languageType || mapping.LanguageType || "",
+            version: mapping.languageTypeVersion || mapping.LanguageTypeVersion || "",
+            reference: mapping.languageType || mapping.LanguageType || ""
+          }
+        };
+      })
+    };
+  }
+
+  function cloneDocument(document) {
+    const clone = JSON.parse(JSON.stringify(document || createEmptyDocument()));
+    clone.key = clone.key || "";
+    clone.name = clone.name || "";
+    clone.description = clone.description || "";
     clone.language = clone.language || clone.languageKey || "";
-    clone.languageKey = clone.languageKey || clone.language || "";
-    clone.typeMappings = clone.typeMappings || clone.TypeMappings || [];
-    clone.memberMappings = clone.memberMappings || [];
+    clone.bundles = clone.bundles || [];
+    clone.mappings = dedupeMappings((clone.mappings || clone.typeMappings || clone.TypeMappings || []).map(normalizeMapping));
+    delete clone.typeMappings;
+    delete clone.TypeMappings;
     return clone;
   }
 
+  function normalizeMapping(mapping) {
+    if (mapping.butterMorph || mapping.targetLanguage) {
+      const normalized = {
+        butterMorph: normalizeReference(mapping.butterMorph),
+        targetLanguage: normalizeReference(mapping.targetLanguage)
+      };
+      normalized.butterMorph.reference = normalized.butterMorph.reference || butterMorphReference(normalized.butterMorph.key, normalized.butterMorph.version);
+      normalized.targetLanguage.reference = normalized.targetLanguage.reference || normalized.targetLanguage.key;
+      return normalized;
+    }
+
+    return {
+      butterMorph: {
+        key: mapping.butterMorphType || "",
+        version: mapping.butterMorphTypeVersion || "",
+        reference: butterMorphReference(mapping.butterMorphType || "", mapping.butterMorphTypeVersion || "")
+      },
+      targetLanguage: {
+        key: mapping.languageType || "",
+        version: mapping.languageTypeVersion || "",
+        reference: mapping.languageType || ""
+      }
+    };
+  }
+
+  function normalizeReference(reference) {
+    const source = reference || {};
+    const key = source.key || "";
+    const version = source.version || (isBuiltInButterMorphType(key) ? "builtin" : "");
+    return {
+      key,
+      displayName: source.displayName || "",
+      version,
+      reference: cleanReference(source.reference || ""),
+      source: source.source || "",
+      bundleKey: source.bundleKey || ""
+    };
+  }
+
   function render() {
-    activeProfile = cloneProfile(activeProfile);
-    renderPackageSelector();
+    activeDocument = enrichDocumentReferences(cloneDocument(activeDocument));
+    renderDocumentSummary();
     renderPackageFields();
     renderLanguageSelector();
+    renderBundleScope();
     wireControls();
     renderRows();
     renderSummary();
   }
 
-  function renderPackageSelector() {
-    const select = document.querySelector("[data-type-mapping-package]");
-    if (!select) {
-      return;
-    }
-
-    const profiles = data.profiles || [];
-    select.innerHTML = "";
-    profiles.forEach(function (profile) {
-      const option = document.createElement("option");
-      option.value = profile.key || profile.id || "";
-      option.textContent = profile.name || profile.key || profile.id || "Package";
-      option.selected = option.value === (activeProfile.key || activeProfile.id);
-      select.appendChild(option);
+  function renderPackageFields() {
+    bindText("[data-type-mapping-key]", activeDocument.key || "", function (value) {
+      activeDocument.key = value;
+      upsertDocument(activeDocument);
+      renderDocumentSummary();
     });
-
-    if (!profiles.length) {
-      const option = document.createElement("option");
-      option.value = activeProfile.key || activeProfile.id || "";
-      option.textContent = activeProfile.name || "New package";
-      option.selected = true;
-      select.appendChild(option);
-    }
-
-    if (select.getAttribute("data-wired") !== "true") {
-      select.setAttribute("data-wired", "true");
-      select.addEventListener("change", function () {
-        const nextProfile = (data.profiles || []).find(function (profile) {
-          return (profile.key || profile.id || "") === select.value;
-        });
-        activeProfile = cloneProfile(nextProfile || activeProfile);
-        render();
-        showMessage("", true);
-      });
-    }
+    bindText("[data-type-mapping-name]", activeDocument.name || "", function (value) {
+      activeDocument.name = value;
+      upsertDocument(activeDocument);
+      renderDocumentSummary();
+    });
+    bindText("[data-type-mapping-description]", activeDocument.description || "", function (value) {
+      activeDocument.description = value;
+      upsertDocument(activeDocument);
+    });
   }
 
-  function renderPackageFields() {
-    bindText("[data-type-mapping-key]", activeProfile.key || activeProfile.id || "", function (value) {
-      activeProfile.key = value;
-      activeProfile.id = value;
-      upsertProfile(activeProfile);
-      renderPackageSelector();
-    });
-    bindText("[data-type-mapping-name]", activeProfile.name || "", function (value) {
-      activeProfile.name = value;
-      upsertProfile(activeProfile);
-      renderPackageSelector();
-    });
-    bindText("[data-type-mapping-description]", activeProfile.description || "", function (value) {
-      activeProfile.description = value;
-    });
+  function renderDocumentSummary() {
+    const title = document.querySelector("[data-type-mapping-title]");
+    const subtitle = document.querySelector("[data-type-mapping-subtitle]");
+    if (title) {
+      title.textContent = activeDocument.name || activeDocument.key || "Type mapping package";
+    }
+    if (subtitle) {
+      subtitle.textContent = activeDocument.key || "";
+      subtitle.hidden = !subtitle.textContent;
+    }
   }
 
   function bindText(selector, value, onInput) {
@@ -147,20 +208,69 @@
       const option = document.createElement("option");
       option.value = language.key;
       option.textContent = language.displayName || language.key;
-      option.selected = language.key === resolveProfileLanguage(activeProfile);
+      option.selected = language.key === activeDocument.language;
       select.appendChild(option);
     });
 
     if (select.getAttribute("data-wired") !== "true") {
       select.setAttribute("data-wired", "true");
       select.addEventListener("change", function () {
-        activeProfile.language = select.value;
-        activeProfile.languageKey = select.value;
+        const previousLanguage = activeDocument.language || "";
+        const nextLanguage = select.value;
+        if (nextLanguage === previousLanguage) {
+          return;
+        }
+
+        if (documentHasLanguageContent(activeDocument)) {
+          const confirmed = window.confirm("Changing the language will clear all type mappings and bundle references for this document.\n\nThis avoids mixing references from different language adapters.\n\nDo you want to continue?");
+          if (!confirmed) {
+            select.value = previousLanguage;
+            return;
+          }
+        }
+
+        activeDocument.language = nextLanguage;
+        activeDocument.bundles = [];
+        activeDocument.mappings = [];
+        activeDocument = enrichDocumentReferences(activeDocument);
+        upsertDocument(activeDocument);
+        renderBundleScope();
         renderRows();
         renderSummary();
-        showMessage("Unsaved changes.");
+        renderDocumentSummary();
+        showMessage("Language changed. Mappings were cleared.");
       });
     }
+  }
+
+  function renderBundleScope() {
+    const summary = document.querySelector("[data-type-mapping-bundle-summary]");
+    const host = document.querySelector("[data-type-mapping-bundles]");
+    if (!host) {
+      return;
+    }
+
+    const bundles = resolveLanguageBundles(activeDocument.language);
+    host.innerHTML = "";
+    if (summary) {
+      summary.textContent = bundles.length ? bundles.length + " loaded for " + resolveLanguageName(activeDocument.language) : "No bundles loaded for this language";
+    }
+
+    if (!bundles.length) {
+      const empty = document.createElement("p");
+      empty.className = "bm-type-mapping-empty";
+      empty.textContent = "Only primitive language types are available.";
+      host.appendChild(empty);
+      return;
+    }
+
+    bundles.forEach(function (bundle) {
+      const item = document.createElement("span");
+      item.className = "bm-type-mapping-bundle";
+      const types = bundle.types || bundle.Types || [];
+      item.textContent = (bundle.assemblyKey || bundle.assemblyId || "Bundle") + " · " + types.length + " types";
+      host.appendChild(item);
+    });
   }
 
   function wireControls() {
@@ -180,19 +290,6 @@
       add.addEventListener("click", addMapping);
     }
 
-    const create = document.querySelector("[data-type-mapping-new]");
-    if (create && create.getAttribute("data-wired") !== "true") {
-      create.setAttribute("data-wired", "true");
-      create.addEventListener("click", function () {
-        activeProfile = createEmptyProfile(resolveProfileLanguage(activeProfile));
-        activeProfile.key = activeProfile.language + "-type-mappings-" + Date.now();
-        activeProfile.id = activeProfile.key;
-        activeProfile.name = "New " + resolveLanguageName(activeProfile.language) + " package";
-        upsertProfile(activeProfile);
-        render();
-        showMessage("New package ready.");
-      });
-    }
   }
 
   function renderRows() {
@@ -202,7 +299,7 @@
     }
 
     list.innerHTML = "";
-    const mappings = (activeProfile.typeMappings || []).filter(matchesSearch);
+    const mappings = (activeDocument.mappings || []).filter(matchesSearch);
     mappings.forEach(function (mapping, index) {
       list.appendChild(createRow(mapping, index));
     });
@@ -223,53 +320,40 @@
     bmSelect.setAttribute("aria-label", "ButterMorph type");
     appendButterMorphOptions(bmSelect, mapping);
     bmSelect.addEventListener("change", function () {
-      const selected = readCompositeValue(bmSelect.value);
-      mapping.butterMorphType = selected.key;
-      mapping.butterMorphTypeVersion = selected.version;
+      mapping.butterMorph = readReferenceValue(bmSelect.value);
+      mapping.butterMorph.reference = mapping.butterMorph.reference || butterMorphReference(mapping.butterMorph.key, mapping.butterMorph.version);
+      activeDocument.mappings = dedupeMappings(activeDocument.mappings || []);
+      upsertDocument(activeDocument);
+      renderRows();
       renderSummary();
       showMessage("Unsaved changes.");
     });
-    row.appendChild(wrapEditor(bmSelect));
-
-    const bmVersion = document.createElement("input");
-    bmVersion.value = mapping.butterMorphTypeVersion || "";
-    bmVersion.setAttribute("aria-label", "ButterMorph type version");
-    bmVersion.addEventListener("input", function () {
-      mapping.butterMorphTypeVersion = bmVersion.value;
-      renderSummary();
-      showMessage("Unsaved changes.");
-    });
-    row.appendChild(wrapEditor(bmVersion));
+    row.appendChild(createMappingCell(bmSelect));
 
     const languageSelect = document.createElement("select");
     languageSelect.setAttribute("aria-label", "Language type");
     appendLanguageOptions(languageSelect, mapping);
     languageSelect.addEventListener("change", function () {
-      const selected = readCompositeValue(languageSelect.value);
-      mapping.languageType = selected.key;
-      mapping.languageTypeVersion = selected.version;
+      mapping.targetLanguage = readReferenceValue(languageSelect.value);
+      enrichTargetReference(mapping, activeDocument.language);
+      activeDocument.bundles = resolveUsedBundles(activeDocument);
+      activeDocument.mappings = dedupeMappings(activeDocument.mappings || []);
+      upsertDocument(activeDocument);
+      renderRows();
       renderSummary();
       showMessage("Unsaved changes.");
     });
-    row.appendChild(wrapEditor(languageSelect));
-
-    const languageVersion = document.createElement("input");
-    languageVersion.value = mapping.languageTypeVersion || "";
-    languageVersion.setAttribute("aria-label", "Language type version");
-    languageVersion.addEventListener("input", function () {
-      mapping.languageTypeVersion = languageVersion.value;
-      renderSummary();
-      showMessage("Unsaved changes.");
-    });
-    row.appendChild(wrapEditor(languageVersion));
+    row.appendChild(createMappingCell(languageSelect));
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "bm-type-mapping-remove";
     remove.textContent = "Remove";
     remove.addEventListener("click", function () {
-      const originalIndex = (activeProfile.typeMappings || []).indexOf(mapping);
-      activeProfile.typeMappings.splice(originalIndex >= 0 ? originalIndex : index, 1);
+      const originalIndex = (activeDocument.mappings || []).indexOf(mapping);
+      activeDocument.mappings.splice(originalIndex >= 0 ? originalIndex : index, 1);
+      activeDocument.bundles = resolveUsedBundles(activeDocument);
+      upsertDocument(activeDocument);
       renderRows();
       renderSummary();
       showMessage("Unsaved changes.");
@@ -279,59 +363,129 @@
     return row;
   }
 
-  function wrapEditor(node) {
+  function createMappingCell(node) {
     const wrapper = document.createElement("span");
-    wrapper.className = "bm-type-mapping-editor";
+    wrapper.className = "bm-type-mapping-cell";
     wrapper.appendChild(node);
     return wrapper;
   }
 
   function appendButterMorphOptions(select, mapping) {
+    const placeholder = document.createElement("option");
+    placeholder.value = "{}";
+    placeholder.textContent = "Select ButterMorph type";
+    placeholder.selected = !mapping.butterMorph || !mapping.butterMorph.key;
+    placeholder.disabled = true;
+    select.appendChild(placeholder);
+
     (data.butterMorphTypes || []).forEach(function (type) {
+      const reference = butterMorphCatalogReference(type);
       const option = document.createElement("option");
-      option.value = compositeValue(type.key, type.version);
-      option.textContent = (type.displayName || type.key) + " - " + (type.version || "unversioned");
-      option.selected = sameType(mapping.butterMorphType, mapping.butterMorphTypeVersion, type.key, type.version);
+      option.value = writeReferenceValue(reference);
+      option.textContent = formatButterMorphOptionLabel(type);
+      option.title = option.textContent;
+      option.selected = sameReference(mapping.butterMorph, reference);
       select.appendChild(option);
     });
   }
 
   function appendLanguageOptions(select, mapping) {
-    const types = resolveLanguageTypes(resolveProfileLanguage(activeProfile));
+    const types = resolveLanguageTypes(activeDocument.language);
     let hasSelected = false;
+    const placeholder = document.createElement("option");
+    placeholder.value = "{}";
+    placeholder.textContent = "Select language type";
+    placeholder.selected = !mapping.targetLanguage || (!mapping.targetLanguage.reference && !mapping.targetLanguage.key);
+    placeholder.disabled = true;
+    select.appendChild(placeholder);
+
     types.forEach(function (type) {
-      const key = type.qualifiedName || type.key;
-      const version = type.version || "";
+      const reference = languageCatalogReference(type);
       const option = document.createElement("option");
-      option.value = compositeValue(key, version);
-      option.textContent = (type.displayName || key) + " - " + key + " - " + (version || "unversioned");
-      option.selected = sameType(mapping.languageType, mapping.languageTypeVersion, key, version);
+      option.value = writeReferenceValue(reference);
+      option.textContent = formatLanguageOptionLabel(type);
+      option.title = option.textContent;
+      option.selected = sameReference(mapping.targetLanguage, reference);
       hasSelected = hasSelected || option.selected;
       select.appendChild(option);
     });
 
-    if (mapping.languageType && !hasSelected) {
+    if (mapping.targetLanguage && (mapping.targetLanguage.reference || mapping.targetLanguage.key) && !hasSelected) {
       const option = document.createElement("option");
-      option.value = compositeValue(mapping.languageType, mapping.languageTypeVersion);
-      option.textContent = mapping.languageType + " - " + (mapping.languageTypeVersion || "unversioned");
+      option.value = writeReferenceValue(mapping.targetLanguage);
+      option.textContent = formatReferenceOptionLabel(mapping.targetLanguage);
+      option.title = option.textContent;
       option.selected = true;
       select.appendChild(option);
     }
   }
 
+  function formatButterMorphOptionLabel(type) {
+    return formatVersionedLabel(type.displayName || type.key || "Unnamed type", type.version || "");
+  }
+
+  function formatLanguageOptionLabel(type) {
+    const name = type.displayName || type.key || type.qualifiedName || "Unnamed type";
+    const version = type.version || (type.source === "primitive" ? "primitive" : "");
+    const reference = type.qualifiedName && type.qualifiedName !== name ? type.qualifiedName : "";
+    return [formatVersionedLabel(name, version), reference].filter(Boolean).join(" - ");
+  }
+
+  function formatReferenceOptionLabel(reference) {
+    const value = normalizeReference(reference);
+    const name = value.displayName || value.key || value.reference || "Unknown type";
+    const resolvedReference = value.reference && value.reference !== name && value.reference !== value.key ? value.reference : "";
+    return [formatVersionedLabel(name, value.version || ""), resolvedReference].filter(Boolean).join(" - ");
+  }
+
+  function formatVersionedLabel(name, version) {
+    return [name, version].filter(Boolean).join(" - ");
+  }
+
   function addMapping() {
-    const bmType = (data.butterMorphTypes || [])[0] || { key: "", version: "" };
-    const languageType = resolveLanguageTypes(resolveProfileLanguage(activeProfile))[0] || { key: "", qualifiedName: "", version: "" };
-    activeProfile.typeMappings = activeProfile.typeMappings || [];
-    activeProfile.typeMappings.push({
-      butterMorphType: bmType.key || "",
-      butterMorphTypeVersion: bmType.version || "",
-      languageType: languageType.qualifiedName || languageType.key || "",
-      languageTypeVersion: languageType.version || ""
+    activeDocument.mappings = activeDocument.mappings || [];
+    activeDocument.mappings.push({
+      butterMorph: normalizeReference({}),
+      targetLanguage: normalizeReference({})
     });
+    activeDocument.mappings = dedupeMappings(activeDocument.mappings);
+    activeDocument.bundles = resolveUsedBundles(activeDocument);
+    upsertDocument(activeDocument);
     renderRows();
     renderSummary();
     showMessage("Unsaved changes.");
+  }
+
+  function resolveNextButterMorphType() {
+    const used = new Set((activeDocument.mappings || []).map(function (mapping) {
+      return referenceIdentity(mapping.butterMorph);
+    }));
+    return (data.butterMorphTypes || []).find(function (type) {
+      return !used.has(referenceIdentity(butterMorphCatalogReference(type)));
+    }) || (data.butterMorphTypes || [])[0] || {};
+  }
+
+  function describeButterMorphType(mapping) {
+    if (!mapping.butterMorph || !mapping.butterMorph.key) {
+      return "";
+    }
+
+    const type = findButterMorphType(mapping.butterMorph) || {};
+    const version = mapping.butterMorph.version || type.version || "unversioned";
+    const description = type.description || "";
+    return [version, description].filter(Boolean).join(" · ");
+  }
+
+  function describeLanguageType(mapping) {
+    if (!mapping.targetLanguage || (!mapping.targetLanguage.reference && !mapping.targetLanguage.key)) {
+      return "";
+    }
+
+    const type = findLanguageType(mapping.targetLanguage, activeDocument.language) || {};
+    const reference = mapping.targetLanguage.reference || type.qualifiedName || type.key || "";
+    const version = mapping.targetLanguage.version || type.version || "unversioned";
+    const source = mapping.targetLanguage.source || type.source || "";
+    return [reference, version, source].filter(Boolean).join(" · ");
   }
 
   function renderSummary() {
@@ -340,7 +494,7 @@
       return;
     }
 
-    const mappings = activeProfile.typeMappings || [];
+    const mappings = activeDocument.mappings || [];
     const visible = mappings.filter(matchesSearch).length;
     summary.textContent = searchQuery
       ? visible + " of " + mappings.length + " visible"
@@ -348,28 +502,32 @@
   }
 
   function save() {
-    activeProfile.id = activeProfile.key || activeProfile.id || "";
-    activeProfile.key = activeProfile.key || activeProfile.id || "";
-    activeProfile.language = resolveProfileLanguage(activeProfile);
-    activeProfile.languageKey = activeProfile.language;
-    activeProfile.typeMappings = (activeProfile.typeMappings || []).filter(function (mapping) {
-      return mapping.butterMorphType && mapping.languageType;
-    });
-    activeProfile.memberMappings = [];
+    activeDocument.key = activeDocument.key || activeDocument.language + "-type-mappings";
+    activeDocument.name = activeDocument.name || activeDocument.key;
+    activeDocument = enrichDocumentReferences(activeDocument);
+    activeDocument.bundles = resolveUsedBundles(activeDocument);
+    activeDocument.mappings = dedupeMappings((activeDocument.mappings || []).filter(function (mapping) {
+      return mapping.butterMorph && mapping.butterMorph.key && mapping.targetLanguage && (mapping.targetLanguage.reference || mapping.targetLanguage.key);
+    }));
 
-    fetch(handlerUrl("SaveProfile"), {
+    fetch(handlerUrl("SaveDocument"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(activeProfile)
+      body: JSON.stringify(activeDocument)
     })
       .then(function (response) { return response.json(); })
       .then(function (payload) {
-        if (payload.profile) {
-          activeProfile = cloneProfile(payload.profile);
-          upsertProfile(activeProfile);
-          notifyHost(activeProfile.id || activeProfile.key || activeProfile.language || "");
+        if (!payload.succeeded) {
+          showMessage(payload.message || "Mappings could not be published.");
+          return;
         }
-        showMessage(payload.message || "Mappings saved.");
+
+        if (payload.document) {
+          activeDocument = cloneDocument(payload.document);
+          upsertDocument(activeDocument);
+          notifyHost(activeDocument);
+        }
+        showMessage(payload.message || "Mappings sent to host.");
         render();
       })
       .catch(function (error) {
@@ -384,6 +542,12 @@
     return language ? (language.types || []) : [];
   }
 
+  function resolveLanguageBundles(languageKey) {
+    return (data.bundles || []).filter(function (bundle) {
+      return String(bundle.languageKey || "").toLowerCase() === String(languageKey || "").toLowerCase();
+    });
+  }
+
   function resolveLanguageName(languageKey) {
     const language = (data.languages || []).find(function (item) {
       return item.key === languageKey;
@@ -391,8 +555,33 @@
     return language ? (language.displayName || language.key) : "language";
   }
 
-  function resolveProfileLanguage(profile) {
-    return profile.language || profile.languageKey || "";
+  function resolveUsedBundles(document) {
+    const languageBundles = resolveLanguageBundles(document.language);
+    const byKey = new Map(languageBundles.map(function (bundle) {
+      return [String(bundle.assemblyKey || bundle.assemblyId || "").toLowerCase(), bundle];
+    }));
+    const usedKeys = new Map();
+    (document.mappings || []).forEach(function (mapping) {
+      const bundleKey = mapping.targetLanguage && mapping.targetLanguage.bundleKey;
+      if (bundleKey) {
+        usedKeys.set(String(bundleKey).toLowerCase(), bundleKey);
+      }
+    });
+
+    return Array.from(usedKeys).map(function (entry) {
+      const key = entry[0];
+      const originalKey = entry[1];
+      const bundle = byKey.get(key) || {};
+      return {
+        key: bundle.assemblyKey || originalKey,
+        version: bundle.assemblyVersion || "",
+        reference: bundle.assemblyId || bundle.assemblyKey || originalKey
+      };
+    });
+  }
+
+  function documentHasLanguageContent(document) {
+    return (document.mappings && document.mappings.length > 0) || (document.bundles && document.bundles.length > 0);
   }
 
   function matchesSearch(mapping) {
@@ -401,44 +590,193 @@
     }
 
     const text = [
-      mapping.butterMorphType,
-      mapping.butterMorphTypeVersion,
-      mapping.languageType,
-      mapping.languageTypeVersion
+      mapping.butterMorph?.key,
+      mapping.butterMorph?.displayName,
+      mapping.butterMorph?.version,
+      mapping.targetLanguage?.key,
+      mapping.targetLanguage?.displayName,
+      mapping.targetLanguage?.reference,
+      mapping.targetLanguage?.version,
+      mapping.targetLanguage?.bundleKey
     ].join(" ").toLowerCase();
     return text.indexOf(searchQuery) >= 0;
   }
 
-  function sameType(leftKey, leftVersion, rightKey, rightVersion) {
-    return String(leftKey || "").toLowerCase() === String(rightKey || "").toLowerCase() &&
-      String(leftVersion || "").toLowerCase() === String(rightVersion || "").toLowerCase();
-  }
-
-  function compositeValue(key, version) {
-    return encodeURIComponent(key || "") + "@@" + encodeURIComponent(version || "");
-  }
-
-  function readCompositeValue(value) {
-    const parts = String(value || "").split("@@");
+  function butterMorphCatalogReference(type) {
     return {
-      key: decodeURIComponent(parts[0] || ""),
-      version: decodeURIComponent(parts[1] || "")
+      key: type.key || "",
+      displayName: type.displayName || "",
+      version: type.version || "",
+      reference: butterMorphReference(type.key || "", type.version || ""),
+      source: "buttermorph",
+      bundleKey: ""
     };
   }
 
-  function upsertProfile(profile) {
-    const profiles = data.profiles || [];
-    const key = profile.key || profile.id || "";
-    const index = profiles.findIndex(function (item) {
-      return (item.key || item.id || "") === key;
+  function languageCatalogReference(type) {
+    const key = type.key || type.qualifiedName || "";
+    const reference = type.qualifiedName || type.reference || key;
+    return {
+      key,
+      displayName: type.displayName || key,
+      version: type.version || "",
+      reference,
+      source: type.source || "primitive",
+      bundleKey: type.bundleKey || ""
+    };
+  }
+
+  function butterMorphReference(key, version) {
+    if (!key) {
+      return "";
+    }
+
+    return version ? "#/dataTypes/" + key + "@" + version : "#/dataTypes/" + key;
+  }
+
+  function sameReference(left, right) {
+    const leftValue = normalizeReference(left);
+    const rightValue = normalizeReference(right);
+    const leftReference = (leftValue.reference || "").toLowerCase();
+    const rightReference = (rightValue.reference || "").toLowerCase();
+    if (leftReference && rightReference && leftReference === rightReference) {
+      return true;
+    }
+
+    if (String(leftValue.key || "").toLowerCase() !== String(rightValue.key || "").toLowerCase()) {
+      return false;
+    }
+
+    if (leftValue.version && rightValue.version && String(leftValue.version).toLowerCase() !== String(rightValue.version).toLowerCase()) {
+      return false;
+    }
+
+    if (leftValue.bundleKey && rightValue.bundleKey && String(leftValue.bundleKey).toLowerCase() !== String(rightValue.bundleKey).toLowerCase()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function referenceIdentity(reference) {
+    const value = normalizeReference(reference);
+    return [
+      value.reference || value.key,
+      value.version,
+      value.bundleKey
+    ].join("@@").toLowerCase();
+  }
+
+  function writeReferenceValue(reference) {
+    return JSON.stringify(normalizeReference(reference));
+  }
+
+  function readReferenceValue(value) {
+    try {
+      return normalizeReference(JSON.parse(value || "{}"));
+    } catch {
+      return normalizeReference({});
+    }
+  }
+
+  function enrichDocumentReferences(document) {
+    document.mappings = dedupeMappings((document.mappings || []).map(function (mapping) {
+      enrichButterMorphReference(mapping);
+      enrichTargetReference(mapping, document.language);
+      return mapping;
+    }));
+    document.bundles = resolveUsedBundles(document);
+    return document;
+  }
+
+  function enrichButterMorphReference(mapping) {
+    mapping.butterMorph = normalizeReference(mapping.butterMorph);
+    const type = findButterMorphType(mapping.butterMorph);
+    if (!type) {
+      mapping.butterMorph.reference = mapping.butterMorph.reference || butterMorphReference(mapping.butterMorph.key, mapping.butterMorph.version);
+      return;
+    }
+
+    const catalog = butterMorphCatalogReference(type);
+    mapping.butterMorph.key = catalog.key;
+    mapping.butterMorph.displayName = catalog.displayName;
+    mapping.butterMorph.version = catalog.version;
+    mapping.butterMorph.reference = catalog.reference;
+    mapping.butterMorph.source = catalog.source;
+  }
+
+  function enrichTargetReference(mapping, languageKey) {
+    mapping.targetLanguage = normalizeReference(mapping.targetLanguage);
+    const type = findLanguageType(mapping.targetLanguage, languageKey);
+    if (!type) {
+      mapping.targetLanguage.reference = mapping.targetLanguage.reference || mapping.targetLanguage.key;
+      return;
+    }
+
+    mapping.targetLanguage = languageCatalogReference(type);
+  }
+
+  function findButterMorphType(reference) {
+    const normalized = normalizeReference(reference);
+    return (data.butterMorphTypes || []).find(function (item) {
+      return sameReference(normalized, butterMorphCatalogReference(item));
+    });
+  }
+
+  function findLanguageType(reference, languageKey) {
+    const normalized = normalizeReference(reference);
+    return resolveLanguageTypes(languageKey).find(function (item) {
+      return sameReference(normalized, languageCatalogReference(item));
+    });
+  }
+
+  function dedupeMappings(mappings) {
+    const seen = new Set();
+    const result = [];
+    (mappings || []).forEach(function (mapping) {
+      const butterMorph = normalizeReference(mapping.butterMorph);
+      if (!butterMorph.key) {
+        mapping.butterMorph = butterMorph;
+        mapping.targetLanguage = normalizeReference(mapping.targetLanguage);
+        result.push(mapping);
+        return;
+      }
+
+      const identity = [butterMorph.key, butterMorph.version].join("@@").toLowerCase();
+      if (seen.has(identity)) {
+        return;
+      }
+
+      seen.add(identity);
+      mapping.butterMorph = butterMorph;
+      mapping.targetLanguage = normalizeReference(mapping.targetLanguage);
+      result.push(mapping);
+    });
+    return result;
+  }
+
+  function isBuiltInButterMorphType(key) {
+    return ["string", "number", "boolean", "date", "datetime", "time", "timespan", "object"].indexOf(String(key || "").toLowerCase()) >= 0;
+  }
+
+  function cleanReference(reference) {
+    const value = String(reference || "");
+    return value.endsWith("@") ? "" : value;
+  }
+
+  function upsertDocument(document) {
+    const documents = data.documents || [];
+    const key = document.key || "";
+    const index = documents.findIndex(function (item) {
+      return (item.key || "") === key;
     });
     if (index >= 0) {
-      profiles[index] = profile;
+      documents[index] = cloneDocument(document);
     } else {
-      profiles.push(profile);
+      documents.push(cloneDocument(document));
     }
-    data.profiles = profiles;
-    data.activeProfileId = key;
+    data.documents = documents;
+    data.activeDocumentKey = key;
   }
 
   function showMessage(message, hide) {
@@ -457,15 +795,21 @@
     return url.toString();
   }
 
-  function notifyHost(contextKey) {
-    if (!window.parent || window.parent === window) {
-      return;
+  function notifyHost(document) {
+    const message = {
+      type: "ButterMorphLanguageTypeMappingsSaved",
+      contextKey: document.key || "",
+      document
+    };
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(message, window.location.origin);
     }
 
-    window.parent.postMessage({
-      type: "ButterMorphLanguageTypeMappingsSaved",
-      contextKey
-    }, window.location.origin);
+    if (window.opener) {
+      window.opener.postMessage(message, window.location.origin);
+      window.close();
+    }
   }
 
   const saveButton = document.querySelector("[data-type-mapping-save]");

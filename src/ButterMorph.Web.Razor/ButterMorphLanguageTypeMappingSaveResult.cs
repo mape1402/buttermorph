@@ -6,12 +6,17 @@ namespace ButterMorph.Web.Razor;
 public sealed class ButterMorphLanguageTypeMappingSaveResult
 {
     /// <summary>
-    /// Gets or sets a value indicating whether the profile was saved.
+    /// Gets or sets a value indicating whether the document is ready for the host.
     /// </summary>
     public bool Succeeded { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the saved profile.
+    /// Gets or sets the prepared mapping document.
+    /// </summary>
+    public ButterMorphLanguageTypeMappingDocument Document { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the prepared legacy profile.
     /// </summary>
     public ButterMorphLanguageMappingProfile Profile { get; set; } = new();
 

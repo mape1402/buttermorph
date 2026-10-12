@@ -364,47 +364,66 @@ internal sealed class StudioButterMorphHost :
     /// <inheritdoc />
     Task<ButterMorphLanguageTypeMappingLoadResult> IButterMorphLanguageTypeMappingHost.Load(ButterMorphLanguageTypeMappingLoadRequest request)
     {
-        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = store.LanguageTypeProfiles
+        List<ButterMorphLanguageTypeMappingDocument> documents = store.LanguageTypeMappings
             .Where(item => string.IsNullOrWhiteSpace(request.LanguageKey) || string.Equals(item.LanguageKey, request.LanguageKey, StringComparison.OrdinalIgnoreCase))
-            .Select(item => item.Profile)
-            .ToArray();
+            .Select(item => NormalizeLanguageTypeMappingDocument(item.Document))
+            .ToList();
+        if (!string.IsNullOrWhiteSpace(request.ContextKey) &&
+            documents.All(document => !string.Equals(document.Key, request.ContextKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            documents.Add(new ButterMorphLanguageTypeMappingDocument
+            {
+                Key = string.Empty,
+                Name = string.Empty,
+                Description = string.Empty,
+                Language = string.IsNullOrWhiteSpace(request.LanguageKey) ? "csharp" : request.LanguageKey
+            });
+        }
+
         IReadOnlyCollection<ButterMorphLanguageTypeBundle> bundles = store.LanguageTypeBundles
             .Where(item => string.IsNullOrWhiteSpace(request.LanguageKey) || string.Equals(item.LanguageKey, request.LanguageKey, StringComparison.OrdinalIgnoreCase))
             .Select(item => item.Bundle)
             .ToArray();
+        string activeDocumentKey = documents.Any(document => string.Equals(document.Key, request.ContextKey, StringComparison.OrdinalIgnoreCase))
+            ? request.ContextKey
+            : documents.FirstOrDefault(document => string.IsNullOrWhiteSpace(document.Key))?.Key ?? documents.FirstOrDefault()?.Key ?? string.Empty;
 
         return Task.FromResult(new ButterMorphLanguageTypeMappingLoadResult
         {
             ButterMorphTypes = CreateButterMorphTypeCatalog(),
-            Profiles = profiles,
+            Documents = documents,
+            Profiles = documents.Select(document => ButterMorphLanguageTypeMappingDocumentConverter.ToProfile(document)).ToArray(),
             Bundles = bundles,
-            ActiveProfileId = profiles.FirstOrDefault()?.Id ?? string.Empty
+            ActiveDocumentKey = activeDocumentKey,
+            ActiveProfileId = activeDocumentKey
         });
     }
 
     /// <inheritdoc />
     Task<ButterMorphLanguageTypeMappingSaveResult> IButterMorphLanguageTypeMappingHost.SaveProfile(ButterMorphLanguageTypeMappingSaveRequest request)
     {
-        ButterMorphLanguageMappingProfile profile = request.Profile ?? new ButterMorphLanguageMappingProfile();
-        string profileId = string.IsNullOrWhiteSpace(profile.Id)
-            ? profile.LanguageKey + "-type-mappings"
-            : profile.Id;
-        profile.Id = profileId;
-        profile.Key = string.IsNullOrWhiteSpace(profile.Key) ? profileId : profile.Key;
-        profile.LanguageKey = string.IsNullOrWhiteSpace(profile.LanguageKey) ? profile.Language : profile.LanguageKey;
-        profile.Language = string.IsNullOrWhiteSpace(profile.Language) ? profile.LanguageKey : profile.Language;
-
-        store.SaveLanguageTypeProfile(new StudioLanguageTypeProfile
+        ButterMorphLanguageTypeMappingDocument document = request.Document;
+        if (string.IsNullOrWhiteSpace(document?.Key) && request.Profile != null)
         {
-            Id = profileId,
-            LanguageKey = profile.LanguageKey,
-            Profile = profile
+            document = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(request.Profile);
+        }
+
+        document ??= new ButterMorphLanguageTypeMappingDocument();
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+        string documentId = document.Key;
+
+        store.SaveLanguageTypeMapping(new StudioLanguageTypeMappingDocument
+        {
+            Id = documentId,
+            LanguageKey = document.Language,
+            Document = document
         });
 
         return Task.FromResult(new ButterMorphLanguageTypeMappingSaveResult
         {
             Succeeded = true,
-            Profile = profile,
+            Document = document,
+            Profile = ButterMorphLanguageTypeMappingDocumentConverter.ToProfile(document),
             Message = "Language type mappings saved into Studio host."
         });
     }
@@ -529,6 +548,12 @@ internal sealed class StudioButterMorphHost :
             Version = version,
             Description = description
         };
+    }
+
+    private static ButterMorphLanguageTypeMappingDocument NormalizeLanguageTypeMappingDocument(ButterMorphLanguageTypeMappingDocument document)
+    {
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+        return document;
     }
 
     private StudioMapping ResolveMappingForLoad(string id)

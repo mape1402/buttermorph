@@ -8,7 +8,7 @@
 
 .bm-type-mapping-shell {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
@@ -22,52 +22,56 @@
   background: var(--bm-surface);
   border: 1px solid var(--bm-border);
   border-radius: var(--bm-radius);
-  box-shadow: var(--bm-shadow);
+  box-shadow: none;
 }
 
 .bm-type-mapping-topbar {
   align-items: center;
   display: flex;
-  gap: 1rem;
+  gap: 0.85rem;
   justify-content: space-between;
-  min-height: 58px;
-  padding: 0.62rem 0.8rem;
+  min-height: 56px;
+  padding: 0.58rem 0.72rem;
 }
 
-.bm-type-mapping-kicker {
-  color: var(--bm-accent-text);
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
-  margin: 0;
+.bm-type-mapping-topbar > div:first-child {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.bm-type-mapping-topbar span,
+.bm-type-mapping-package span {
+  color: var(--bm-muted);
+  font-size: 0.66rem;
+  font-weight: 750;
+  line-height: 1;
 }
 
 .bm-type-mapping-topbar h1 {
-  font-size: 1rem;
-  line-height: 1.15;
-  margin: 0.08rem 0 0;
+  color: var(--bm-text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.12;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bm-type-mapping-topbar p {
+  color: var(--bm-muted);
+  font-size: 0.72rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bm-type-mapping-actions {
-  align-items: end;
+  align-items: center;
   display: flex;
-  gap: 0.45rem;
-}
-
-.bm-type-mapping-actions label {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.bm-type-mapping-actions span {
-  color: var(--bm-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.bm-type-mapping-actions select {
-  min-height: 30px;
-  min-width: 150px;
+  gap: 0.4rem;
 }
 
 .bm-type-mapping-actions button {
@@ -75,45 +79,67 @@
   border-color: var(--bm-primary);
   color: var(--bm-on-primary);
   min-height: 30px;
-  padding: 0.22rem 0.75rem;
+  padding: 0.24rem 0.85rem;
 }
 
-.bm-type-mapping-actions button[data-type-mapping-new] {
-  background: var(--bm-surface);
-  border-color: var(--bm-border-strong);
-  color: var(--bm-text);
+.bm-type-mapping-actions button:hover {
+  background: var(--bm-primary-hover);
+  border-color: var(--bm-primary-hover);
+}
+
+body[data-bm-theme-mode="dark"] .bm-type-mapping-actions button {
+  background: var(--bm-primary);
+  border-color: var(--bm-primary);
+  color: var(--bm-on-primary);
+}
+
+body[data-bm-theme-mode="dark"] .bm-type-mapping-actions button:hover {
+  background: var(--bm-primary-hover);
+  border-color: var(--bm-primary-hover);
 }
 
 .bm-type-mapping-package {
   display: grid;
-  gap: 0.55rem;
-  grid-template-columns: minmax(140px, 0.9fr) minmax(140px, 0.9fr) minmax(180px, 1.2fr) minmax(120px, 0.7fr);
-  padding: 0.6rem 0.7rem;
+  gap: 0.5rem;
+  grid-template-columns: minmax(160px, 0.9fr) minmax(220px, 1.2fr) minmax(128px, 0.55fr);
+  padding: 0.62rem 0.68rem;
 }
 
 .bm-type-mapping-package label {
   display: grid;
-  gap: 0.18rem;
+  gap: 0.2rem;
   min-width: 0;
-}
-
-.bm-type-mapping-package span {
-  color: var(--bm-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
 }
 
 .bm-type-mapping-package input,
 .bm-type-mapping-package select,
-.bm-type-mapping-package textarea {
-  background: var(--bm-surface);
-  border-color: var(--bm-border-strong);
+.bm-type-mapping-package textarea,
+.bm-type-mapping-cell select {
+  background-color: color-mix(in srgb, var(--bm-surface) 88%, var(--bm-content-bg));
+  border: 1px solid var(--bm-border-strong);
+  border-radius: 6px;
+  box-shadow: none;
   color: var(--bm-text);
+  font-size: 0.78rem;
   min-height: 30px;
 }
 
+.bm-type-mapping-package select,
+.bm-type-mapping-cell select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--bm-muted) 50%),
+    linear-gradient(135deg, var(--bm-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  padding-right: 1.45rem;
+}
+
 .bm-type-mapping-package textarea {
-  min-height: 30px;
+  min-height: 42px;
   resize: vertical;
 }
 
@@ -123,86 +149,55 @@
 
 .bm-type-mapping-table {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
-}
-
-.bm-type-mapping-toolbar {
-  align-items: center;
-  border-bottom: 1px solid var(--bm-border);
-  display: grid;
-  gap: 0.7rem;
-  grid-template-columns: minmax(220px, 340px) auto minmax(0, 1fr);
-  padding: 0.5rem 0.65rem;
-}
-
-.bm-type-mapping-toolbar label {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.bm-type-mapping-toolbar span {
-  color: var(--bm-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.bm-type-mapping-toolbar input {
-  background: var(--bm-surface);
-  border-color: var(--bm-border-strong);
-  color: var(--bm-text);
-  min-height: 30px;
-}
-
-.bm-type-mapping-toolbar strong {
-  color: var(--bm-muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  justify-self: end;
-}
-
-.bm-type-mapping-toolbar button {
-  min-height: 30px;
 }
 
 .bm-type-mapping-header,
 .bm-type-mapping-row {
   display: grid;
-  gap: 0.45rem;
-  grid-template-columns: minmax(180px, 1fr) minmax(90px, 0.36fr) minmax(220px, 1.1fr) minmax(90px, 0.36fr) auto;
+  gap: 0.5rem;
+  grid-template-columns: minmax(230px, 0.95fr) minmax(300px, 1.15fr) 76px;
 }
 
 .bm-type-mapping-header {
   border-bottom: 1px solid var(--bm-border);
   color: var(--bm-muted);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 850;
-  padding: 0.5rem 0.7rem;
+  padding: 0.42rem 0.65rem;
+}
+
+.bm-type-mapping-header button {
+  background: var(--bm-accent-surface);
+  border-color: var(--bm-accent-border);
+  color: var(--bm-accent-text);
+  min-height: 30px;
+  white-space: nowrap;
+}
+
+.bm-type-mapping-header button:hover {
+  background: var(--bm-accent-soft);
+  border-color: var(--bm-accent-strong-border);
 }
 
 [data-type-mapping-list] {
+  align-content: start;
   display: grid;
   gap: 0.28rem;
+  grid-auto-rows: max-content;
   min-height: 0;
   overflow: auto;
-  padding: 0.5rem;
-}
-
-.bm-type-mapping-group {
-  color: var(--bm-muted);
-  font-size: 0.68rem;
-  font-weight: 850;
-  padding: 0.42rem 0.12rem 0.08rem;
-  text-transform: uppercase;
+  padding: 0.48rem;
 }
 
 .bm-type-mapping-row {
   align-items: center;
-  background: color-mix(in srgb, var(--bm-surface) 86%, var(--bm-content-bg));
+  background: transparent;
   border: 1px solid var(--bm-border);
   border-radius: 7px;
-  padding: 0.45rem 0.55rem;
+  padding: 0.38rem 0.48rem;
 }
 
 .bm-type-mapping-row:hover {
@@ -214,16 +209,12 @@
   border-color: var(--bm-danger-border);
 }
 
-.bm-type-mapping-editor {
-  display: block;
+.bm-type-mapping-cell {
+  display: grid;
   min-width: 0;
 }
 
-.bm-type-mapping-editor input,
-.bm-type-mapping-editor select {
-  background: var(--bm-surface);
-  border-color: var(--bm-border-strong);
-  color: var(--bm-text);
+.bm-type-mapping-cell select {
   min-height: 30px;
   width: 100%;
 }
@@ -233,18 +224,35 @@
   border-color: var(--bm-danger-border);
   color: var(--bm-danger-text);
   min-height: 30px;
+  padding-inline: 0.55rem;
+}
+
+.bm-type-mapping-remove:hover {
+  background: var(--bm-danger-soft);
+  border-color: var(--bm-danger);
+}
+
+body[data-bm-theme-mode="dark"] .bm-type-mapping-remove {
+  background: var(--bm-danger-soft);
+  border-color: var(--bm-danger-border);
+  color: var(--bm-danger-text);
+}
+
+body[data-bm-theme-mode="dark"] .bm-type-mapping-remove:hover {
+  background: var(--bm-danger-soft);
+  border-color: var(--bm-danger);
 }
 
 .bm-type-mapping-empty {
   color: var(--bm-muted);
   margin: 0;
-  padding: 0.8rem;
+  padding: 0.75rem;
 }
 
 .bm-type-mapping-message {
   color: var(--bm-muted);
   margin: 0;
-  padding: 0.5rem 0.7rem;
+  padding: 0.48rem 0.65rem;
 }
 
 .bm-type-mapping-message[hidden] {
@@ -260,12 +268,7 @@
 
   .bm-type-mapping-header,
   .bm-type-mapping-row,
-  .bm-type-mapping-package,
-  .bm-type-mapping-toolbar {
+  .bm-type-mapping-package {
     grid-template-columns: 1fr;
-  }
-
-  .bm-type-mapping-toolbar strong {
-    justify-self: start;
   }
 }

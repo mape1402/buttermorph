@@ -69,39 +69,60 @@ public sealed class LanguageTypeMappingsDesignerModel : PageModel
     }
 
     /// <summary>
-    /// Saves one language type mapping profile.
+    /// Prepares one language type mapping document for the host.
+    /// </summary>
+    /// <returns>The save response.</returns>
+    public async Task<IActionResult> OnPostSaveDocument()
+    {
+        ButterMorphLanguageTypeMappingDocument document = await JsonSerializer.DeserializeAsync<ButterMorphLanguageTypeMappingDocument>(Request.Body, JsonOptions)
+            ?? new ButterMorphLanguageTypeMappingDocument();
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+
+        return new JsonResult(new
+        {
+            succeeded = true,
+            document,
+            message = "Language type mapping document is ready for the host."
+        }, JsonOptions);
+    }
+
+    /// <summary>
+    /// Prepares one legacy language type mapping profile for the host.
     /// </summary>
     /// <returns>The save response.</returns>
     public async Task<IActionResult> OnPostSaveProfile()
     {
         ButterMorphLanguageMappingProfile profile = await JsonSerializer.DeserializeAsync<ButterMorphLanguageMappingProfile>(Request.Body, JsonOptions)
             ?? new ButterMorphLanguageMappingProfile();
-        foreach (IButterMorphLanguageTypeMappingHost host in hosts)
-        {
-            ButterMorphLanguageTypeMappingSaveResult result = await host.SaveProfile(new ButterMorphLanguageTypeMappingSaveRequest
-            {
-                Profile = profile
-            });
+        ButterMorphLanguageTypeMappingDocument document = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(profile);
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
 
-            return new JsonResult(result, JsonOptions);
-        }
-
-        return new JsonResult(new ButterMorphLanguageTypeMappingSaveResult
+        return new JsonResult(new
         {
-            Succeeded = true,
-            Profile = profile,
-            Message = "No language type mapping host is configured. Profile was not persisted."
+            succeeded = true,
+            document,
+            message = "Language type mapping document is ready for the host."
         }, JsonOptions);
     }
 
     private async Task<string> CreateMappingDataJson()
     {
-        ButterMorphLanguageTypeMappingLoadResult loadResult = await LoadProfiles();
+        string contextKey = ResolveContextKey();
+        ButterMorphLanguageTypeMappingLoadResult loadResult = await LoadDocuments(contextKey);
         IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> butterMorphTypes = loadResult.ButterMorphTypes.Count > 0
             ? loadResult.ButterMorphTypes
             : CreateBaseTypeCatalog();
-        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = CreateProfiles(loadResult.Profiles, butterMorphTypes);
-        ButterMorphLanguageMappingProfile activeProfile = ResolveActiveProfile(profiles, loadResult.ActiveProfileId);
+        IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> documents = CreateDocuments(loadResult.Documents, loadResult.Profiles, contextKey);
+        string activeDocumentKey = FirstNonEmpty(loadResult.ActiveDocumentKey, loadResult.ActiveProfileId, contextKey);
+        if (!string.IsNullOrWhiteSpace(contextKey) &&
+            documents.All(document => !string.Equals(document.Key, contextKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            activeDocumentKey = documents.FirstOrDefault(document => string.IsNullOrWhiteSpace(document.Key))?.Key ?? activeDocumentKey;
+        }
+
+        ButterMorphLanguageTypeMappingDocument activeDocument = ResolveActiveDocument(
+            documents,
+            activeDocumentKey);
         List<object> languages = [];
         foreach (IButterMorphLanguageAdapter adapter in languageAdapters)
         {
@@ -119,95 +140,89 @@ public sealed class LanguageTypeMappingsDesignerModel : PageModel
         {
             languages,
             butterMorphTypes,
-            profiles,
+            documents,
             bundles = loadResult.Bundles,
-            activeProfileId = activeProfile?.Id ?? string.Empty
+            activeDocumentKey = activeDocument?.Key ?? string.Empty
         }, JsonOptions);
     }
 
-    private async Task<ButterMorphLanguageTypeMappingLoadResult> LoadProfiles()
+    private async Task<ButterMorphLanguageTypeMappingLoadResult> LoadDocuments(string contextKey)
     {
         foreach (IButterMorphLanguageTypeMappingHost host in hosts)
         {
-            return await host.Load(new ButterMorphLanguageTypeMappingLoadRequest()) ?? new ButterMorphLanguageTypeMappingLoadResult();
+            return await host.Load(new ButterMorphLanguageTypeMappingLoadRequest
+            {
+                ContextKey = contextKey
+            }) ?? new ButterMorphLanguageTypeMappingLoadResult();
         }
 
         return new ButterMorphLanguageTypeMappingLoadResult();
     }
 
-    private IReadOnlyCollection<ButterMorphLanguageMappingProfile> CreateProfiles(
+    private IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> CreateDocuments(
+        IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> hostDocuments,
         IReadOnlyCollection<ButterMorphLanguageMappingProfile> hostProfiles,
-        IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> butterMorphTypes)
+        string contextKey)
     {
-        return languageAdapters
-            .Select(adapter =>
-            {
-                ButterMorphLanguageMappingProfile hostProfile = hostProfiles
-                    .FirstOrDefault(profile => string.Equals(profile.LanguageKey, adapter.Key, StringComparison.OrdinalIgnoreCase));
-                return MergeWithDefaultProfile(CreateDefaultProfile(adapter, butterMorphTypes), hostProfile, butterMorphTypes);
-            })
-            .ToArray();
-    }
-
-    private static ButterMorphLanguageMappingProfile CreateDefaultProfile(
-        IButterMorphLanguageAdapter adapter,
-        IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> butterMorphTypes)
-    {
-        ButterMorphLanguageMappingProfile profile = adapter.CreateDefaultProfile(null, "{}");
-        profile.Id = adapter.Key + "-type-mappings";
-        profile.Key = profile.Id;
-        profile.Name = adapter.DisplayName + " Type Mappings";
-        profile.Description = "Maps ButterMorph types to " + adapter.DisplayName + " types.";
-        profile.LanguageKey = adapter.Key;
-        profile.Language = adapter.Key;
-        profile.TypeMappings = profile.TypeMappings
-            .OrderBy(mapping => mapping.ButterMorphType, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(mapping => mapping.ButterMorphTypeVersion, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        profile.MemberMappings = [];
-        return profile;
-    }
-
-    private static ButterMorphLanguageMappingProfile MergeWithDefaultProfile(
-        ButterMorphLanguageMappingProfile defaultProfile,
-        ButterMorphLanguageMappingProfile hostProfile,
-        IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> butterMorphTypes)
-    {
-        if (hostProfile == null)
+        List<ButterMorphLanguageTypeMappingDocument> documents = [];
+        foreach (ButterMorphLanguageTypeMappingDocument document in hostDocuments ?? [])
         {
-            return defaultProfile;
+            ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+            documents.Add(document);
         }
 
-        Dictionary<string, ButterMorphLanguageTypeMapping> mappings = defaultProfile.TypeMappings
-            .Where(mapping => !string.IsNullOrWhiteSpace(mapping.ButterMorphType))
-            .ToDictionary(mapping => CreateMappingKey(mapping.ButterMorphType, mapping.ButterMorphTypeVersion), StringComparer.OrdinalIgnoreCase);
-        foreach (ButterMorphLanguageTypeMapping mapping in hostProfile.TypeMappings)
+        if (documents.Count == 0)
         {
-            if (!string.IsNullOrWhiteSpace(mapping.ButterMorphType))
+            foreach (ButterMorphLanguageMappingProfile profile in hostProfiles ?? [])
             {
-                mappings[CreateMappingKey(mapping.ButterMorphType, mapping.ButterMorphTypeVersion)] = mapping;
+                ButterMorphLanguageTypeMappingDocument document = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(profile);
+                ButterMorphLanguageTypeMappingDocumentConverter.Normalize(document);
+                documents.Add(document);
             }
         }
 
-        hostProfile.TypeMappings = mappings.Values
-            .OrderBy(mapping => mapping.ButterMorphType, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(mapping => mapping.ButterMorphTypeVersion, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        hostProfile.Id = string.IsNullOrWhiteSpace(hostProfile.Id) ? defaultProfile.Id : hostProfile.Id;
-        hostProfile.Key = string.IsNullOrWhiteSpace(hostProfile.Key) ? defaultProfile.Key : hostProfile.Key;
-        hostProfile.Name = string.IsNullOrWhiteSpace(hostProfile.Name) ? defaultProfile.Name : hostProfile.Name;
-        hostProfile.Description = string.IsNullOrWhiteSpace(hostProfile.Description) ? defaultProfile.Description : hostProfile.Description;
-        hostProfile.LanguageKey = string.IsNullOrWhiteSpace(hostProfile.LanguageKey) ? defaultProfile.LanguageKey : hostProfile.LanguageKey;
-        hostProfile.Language = string.IsNullOrWhiteSpace(hostProfile.Language) ? defaultProfile.Language : hostProfile.Language;
-        hostProfile.CollectionType = string.IsNullOrWhiteSpace(hostProfile.CollectionType) ? defaultProfile.CollectionType : hostProfile.CollectionType;
-        hostProfile.MemberMappings = [];
-        return hostProfile;
+        if (!string.IsNullOrWhiteSpace(contextKey) &&
+            documents.All(document => !string.Equals(document.Key, contextKey, StringComparison.OrdinalIgnoreCase)))
+        {
+            IButterMorphLanguageAdapter adapter = languageAdapters.FirstOrDefault();
+            if (adapter != null)
+            {
+                documents.Add(CreateEmptyDocument(adapter));
+            }
+        }
+
+        if (documents.Count == 0)
+        {
+            IButterMorphLanguageAdapter adapter = languageAdapters.FirstOrDefault();
+            if (adapter != null)
+            {
+                documents.Add(CreateEmptyDocument(adapter));
+            }
+        }
+
+        return documents
+            .OrderBy(document => document.Language, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(document => document.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
-    private static ButterMorphLanguageMappingProfile ResolveActiveProfile(IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles, string activeProfileId)
+    private static ButterMorphLanguageTypeMappingDocument CreateEmptyDocument(IButterMorphLanguageAdapter adapter)
     {
-        return profiles.FirstOrDefault(profile => string.Equals(profile.Id, activeProfileId, StringComparison.OrdinalIgnoreCase))
-            ?? profiles.FirstOrDefault();
+        return new ButterMorphLanguageTypeMappingDocument
+        {
+            Key = string.Empty,
+            Name = string.Empty,
+            Description = string.Empty,
+            Language = adapter.Key
+        };
+    }
+
+    private static ButterMorphLanguageTypeMappingDocument ResolveActiveDocument(
+        IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> documents,
+        string activeDocumentKey)
+    {
+        return documents.FirstOrDefault(document => string.Equals(document.Key, activeDocumentKey, StringComparison.OrdinalIgnoreCase))
+            ?? documents.FirstOrDefault();
     }
 
     private static IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> CreateBaseTypeCatalog()
@@ -236,8 +251,22 @@ public sealed class LanguageTypeMappingsDesignerModel : PageModel
         };
     }
 
-    private static string CreateMappingKey(string type, string version)
+    private string ResolveContextKey()
     {
-        return (type ?? string.Empty) + "@" + (version ?? string.Empty);
+        return DesignerSessionKeyResolver.ResolveContextKey(this, options);
     }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        foreach (string value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return string.Empty;
+    }
+
 }
