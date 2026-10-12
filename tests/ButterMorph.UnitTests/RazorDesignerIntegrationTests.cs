@@ -217,7 +217,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
             new StringContent(body, Encoding.UTF8, "application/json"));
         string json = await response.Content.ReadAsStringAsync();
-        string code = ReadString(json, "code");
+        string code = NormalizeLineEndings(ReadString(json, "code"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
@@ -226,6 +226,13 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("List<CustomerProfileContact> Contacts", code, StringComparison.Ordinal);
         Assert.Contains("using Company.SharedTypes;", code, StringComparison.Ordinal);
         Assert.Contains("TextValue Name", code, StringComparison.Ordinal);
+        Assert.Contains("/// Atlas-style customer profile schema.", code, StringComparison.Ordinal);
+        Assert.Contains("/// Gets or sets Name.\n    /// Customer full name.", code, StringComparison.Ordinal);
+        Assert.Contains("/// Customer full name.", code, StringComparison.Ordinal);
+        Assert.Contains("/// Gets or sets Contacts.\n    /// Customer contact methods.", code, StringComparison.Ordinal);
+        Assert.Contains("/// Customer contact methods.", code, StringComparison.Ordinal);
+        Assert.Contains("/// Gets or sets Email.", code, StringComparison.Ordinal);
+        Assert.Contains("public required TextValue Name { get; init; }\n\n    /// <summary>", code, StringComparison.Ordinal);
         Assert.DoesNotContain("namespace ButterMorph.Generated;", code, StringComparison.Ordinal);
         Assert.DoesNotContain("CustomerProfileContacts", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Company.SharedTypes.TextValue Name", code, StringComparison.Ordinal);
@@ -256,7 +263,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
             new StringContent(body, Encoding.UTF8, "application/json"));
         string json = await response.Content.ReadAsStringAsync();
-        string code = ReadString(json, "code");
+        string code = NormalizeLineEndings(ReadString(json, "code"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("public sealed class CustomerContactMethod", code, StringComparison.Ordinal);
@@ -3294,6 +3301,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         using JsonDocument document = JsonDocument.Parse(json);
         return document.RootElement.GetProperty(propertyName).GetString();
+    }
+
+    // Normalizes generated snippets for stable assertions across platforms.
+    private static string NormalizeLineEndings(string value)
+    {
+        return (value ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
     }
 
     // Reads a number from a JSON response.
