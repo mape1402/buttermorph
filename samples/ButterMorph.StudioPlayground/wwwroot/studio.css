@@ -498,6 +498,69 @@ pre {
   color: var(--muted);
 }
 
+.bundle-detail-summary {
+  display: grid;
+  gap: .55rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: .75rem;
+}
+
+.bundle-detail-summary div {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .58rem .65rem;
+}
+
+.bundle-detail-summary span {
+  color: var(--muted);
+  display: block;
+  font-size: .68rem;
+  font-weight: 800;
+  margin-bottom: .12rem;
+}
+
+.bundle-detail-summary strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bundle-description {
+  color: var(--muted);
+  margin: 0 0 .75rem;
+}
+
+.bundle-type-list {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.bundle-type-list div,
+.bundle-type-list p {
+  background: var(--panel);
+  margin: 0;
+  padding: .55rem .65rem;
+}
+
+.bundle-type-list strong,
+.bundle-type-list span,
+.bundle-type-list small {
+  display: block;
+}
+
+.bundle-type-list span,
+.bundle-type-list small {
+  color: var(--muted);
+  font-size: .78rem;
+  margin-top: .1rem;
+}
+
 .execution-layout {
   display: grid;
   gap: .75rem;

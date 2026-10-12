@@ -18,7 +18,7 @@ internal static class StudioHtml
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>ButterMorph Studio Playground</title>
-              <link rel="stylesheet" href="/studio.css?v=9">
+              <link rel="stylesheet" href="/studio.css?v=10">
               <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js?v=3"></script>
             </head>
             <body data-studio-theme="dark" data-bm-theme-mode="dark" data-theme="dark">
@@ -32,6 +32,8 @@ internal static class StudioHtml
                     <button class="active" data-section="dashboard">Dashboard</button>
                     <button data-section="customTypes">Custom Types</button>
                     <button data-section="customFields">Custom Fields</button>
+                    <button data-section="languageTypeBundles">Type Bundles</button>
+                    <button data-section="typeMappings">Type Mappings</button>
                     <button data-section="schemas">Schemas</button>
                     <button data-section="mappings">Mappings</button>
                     <button data-section="validations">Validations</button>
@@ -64,6 +66,8 @@ internal static class StudioHtml
                   </section>
                   <section id="customTypes" class="studio-section" data-kind="customTypes"></section>
                   <section id="customFields" class="studio-section" data-kind="customFields"></section>
+                  <section id="languageTypeBundles" class="studio-section"></section>
+                  <section id="typeMappings" class="studio-section"></section>
                   <section id="schemas" class="studio-section" data-kind="schemas"></section>
                   <section id="mappings" class="studio-section" data-kind="mappings"></section>
                   <section id="validations" class="studio-section" data-kind="validations"></section>
@@ -93,7 +97,7 @@ internal static class StudioHtml
                   </section>
                 </main>
               </div>
-              <script src="/studio.js?v=11"></script>
+              <script src="/studio.js?v=13"></script>
             </body>
             </html>
             """;

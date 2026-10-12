@@ -38,6 +38,8 @@ internal sealed class SchemaViewerNodeDisplayModel
 
     public string Reference { get; set; } = string.Empty;
 
+    public string ItemReference { get; set; } = string.Empty;
+
     public bool IsRequired { get; set; }
 
     public IReadOnlyCollection<SchemaViewerEntryDisplayModel> Restrictions { get; set; } = [];
@@ -197,6 +199,7 @@ internal static class SchemaViewerDisplayBuilder
             Kind = kind,
             Description = ResolveValue(ReadString(element, "description", string.Empty), ReadString(effectiveElement, "description", string.Empty)),
             Reference = reference,
+            ItemReference = ReadArrayItemReference(element),
             IsRequired = isRequired,
             Restrictions = restrictions,
             Metadata = metadata,
@@ -261,6 +264,13 @@ internal static class SchemaViewerDisplayBuilder
         return !string.IsNullOrWhiteSpace(reference) && TryResolveReference(root, reference, out JsonElement definition)
             ? definition
             : element;
+    }
+
+    private static string ReadArrayItemReference(JsonElement element)
+    {
+        return TryGetObject(element, "items", out JsonElement items)
+            ? ReadString(items, "$ref", string.Empty)
+            : string.Empty;
     }
 
     private static IReadOnlyCollection<string> CreateBadges(string kind, string dataType, bool isRequired, bool hasRestrictions, bool hasChildren)

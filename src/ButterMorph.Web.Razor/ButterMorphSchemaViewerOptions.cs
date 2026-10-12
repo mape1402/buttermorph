@@ -8,7 +8,7 @@ public sealed class ButterMorphSchemaViewerOptions
     /// <summary>
     /// Gets or sets the enabled schema viewer surfaces.
     /// </summary>
-    public ButterMorphSchemaViewerViews EnabledViews { get; set; } = ButterMorphSchemaViewerViews.UserFriendlyAndJson;
+    public ButterMorphSchemaViewerViews EnabledViews { get; set; } = ButterMorphSchemaViewerViews.All;
 
     /// <summary>
     /// Gets or sets the default schema viewer surface.

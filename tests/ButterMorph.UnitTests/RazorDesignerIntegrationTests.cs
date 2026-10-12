@@ -1,6 +1,7 @@
 namespace ButterMorph.UnitTests;
 
 using ButterMorph.Abstractions;
+using ButterMorph.Contracts;
 using ButterMorph.Core;
 using ButterMorph.Web.Razor;
 using Microsoft.AspNetCore.Hosting;
@@ -45,6 +46,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         HttpResponseMessage metadataFieldDesigner = await client.GetAsync("/buttermorph/metadata-fields/designer");
         HttpResponseMessage payloadSchemaDesigner = await client.GetAsync("/buttermorph/payload-schema/designer");
         HttpResponseMessage payloadSchemaViewer = await client.GetAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile");
+        HttpResponseMessage languageTypeMappings = await client.GetAsync("/buttermorph/language-type-mappings/designer");
+        HttpResponseMessage languageTypeBundles = await client.GetAsync("/buttermorph/language-type-bundles/designer");
         HttpResponseMessage dsl = await client.GetAsync("/buttermorph/dsl");
 
         Assert.Equal(HttpStatusCode.OK, home.StatusCode);
@@ -56,6 +59,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, metadataFieldDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, payloadSchemaDesigner.StatusCode);
         Assert.Equal(HttpStatusCode.OK, payloadSchemaViewer.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, languageTypeMappings.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, languageTypeBundles.StatusCode);
         Assert.Equal(HttpStatusCode.OK, dsl.StatusCode);
     }
 
@@ -131,6 +136,157 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("vendor/codemirror/codemirror.min.js", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-schema-viewer.js", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-monaco-loader-url", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that the schema viewer renders the code generation surface.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerRendersCodeGenerationView()
+    {
+        FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
+        FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
+        {
+            LoadResult = new ButterMorphLanguageTypeMappingLoadResult
+            {
+                Profiles = [CreateCSharpTypeMappingProfile()],
+                ActiveProfileId = "customer-csharp"
+            }
+        };
+        HttpClient client = CreateSchemaViewerHostClient(schemaHost, typeMappingHost);
+
+        string html = await client.GetStringAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile&view=code");
+
+        Assert.Equal(1, schemaHost.LoadCalls);
+        Assert.Equal(1, typeMappingHost.LoadCalls);
+        Assert.Contains("data-schema-active-view=\"code\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-button=\"code\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-view-panel=\"code\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-code-source=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-code-language=\"true\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-code-type-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-code-field-list=\"true\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("CustomerProfile", html, StringComparison.Ordinal);
+        Assert.Contains("Name", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that posted type mapping profiles generate code.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerGeneratesCodeFromPostedProfile()
+    {
+        FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
+        HttpClient client = CreateSchemaViewerHostClient(schemaHost, new FakeButterMorphLanguageTypeMappingHost());
+        string body = JsonSerializer.Serialize(CreateCSharpTypeMappingProfile(), new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("public sealed class CustomerProfile", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("ButterMorphField", json, StringComparison.Ordinal);
+        Assert.Contains("Name", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms aliased members use the shared ButterMorph contracts attribute.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaViewerGeneratesSharedFieldAttributeForAliasedMembers()
+    {
+        FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
+        HttpClient client = CreateSchemaViewerHostClient(schemaHost, new FakeButterMorphLanguageTypeMappingHost());
+        string body = JsonSerializer.Serialize(CreateCSharpMemberAliasProfile(), new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/payload-schema/viewer?context=schema-customer-profile&handler=GenerateCode",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("using ButterMorph.Contracts;", json, StringComparison.Ordinal);
+        Assert.Contains("[ButterMorphField(\\u0022Name\\u0022)]", json, StringComparison.Ordinal);
+        Assert.Contains("DisplayName", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("public sealed class ButterMorphFieldAttribute", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms the shared field attribute lives in the contracts assembly.
+    /// </summary>
+    [Fact]
+    public void ButterMorphFieldAttributeLivesInContractsAssembly()
+    {
+        AttributeUsageAttribute usage = typeof(ButterMorphFieldAttribute)
+            .GetCustomAttributes(typeof(AttributeUsageAttribute), false)
+            .OfType<AttributeUsageAttribute>()
+            .Single();
+
+        Assert.Equal("ButterMorph.Contracts", typeof(ButterMorphFieldAttribute).Namespace);
+        Assert.Equal(AttributeTargets.Property, usage.ValidOn);
+    }
+
+    /// <summary>
+    /// Confirms that language type mappings render and can be saved by the host.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task LanguageTypeMappingsDesignerSavesProfileThroughHost()
+    {
+        FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
+        {
+            LoadResult = new ButterMorphLanguageTypeMappingLoadResult
+            {
+                ButterMorphTypes =
+                [
+                    new ButterMorphTypeMappingCatalogItem { Key = "string", DisplayName = "String" },
+                    new ButterMorphTypeMappingCatalogItem { Key = "RFC", DisplayName = "RFC" }
+                ],
+                Profiles = [CreateCSharpTypeMappingProfile()],
+                ActiveProfileId = "customer-csharp"
+            }
+        };
+        HttpClient client = CreateLanguageTypeMappingsClient(typeMappingHost);
+        string html = await client.GetStringAsync("/buttermorph/language-type-mappings/designer");
+        string body = JsonSerializer.Serialize(CreateCSharpTypeMappingProfile(), new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        Assert.Equal(1, typeMappingHost.LoadCalls);
+        Assert.Contains("Type mapping packages", html, StringComparison.Ordinal);
+        Assert.Contains("New package", html, StringComparison.Ordinal);
+        Assert.Contains("Add mapping", html, StringComparison.Ordinal);
+        Assert.Contains("Search mappings", html, StringComparison.Ordinal);
+        Assert.Contains("data-type-mapping-summary=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("DataType (ButterMorph)", html, StringComparison.Ordinal);
+        Assert.Contains("Version", html, StringComparison.Ordinal);
+        Assert.Contains("RFC", html, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+
+        HttpResponseMessage response = await client.PostAsync(
+            "/buttermorph/language-type-mappings/designer?handler=SaveProfile",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, typeMappingHost.SaveCalls);
+        Assert.Equal("customer-csharp", typeMappingHost.SavedProfile.Id);
+        using JsonDocument saveDocument = JsonDocument.Parse(json);
+        Assert.True(saveDocument.RootElement.GetProperty("succeeded").GetBoolean());
     }
 
     /// <summary>
@@ -2685,6 +2841,33 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         return factory.CreateClient();
     }
 
+    // Creates a test client with fake schema viewer and language type mapping hosts.
+    private HttpClient CreateSchemaViewerHostClient(FakeButterMorphPayloadSchemaViewerHost host, FakeButterMorphLanguageTypeMappingHost typeMappingHost)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphPayloadSchemaViewerHost>(host);
+                services.AddSingleton<IButterMorphLanguageTypeMappingHost>(typeMappingHost);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a test client with a fake language type mapping host.
+    private HttpClient CreateLanguageTypeMappingsClient(FakeButterMorphLanguageTypeMappingHost typeMappingHost)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphLanguageTypeMappingHost>(typeMappingHost);
+            });
+        });
+        return factory.CreateClient();
+    }
+
     // Creates a test client with a fake mapping viewer host integration.
     private HttpClient CreateMappingViewerHostClient(FakeButterMorphMappingViewerHost host)
     {
@@ -2721,6 +2904,42 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                 JsonSchema = SchemaViewerJson()
             }
         };
+    }
+
+    // Creates a C# type mapping profile for code generation tests.
+    private static ButterMorphLanguageMappingProfile CreateCSharpTypeMappingProfile()
+    {
+        return new ButterMorphLanguageMappingProfile
+        {
+            Id = "customer-csharp",
+            Name = "Customer C#",
+            LanguageKey = "csharp",
+            Namespace = "Tests.Contracts",
+            RootTypeName = "CustomerProfile",
+            EmitAttributes = true,
+            UseNullableReferences = true,
+            UseRequiredMembers = true,
+            CollectionType = "List",
+            TypeMappings =
+            [
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "string", LanguageType = "string" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "number", LanguageType = "decimal" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "boolean", LanguageType = "bool" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "object", LanguageType = "object" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "RFC", LanguageType = "Company.SharedTypes.Rfc" }
+            ]
+        };
+    }
+
+    // Creates a C# type mapping profile with a member alias.
+    private static ButterMorphLanguageMappingProfile CreateCSharpMemberAliasProfile()
+    {
+        ButterMorphLanguageMappingProfile profile = CreateCSharpTypeMappingProfile();
+        profile.MemberMappings =
+        [
+            new ButterMorphLanguageMemberMapping { FieldPath = "Name", MemberName = "DisplayName" }
+        ];
+        return profile;
     }
 
     // Creates a mapping viewer host loaded with a representative mapping document.

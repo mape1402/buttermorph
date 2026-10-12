@@ -5,6 +5,7 @@ using ButterMorph.Abstractions;
 using ButterMorph.Core;
 using ButterMorph.Json;
 using ButterMorph.StudioPlayground.Models;
+using ButterMorph.Web.Razor;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 /// <summary>
@@ -30,6 +31,18 @@ internal static class StudioEndpoints
             StudioStateSnapshot snapshot = await JsonSerializer.DeserializeAsync<StudioStateSnapshot>(request.Body, JsonOptions) ?? new StudioStateSnapshot();
             store.ReplaceFromSnapshot(snapshot);
             return CreateState(store);
+        });
+        app.MapPost("/api/language-type-bundles", async (StudioStore store, HttpRequest request) =>
+        {
+            ButterMorphLanguageTypeBundle bundle = await JsonSerializer.DeserializeAsync<ButterMorphLanguageTypeBundle>(request.Body, JsonOptions)
+                ?? new ButterMorphLanguageTypeBundle();
+            if (string.IsNullOrWhiteSpace(bundle.AssemblyKey) && string.IsNullOrWhiteSpace(bundle.AssemblyId))
+            {
+                return Results.BadRequest(new { message = "Bundle assembly key is required." });
+            }
+
+            StudioLanguageTypeBundle item = SaveLanguageTypeBundle(store, bundle);
+            return Results.Json(item);
         });
         app.MapGet("/api/{kind}/{id}", (string kind, string id, StudioStore store) => GetItem(kind, id, store));
         app.MapPost("/api/{kind}", async (string kind, StudioStore store, HttpRequest request) =>
@@ -259,7 +272,9 @@ internal static class StudioEndpoints
                 validation.SourceSamples,
                 validation.DslContent,
                 validation.SavedAt
-            })
+            }),
+            languageTypeProfiles = store.LanguageTypeProfiles,
+            languageTypeBundles = store.LanguageTypeBundles
         });
     }
 
@@ -290,7 +305,34 @@ internal static class StudioEndpoints
             return Results.Json(validation);
         }
 
+        if (kind == "languageTypeProfiles" && store.TryGetLanguageTypeProfile(id, out StudioLanguageTypeProfile languageTypeProfile))
+        {
+            return Results.Json(languageTypeProfile);
+        }
+
+        if (kind == "languageTypeBundles" && store.TryGetLanguageTypeBundle(id, out StudioLanguageTypeBundle languageTypeBundle))
+        {
+            return Results.Json(languageTypeBundle);
+        }
+
         return Results.NotFound();
+    }
+
+    private static StudioLanguageTypeBundle SaveLanguageTypeBundle(StudioStore store, ButterMorphLanguageTypeBundle bundle)
+    {
+        string bundleId = string.IsNullOrWhiteSpace(bundle.AssemblyId)
+            ? bundle.AssemblyKey
+            : bundle.AssemblyId;
+        bundle.AssemblyId = string.IsNullOrWhiteSpace(bundle.AssemblyId) ? bundleId : bundle.AssemblyId;
+
+        StudioLanguageTypeBundle item = new()
+        {
+            Id = bundleId,
+            LanguageKey = bundle.LanguageKey,
+            Bundle = bundle
+        };
+        store.SaveLanguageTypeBundle(item);
+        return item;
     }
 
     private static StudioExecutionView Execute(StudioMapping mapping, StudioExecutionRequest request, StudioButterMorphHost host, IButterMorphEngine engine)

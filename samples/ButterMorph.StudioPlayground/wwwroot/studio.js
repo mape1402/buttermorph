@@ -1,14 +1,16 @@
 (() => {
   const storageKey = "ButterMorph.StudioPlayground.State";
   const themeStorageKey = "ButterMorph.StudioPlayground.ThemeMode";
-  let state = { customTypes: [], customFields: [], schemas: [], mappings: [], validations: [] };
-  let selected = { customTypes: "", customFields: "", schemas: "", mappings: "", validations: "" };
+  let state = { customTypes: [], customFields: [], languageTypeProfiles: [], languageTypeBundles: [], schemas: [], mappings: [], validations: [] };
+  let selected = { customTypes: "", customFields: "", languageTypeBundles: "", schemas: "", mappings: "", validations: "" };
   let themeMode = normalizeThemeMode(localStorage.getItem(themeStorageKey) || "dark");
 
   const titles = {
     dashboard: "Dashboard",
     customTypes: "Custom Types",
     customFields: "Custom Fields",
+    languageTypeBundles: "Type Bundles",
+    typeMappings: "Type Mappings",
     schemas: "Schemas",
     mappings: "Mappings",
     validations: "Validations",
@@ -24,14 +26,18 @@
   document.getElementById("refresh-state").addEventListener("click", loadState);
   document.getElementById("validate-mapping").addEventListener("click", validateSelectedMapping);
   document.getElementById("execute-mapping").addEventListener("click", executeSelectedMapping);
-  window.addEventListener("message", event => {
+  window.addEventListener("message", async event => {
     if (event.origin !== window.location.origin || !event.data) {
       return;
     }
     const type = event.data.type || "";
     if (type.startsWith("ButterMorph")) {
+      if (type === "ButterMorphLanguageTypeBundleSaved" && event.data.bundle) {
+        await saveLanguageTypeBundle(event.data.bundle);
+      }
+
       selectSavedItem(type, event.data.contextKey || "");
-      reloadStateFromBackend();
+      await reloadStateFromBackend();
     }
   });
 
@@ -77,10 +83,18 @@
   async function loadState() {
     const persisted = readPersistedState();
     if (persisted) {
-      if (persisted.__needsValidationSeed) {
+      if (persisted.__needsCatalogSeed) {
         const response = await fetch("/api/state", { cache: "no-store" });
         const seeded = await response.json();
-        persisted.validations = Array.isArray(seeded.validations) ? seeded.validations : [];
+        if (persisted.__needsValidationSeed) {
+          persisted.validations = Array.isArray(seeded.validations) ? seeded.validations : [];
+        }
+        if (persisted.__needsLanguageTypeSeed) {
+          persisted.languageTypeProfiles = Array.isArray(seeded.languageTypeProfiles) ? seeded.languageTypeProfiles : [];
+        }
+        if (persisted.__needsLanguageBundleSeed) {
+          persisted.languageTypeBundles = Array.isArray(seeded.languageTypeBundles) ? seeded.languageTypeBundles : [];
+        }
       }
 
       state = persisted;
@@ -108,14 +122,21 @@
       if (!json) {
         return null;
       }
-    const parsed = JSON.parse(json);
+      const parsed = JSON.parse(json);
       if (!parsed || !Array.isArray(parsed.customTypes)) {
         return null;
       }
 
       const needsValidationSeed = !Array.isArray(parsed.validations);
+      const needsLanguageTypeSeed = !Array.isArray(parsed.languageTypeProfiles);
+      const needsLanguageBundleSeed = !Array.isArray(parsed.languageTypeBundles);
       parsed.validations = needsValidationSeed ? [] : parsed.validations;
+      parsed.languageTypeProfiles = needsLanguageTypeSeed ? [] : parsed.languageTypeProfiles;
+      parsed.languageTypeBundles = needsLanguageBundleSeed ? [] : parsed.languageTypeBundles;
       Object.defineProperty(parsed, "__needsValidationSeed", { value: needsValidationSeed, enumerable: false });
+      Object.defineProperty(parsed, "__needsLanguageTypeSeed", { value: needsLanguageTypeSeed, enumerable: false });
+      Object.defineProperty(parsed, "__needsLanguageBundleSeed", { value: needsLanguageBundleSeed, enumerable: false });
+      Object.defineProperty(parsed, "__needsCatalogSeed", { value: needsValidationSeed || needsLanguageTypeSeed || needsLanguageBundleSeed, enumerable: false });
       return parsed;
     } catch {
       return null;
@@ -138,6 +159,8 @@
     renderMetrics();
     renderCrud("customTypes", "Custom Type", item => item.name || item.key, item => item.baseType + " · " + item.version);
     renderCrud("customFields", "Custom Field", item => item.name || item.key, item => item.dataType + " · " + item.appliesToJson);
+    renderLanguageTypeBundles();
+    renderTypeMappings();
     renderCrud("schemas", "Schema", item => item.name || item.key, item => item.key + " · " + item.version);
     renderCrud("mappings", "Mapping", item => item.name || item.id, item => item.targetSchemaId || "No target selected");
     renderCrud("validations", "Validation", item => item.name || item.id, item => sourceSummary(item.sourceSchemaIds));
@@ -150,6 +173,124 @@
     document.getElementById("metric-schemas").textContent = state.schemas.length;
     document.getElementById("metric-mappings").textContent = state.mappings.length;
     document.getElementById("metric-validations").textContent = state.validations.length;
+  }
+
+  function renderTypeMappings() {
+    const section = document.getElementById("typeMappings");
+    if (!section) {
+      return;
+    }
+
+    const profiles = state.languageTypeProfiles || [];
+    const bundles = state.languageTypeBundles || [];
+    section.innerHTML = `
+      <div class="work-card">
+        <div class="card-header">
+          <strong>Language type packages</strong>
+          <div class="action-row">
+            <button class="ghost-button" type="button" data-open-type-bundles>New Bundle</button>
+            <button class="primary-button" type="button" data-open-type-mappings>Open Type Mappings</button>
+          </div>
+        </div>
+        <div class="schema-preview-list">
+          ${profiles.map(item => {
+            const profile = item.profile || {};
+            const mappings = profile.typeMappings || profile.TypeMappings || [];
+            return `<div><strong>${escapeHtml(profile.name || item.name || profile.key || profile.languageKey || item.languageKey || "Package")}</strong><span>${escapeHtml(profile.language || profile.languageKey || item.languageKey || "")} · ${mappings.length} mappings</span></div>`;
+          }).join("") || "<p>No language mapping packages saved yet.</p>"}
+        </div>
+        <div class="schema-preview-list">
+          ${bundles.map(item => {
+            const bundle = item.bundle || {};
+            const types = bundle.types || bundle.Types || [];
+            return `<div><strong>${escapeHtml(bundle.assemblyKey || item.id || "Bundle")}</strong><span>${escapeHtml(bundle.languageKey || item.languageKey || "")} · ${types.length} types</span></div>`;
+          }).join("") || "<p>No language type bundles registered yet.</p>"}
+        </div>
+      </div>`;
+
+    section.querySelector("[data-open-type-mappings]").addEventListener("click", openTypeMappingsDesigner);
+    section.querySelector("[data-open-type-bundles]").addEventListener("click", openTypeBundlesDesigner);
+  }
+
+  function renderLanguageTypeBundles() {
+    const section = document.getElementById("languageTypeBundles");
+    if (!section) {
+      return;
+    }
+
+    const bundles = state.languageTypeBundles || [];
+    section.innerHTML = `
+      <div class="work-card">
+        <div class="card-header">
+          <strong>Language type bundles</strong>
+          <button class="primary-button" type="button" data-open-type-bundles>Create Bundle</button>
+        </div>
+        <div class="crud-layout">
+          <div class="item-list">
+            ${bundles.map(item => {
+              const bundle = item.bundle || {};
+              const types = bundle.types || bundle.Types || [];
+              const id = item.id || bundle.assemblyId || bundle.assemblyKey || "";
+              return `
+                <button class="item-button ${id === selected.languageTypeBundles ? "active" : ""}" data-select-bundle="${escapeAttr(id)}">
+                  <strong>${escapeHtml(bundle.assemblyKey || id || "Bundle")}</strong>
+                  <span>${escapeHtml(bundle.languageKey || item.languageKey || "")} · ${escapeHtml(bundle.assemblyVersion || "unversioned")} · ${types.length} types</span>
+                </button>`;
+            }).join("") || "<p>No language type bundles saved yet.</p>"}
+          </div>
+          <div class="detail-pane">
+            ${renderLanguageTypeBundleDetail(resolveSelectedLanguageTypeBundle(bundles))}
+          </div>
+        </div>
+      </div>`;
+
+    section.querySelector("[data-open-type-bundles]").addEventListener("click", openTypeBundlesDesigner);
+    section.querySelectorAll("[data-select-bundle]").forEach(button => button.addEventListener("click", () => {
+      selected.languageTypeBundles = button.dataset.selectBundle;
+      renderAll();
+    }));
+    section.querySelectorAll("[data-delete-bundle]").forEach(button => button.addEventListener("click", () => deleteItem("languageTypeBundles", button.dataset.deleteBundle)));
+  }
+
+  function resolveSelectedLanguageTypeBundle(bundles) {
+    if (!selected.languageTypeBundles && bundles.length) {
+      selected.languageTypeBundles = bundles[0].id || bundles[0].bundle?.assemblyId || bundles[0].bundle?.assemblyKey || "";
+    }
+
+    return bundles.find(item => {
+      const bundle = item.bundle || {};
+      const id = item.id || bundle.assemblyId || bundle.assemblyKey || "";
+      return id === selected.languageTypeBundles;
+    }) || null;
+  }
+
+  function renderLanguageTypeBundleDetail(item) {
+    if (!item) {
+      return "<p>Select or create a language type bundle.</p>";
+    }
+
+    const bundle = item.bundle || {};
+    const types = bundle.types || bundle.Types || [];
+    const id = item.id || bundle.assemblyId || bundle.assemblyKey || "";
+    return `
+      <div class="action-row">
+        <button class="danger-button" data-delete-bundle="${escapeAttr(id)}" type="button">Delete</button>
+      </div>
+      <div class="bundle-detail-summary">
+        <div><span>Key</span><strong>${escapeHtml(bundle.assemblyKey || id)}</strong></div>
+        <div><span>Language</span><strong>${escapeHtml(bundle.languageKey || item.languageKey || "")}</strong></div>
+        <div><span>Version</span><strong>${escapeHtml(bundle.assemblyVersion || "unversioned")}</strong></div>
+        <div><span>Types</span><strong>${types.length}</strong></div>
+      </div>
+      ${bundle.assemblyDescription ? `<p class="bundle-description">${escapeHtml(bundle.assemblyDescription)}</p>` : ""}
+      <div class="bundle-type-list">
+        ${types.map(type => `
+          <div>
+            <strong>${escapeHtml(type.displayName || type.key || "Type")}</strong>
+            <span>${escapeHtml(type.qualifiedName || type.key || "")} · ${escapeHtml(type.version || "unversioned")}</span>
+            ${type.description ? `<small>${escapeHtml(type.description)}</small>` : ""}
+          </div>`).join("") || "<p>No types discovered in this bundle.</p>"}
+      </div>`;
   }
 
   function renderCrud(kind, label, titleSelector, subtitleSelector) {
@@ -376,6 +517,26 @@
     });
   }
 
+  async function openTypeMappingsDesigner() {
+    await syncStateToBackend();
+    window.ButterMorphHost.openFrame("/buttermorph/language-type-mappings/designer?popup=true&returnUrl=/", {
+      title: "ButterMorph Type Mappings",
+      width: 980,
+      height: 760,
+      themeMode
+    });
+  }
+
+  async function openTypeBundlesDesigner() {
+    await syncStateToBackend();
+    window.ButterMorphHost.openFrame("/buttermorph/language-type-bundles/designer?popup=true&returnUrl=/", {
+      title: "Type Bundles",
+      width: 980,
+      height: 760,
+      themeMode
+    });
+  }
+
   function createEditQuery(kind, id) {
     if (kind !== "schemas") {
       return "";
@@ -572,6 +733,14 @@
     }
     if (messageType === "ButterMorphValidationDesignerSaved") {
       selected.validations = id;
+      return;
+    }
+    if (messageType === "ButterMorphLanguageTypeMappingsSaved") {
+      return;
+    }
+    if (messageType === "ButterMorphLanguageTypeBundleSaved") {
+      selected.languageTypeBundles = id;
+      return;
     }
   }
 
@@ -633,6 +802,14 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(setup)
+    });
+  }
+
+  async function saveLanguageTypeBundle(bundle) {
+    await fetch("/api/language-type-bundles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bundle)
     });
   }
 

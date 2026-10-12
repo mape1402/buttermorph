@@ -1,0 +1,47 @@
+@page "/buttermorph/language-type-bundles/designer"
+@model ButterMorph.Web.Razor.LanguageTypeBundlesDesignerModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Type Bundles</title>
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-bundles.css?v=6" />
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-bundles.js?v=6" defer></script>
+</head>
+<body class="bm-type-bundle-page" style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
+    <main class="bm-type-bundle-shell">
+        <header class="bm-type-bundle-topbar">
+            <form class="bm-type-bundle-upload" data-type-bundle-upload="true">
+                <label class="bm-type-bundle-file">
+                    <input type="file" name="assembly" accept=".dll" data-type-bundle-file="true" />
+                    <span class="bm-type-bundle-file-action">Choose</span>
+                    <span class="bm-type-bundle-file-name" data-type-bundle-file-name="true">No file selected</span>
+                </label>
+                <button type="submit">Scan</button>
+            </form>
+            <div class="bm-type-bundle-actions">
+                <p class="bm-type-bundle-message" data-type-bundle-message="true" hidden></p>
+                <button class="bm-type-bundle-save" type="button" data-type-bundle-save="true" disabled>Save bundle</button>
+            </div>
+        </header>
+
+        <section class="bm-type-bundle-grid">
+            <article class="bm-type-bundle-card">
+                <div class="bm-type-bundle-card-header">
+                    <strong>Preview</strong>
+                </div>
+                <div data-type-bundle-preview="true">
+                    <p class="bm-type-bundle-empty">Upload a .dll with a bundle provider and annotated language types.</p>
+                </div>
+            </article>
+        </section>
+    </main>
+    <script id="language-type-bundle-data" type="application/json">@Html.Raw(Model.BundleDataJson)</script>
+</body>
+</html>

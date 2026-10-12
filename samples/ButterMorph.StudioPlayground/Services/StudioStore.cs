@@ -16,6 +16,8 @@ internal sealed class StudioStore
     private readonly ConcurrentDictionary<string, StudioMappingSetup> mappingSetups = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioValidation> validations = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioValidationSetup> validationSetups = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioLanguageTypeProfile> languageTypeProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioLanguageTypeBundle> languageTypeBundles = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets all custom types.
@@ -41,6 +43,22 @@ internal sealed class StudioStore
     /// Gets all validations.
     /// </summary>
     public IReadOnlyCollection<StudioValidation> Validations => validations.Values.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+
+    /// <summary>
+    /// Gets all language type mapping profiles.
+    /// </summary>
+    public IReadOnlyCollection<StudioLanguageTypeProfile> LanguageTypeProfiles => languageTypeProfiles.Values
+        .OrderBy(item => item.LanguageKey, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(item => item.Profile.Name, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    /// <summary>
+    /// Gets all language type bundles.
+    /// </summary>
+    public IReadOnlyCollection<StudioLanguageTypeBundle> LanguageTypeBundles => languageTypeBundles.Values
+        .OrderBy(item => item.LanguageKey, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(item => item.Bundle.AssemblyKey, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 
     /// <summary>
     /// Saves a custom type.
@@ -93,6 +111,26 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Saves a language type mapping profile.
+    /// </summary>
+    /// <param name="item">The language type profile.</param>
+    public void SaveLanguageTypeProfile(StudioLanguageTypeProfile item)
+    {
+        item.SavedAt = DateTimeOffset.UtcNow;
+        languageTypeProfiles[item.Id] = item;
+    }
+
+    /// <summary>
+    /// Saves a language type bundle.
+    /// </summary>
+    /// <param name="item">The language type bundle.</param>
+    public void SaveLanguageTypeBundle(StudioLanguageTypeBundle item)
+    {
+        item.SavedAt = DateTimeOffset.UtcNow;
+        languageTypeBundles[item.Id] = item;
+    }
+
+    /// <summary>
     /// Saves a temporary mapping setup.
     /// </summary>
     /// <param name="item">The setup.</param>
@@ -121,6 +159,8 @@ internal sealed class StudioStore
         schemas.Clear();
         mappings.Clear();
         validations.Clear();
+        languageTypeProfiles.Clear();
+        languageTypeBundles.Clear();
 
         foreach (StudioCustomType item in snapshot.CustomTypes)
         {
@@ -159,6 +199,22 @@ internal sealed class StudioStore
             if (!string.IsNullOrWhiteSpace(item.Id))
             {
                 validations[item.Id] = item;
+            }
+        }
+
+        foreach (StudioLanguageTypeProfile item in snapshot.LanguageTypeProfiles)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                languageTypeProfiles[item.Id] = item;
+            }
+        }
+
+        foreach (StudioLanguageTypeBundle item in snapshot.LanguageTypeBundles)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id))
+            {
+                languageTypeBundles[item.Id] = item;
             }
         }
     }
@@ -219,6 +275,28 @@ internal sealed class StudioStore
     }
 
     /// <summary>
+    /// Attempts to get a language type mapping profile.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    /// <param name="item">The language type profile.</param>
+    /// <returns>True when found.</returns>
+    public bool TryGetLanguageTypeProfile(string id, out StudioLanguageTypeProfile item)
+    {
+        return languageTypeProfiles.TryGetValue(id, out item);
+    }
+
+    /// <summary>
+    /// Attempts to get a language type bundle.
+    /// </summary>
+    /// <param name="id">The host-owned id.</param>
+    /// <param name="item">The language type bundle.</param>
+    /// <returns>True when found.</returns>
+    public bool TryGetLanguageTypeBundle(string id, out StudioLanguageTypeBundle item)
+    {
+        return languageTypeBundles.TryGetValue(id, out item);
+    }
+
+    /// <summary>
     /// Attempts to get a temporary mapping setup.
     /// </summary>
     /// <param name="id">The host-owned id.</param>
@@ -273,8 +351,20 @@ internal sealed class StudioStore
             "schemas" => schemas.TryRemove(id, out StudioSchema removedSchema),
             "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping) | mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup),
             "validations" => validations.TryRemove(id, out StudioValidation removedValidation) | validationSetups.TryRemove(id, out StudioValidationSetup removedValidationSetup),
+            "languageTypeProfiles" => languageTypeProfiles.TryRemove(id, out StudioLanguageTypeProfile removedLanguageTypeProfile),
+            "languageTypeBundles" => languageTypeBundles.TryRemove(id, out StudioLanguageTypeBundle removedLanguageTypeBundle),
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Deletes one language type bundle.
+    /// </summary>
+    /// <param name="id">The bundle id.</param>
+    /// <returns>True when removed.</returns>
+    public bool DeleteLanguageTypeBundle(string id)
+    {
+        return languageTypeBundles.TryRemove(id, out StudioLanguageTypeBundle removed);
     }
 }
 

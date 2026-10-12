@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>ButterMorph.Contracts</PackageId>
+    <Description>Shared contracts and attributes used by ButterMorph generated code and host services.</Description>
+    <PackageTags>buttermorph contracts attributes code-generation schema</PackageTags>
+  </PropertyGroup>
+</Project>

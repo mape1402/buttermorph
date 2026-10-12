@@ -35,6 +35,10 @@
                 <div class="bm-schema-view-switch" role="tablist" aria-label="Schema viewer mode">
                     <button type="button" data-schema-view-button="ux" aria-selected="@(Model.ActiveView == "ux" ? "true" : "false")">Schema</button>
                     <button type="button" data-schema-view-button="json" aria-selected="@(Model.ActiveView == "json" ? "true" : "false")">JSON</button>
+                    @if (Model.CodeEnabled)
+                    {
+                        <button type="button" data-schema-view-button="code" aria-selected="@(Model.ActiveView == "code" ? "true" : "false")">Code</button>
+                    }
                 </div>
             }
         </header>
@@ -74,7 +78,28 @@
             </section>
         }
 
-        @if (!Model.UserFriendlyEnabled && !Model.JsonEnabled)
+        @if (Model.CodeEnabled)
+        {
+            <section class="bm-schema-viewer-code" data-schema-view-panel="code">
+                <div class="bm-schema-code-shell">
+                    <header class="bm-schema-code-toolbar">
+                        <label class="bm-schema-code-language">
+                            <span>Language</span>
+                            <select data-schema-code-language="true"></select>
+                        </label>
+                        <button type="button" data-schema-code-copy="true">Copy</button>
+                    </header>
+                    <section class="bm-schema-code-panel">
+                        <div class="bm-schema-code-editor" data-schema-code-editor="true">
+                            <textarea data-schema-code-source="true" readonly></textarea>
+                        </div>
+                        <div class="bm-schema-code-diagnostics" data-schema-code-diagnostics="true" hidden></div>
+                    </section>
+                </div>
+            </section>
+        }
+
+        @if (!Model.UserFriendlyEnabled && !Model.JsonEnabled && !Model.CodeEnabled)
         {
             <section class="bm-card">
                 <p class="bm-empty">Schema viewer is disabled by host configuration.</p>
@@ -96,5 +121,6 @@
         </div>
     </main>
     <script id="schema-viewer-data" type="application/json">@Html.Raw(Model.ViewerDataJson)</script>
+    <script id="schema-code-data" type="application/json">@Html.Raw(Model.CodeDataJson)</script>
 </body>
 </html>

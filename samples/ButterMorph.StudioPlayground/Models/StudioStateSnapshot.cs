@@ -29,4 +29,14 @@ internal sealed class StudioStateSnapshot
     /// Gets or sets validations.
     /// </summary>
     public IReadOnlyCollection<StudioValidation> Validations { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets language type mapping profiles.
+    /// </summary>
+    public IReadOnlyCollection<StudioLanguageTypeProfile> LanguageTypeProfiles { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets language type bundles.
+    /// </summary>
+    public IReadOnlyCollection<StudioLanguageTypeBundle> LanguageTypeBundles { get; set; } = [];
 }

@@ -36,6 +36,10 @@ public static class EndpointRouteBuilderExtensions
         MapDesignerAsset(endpoints, "buttermorph-schema.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema-viewer.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema-viewer.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-language-type-mappings.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-language-type-mappings.js", "text/javascript; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-language-type-bundles.css", "text/css; charset=utf-8");
+        MapDesignerAsset(endpoints, "buttermorph-language-type-bundles.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-document-viewer.css", "text/css; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-document-viewer.js", "text/javascript; charset=utf-8");
         MapDesignerAsset(endpoints, "buttermorph-schema-builder.js", "text/javascript; charset=utf-8");

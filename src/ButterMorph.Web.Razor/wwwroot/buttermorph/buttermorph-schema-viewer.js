@@ -1,6 +1,8 @@
 (function () {
   const dataNode = document.getElementById("schema-viewer-data");
   const data = readViewerData(dataNode);
+  const codeDataNode = document.getElementById("schema-code-data");
+  const codeData = readViewerData(codeDataNode);
   const body = document.body;
   const root = data.root || { id: "root", name: data.name || "Schema", kind: "object", dataType: "object", children: data.fields || [] };
   const nodesById = new Map();
@@ -8,6 +10,9 @@
   let currentNode = root;
   let jsonEditorStarted = false;
   let jsonCodeEditor = null;
+  let codeEditorStarted = false;
+  let codeEditor = null;
+  let activeProfile = cloneProfile(resolveInitialProfile());
 
   function readViewerData(node) {
     if (!node) {
@@ -37,7 +42,14 @@
   }
 
   function setActiveView(view) {
-    const normalized = view === "json" ? "json" : "ux";
+    const requested = view === "json" || view === "code" || view === "ux" ? view : "ux";
+    const normalized = document.querySelector("[data-schema-view-panel='" + requested + "']")
+      ? requested
+      : document.querySelector("[data-schema-view-panel='ux']")
+        ? "ux"
+        : document.querySelector("[data-schema-view-panel='json']")
+          ? "json"
+          : "code";
     body.setAttribute("data-schema-active-view", normalized);
     document.querySelectorAll("[data-schema-view-button]").forEach(function (button) {
       const isActive = button.getAttribute("data-schema-view-button") === normalized;
@@ -50,6 +62,11 @@
     if (normalized === "json") {
       initializeJsonEditor();
       refreshJsonEditor();
+    }
+
+    if (normalized === "code") {
+      initializeCodeEditor();
+      refreshCodeEditor();
     }
   }
 
@@ -478,6 +495,211 @@
     }, 0);
   }
 
+  function resolveInitialProfile() {
+    const profiles = codeData.profiles || [];
+    const activeId = codeData.activeProfileId || "";
+    return profiles.find(function (profile) {
+      return profile.id === activeId || profile.key === activeId;
+    }) || profiles[0] || null;
+  }
+
+  function cloneProfile(profile) {
+    return JSON.parse(JSON.stringify(profile || {
+      id: "",
+      name: "",
+      languageKey: "",
+      namespace: "",
+      rootTypeName: "",
+      emitAttributes: true,
+      useNullableReferences: true,
+      useRequiredMembers: true,
+      collectionType: "List",
+      typeMappings: [],
+      memberMappings: []
+    }));
+  }
+
+  function wireCodeWorkspace() {
+    if (!document.querySelector("[data-schema-view-panel='code']") || !activeProfile) {
+      return;
+    }
+
+    const language = document.querySelector("[data-schema-code-language]");
+    if (language) {
+      language.addEventListener("change", function () {
+        const nextProfile = (codeData.profiles || []).find(function (profile) {
+          return (profile.id || profile.key || "") === language.value;
+        });
+        activeProfile = cloneProfile(nextProfile || activeProfile);
+        renderCodeWorkspace();
+        generateCode();
+      });
+    }
+
+    const copy = document.querySelector("[data-schema-code-copy]");
+    if (copy) {
+      copy.addEventListener("click", function () {
+        const value = codeEditor ? codeEditor.getValue() : (document.querySelector("[data-schema-code-source]") || {}).value || "";
+        navigator.clipboard && navigator.clipboard.writeText(value);
+      });
+    }
+  }
+
+  function renderCodeWorkspace() {
+    if (!activeProfile || !document.querySelector("[data-schema-view-panel='code']")) {
+      return;
+    }
+
+    renderLanguageSelector();
+    updateCodeResult(codeData.result || { code: "", diagnostics: [] });
+    initializeCodeEditor();
+    refreshCodeEditor();
+  }
+
+  function renderLanguageSelector() {
+    const select = document.querySelector("[data-schema-code-language]");
+    if (!select) {
+      return;
+    }
+
+    select.innerHTML = "";
+    (codeData.profiles || []).forEach(function (profile) {
+      const option = document.createElement("option");
+      option.value = profile.id || profile.key || "";
+      option.textContent = (profile.name || profile.key || profile.languageKey || "Package") + " - " + (profile.language || profile.languageKey || "");
+      option.selected = option.value === (activeProfile.id || activeProfile.key || "");
+      select.appendChild(option);
+    });
+  }
+
+  function generateCode() {
+    const profile = activeProfile;
+    if (!profile) {
+      return;
+    }
+
+    fetch(handlerUrl("GenerateCode"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile)
+    })
+      .then(function (response) { return response.json(); })
+      .then(updateCodeResult)
+      .catch(function (error) {
+        updateCodeResult({ code: "", diagnostics: [error.message || "Code generation failed."] });
+      });
+  }
+
+  function updateCodeResult(result) {
+    const code = result.code || "";
+    const source = document.querySelector("[data-schema-code-source]");
+    if (source) {
+      source.value = code;
+    }
+    if (codeEditor) {
+      codeEditor.setValue(code);
+      refreshCodeEditor();
+    }
+
+    const diagnostics = document.querySelector("[data-schema-code-diagnostics]");
+    const messages = result.diagnostics || [];
+    if (diagnostics) {
+      diagnostics.hidden = messages.length === 0;
+      diagnostics.innerHTML = messages.map(function (message) {
+        return "<p>" + escapeHtml(message) + "</p>";
+      }).join("");
+    }
+  }
+
+  function configureCSharpMode() {
+    if (!window.CodeMirror || window.CodeMirror.modes.buttermorphCsharp) {
+      return;
+    }
+
+    const keywords = /^(public|sealed|class|string|bool|int|long|decimal|double|required|namespace|using|get|init|return|new|AttributeUsage|AttributeTargets)\b/;
+    window.CodeMirror.defineMode("buttermorphCsharp", function () {
+      return {
+        token: function (stream) {
+          if (stream.eatSpace()) {
+            return null;
+          }
+          if (stream.match("//")) {
+            stream.skipToEnd();
+            return "comment";
+          }
+          if (stream.match(/^\[[^\]]*\]/)) {
+            return "attribute";
+          }
+          if (stream.peek() === "\"") {
+            stream.next();
+            while (!stream.eol()) {
+              if (stream.next() === "\"") {
+                break;
+              }
+            }
+            return "string";
+          }
+          if (stream.match(keywords)) {
+            return "keyword";
+          }
+          if (stream.match(/^[A-Z][A-Za-z0-9_.]*/)) {
+            return "type";
+          }
+          if (stream.match(/^[a-z_][A-Za-z0-9_]*/)) {
+            return "variable";
+          }
+          if (stream.match(/^\d+/)) {
+            return "number";
+          }
+          stream.next();
+          return null;
+        }
+      };
+    });
+  }
+
+  function initializeCodeEditor() {
+    const host = document.querySelector("[data-schema-code-editor]");
+    const source = document.querySelector("[data-schema-code-source]");
+    if (codeEditorStarted || !host || !source) {
+      return;
+    }
+
+    codeEditorStarted = true;
+    if (!window.CodeMirror) {
+      return;
+    }
+
+    configureCSharpMode();
+    codeEditor = window.CodeMirror.fromTextArea(source, {
+      mode: "buttermorphCsharp",
+      theme: "buttermorph-json",
+      lineNumbers: true,
+      indentUnit: 4,
+      tabSize: 4,
+      lineWrapping: false,
+      readOnly: true,
+      viewportMargin: Infinity
+    });
+    refreshCodeEditor();
+  }
+
+  function refreshCodeEditor() {
+    if (!codeEditor) {
+      return;
+    }
+
+    window.requestAnimationFrame(function () {
+      codeEditor.refresh();
+    });
+  }
+
+  function handlerUrl(handler) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("handler", handler);
+    return url.toString();
+  }
+
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (character) {
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character];
@@ -488,6 +710,8 @@
   wireViewSwitch();
   wireSearch();
   wireDetailsDialog();
+  wireCodeWorkspace();
+  renderCodeWorkspace();
   setCurrentNode(root);
   setActiveView(body.getAttribute("data-schema-active-view"));
   preloadJsonEditor();
