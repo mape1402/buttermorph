@@ -149,6 +149,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         ButterMorphLanguageTypeMappingDocument secondaryDocument = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile());
         secondaryDocument.Key = "billing-csharp";
         secondaryDocument.Name = "Billing C#";
+        secondaryDocument.Mappings
+            .Single(mapping => string.Equals(mapping.ButterMorph.Key, "RFC", StringComparison.OrdinalIgnoreCase))
+            .TargetLanguage.Reference = "Billing.SharedTypes.Rfc";
         FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
         {
             LoadResult = new ButterMorphLanguageTypeMappingLoadResult
@@ -158,7 +161,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                     ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile()),
                     secondaryDocument
                 ],
-                ActiveDocumentKey = "customer-csharp"
+                ActiveDocumentKey = "billing-csharp"
             }
         };
         HttpClient client = CreateSchemaViewerHostClient(schemaHost, typeMappingHost);
@@ -177,7 +180,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("CustomerProfile", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
-        Assert.Contains("Billing C#", html, StringComparison.Ordinal);
+        Assert.Contains("Billing.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("\"displayName\":\"C#\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Customer C#", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Billing C#", html, StringComparison.Ordinal);
     }
 
     /// <summary>
