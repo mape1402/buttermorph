@@ -122,6 +122,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  position: relative;
   width: 100%;
 }
 
@@ -148,6 +149,42 @@
   background: var(--bm-primary);
   border-color: var(--bm-primary);
   color: var(--bm-on-primary);
+}
+
+.bm-schema-code-toast {
+  align-items: center;
+  background: color-mix(in srgb, var(--bm-surface) 92%, var(--bm-primary));
+  border: 1px solid color-mix(in srgb, var(--bm-primary) 34%, var(--bm-border));
+  border-radius: 999px;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--bm-primary) 18%, transparent);
+  color: var(--bm-text);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 500;
+  gap: 0.4rem;
+  opacity: 0;
+  padding: 0.3rem 0.68rem;
+  pointer-events: none;
+  position: absolute;
+  right: 0.7rem;
+  top: 3.2rem;
+  transform: translateY(-3px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 2;
+}
+
+.bm-schema-code-toast::before {
+  background: var(--bm-primary);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bm-primary) 16%, transparent);
+  content: "";
+  height: 0.38rem;
+  width: 0.38rem;
+}
+
+.bm-schema-code-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .bm-schema-code-language {
