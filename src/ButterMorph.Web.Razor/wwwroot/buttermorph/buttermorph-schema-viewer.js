@@ -13,6 +13,7 @@
   let codeEditorStarted = false;
   let codeEditor = null;
   let activeProfile = cloneProfile(resolveInitialProfile());
+  let codeToastTimer = null;
 
   function readViewerData(node) {
     if (!node) {
@@ -540,9 +541,64 @@
     if (copy) {
       copy.addEventListener("click", function () {
         const value = codeEditor ? codeEditor.getValue() : (document.querySelector("[data-schema-code-source]") || {}).value || "";
-        navigator.clipboard && navigator.clipboard.writeText(value);
+        copyCodeToClipboard(value)
+          .then(function () {
+            showCodeToast("Copied to clipboard");
+          })
+          .catch(function () {
+            showCodeToast("Copy failed");
+          });
       });
     }
+  }
+
+  function copyCodeToClipboard(value) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value || "");
+    }
+
+    return new Promise(function (resolve, reject) {
+      const fallback = document.createElement("textarea");
+      fallback.value = value || "";
+      fallback.setAttribute("readonly", "readonly");
+      fallback.style.position = "fixed";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+
+      try {
+        if (document.execCommand("copy")) {
+          resolve();
+        } else {
+          reject(new Error("Copy command failed."));
+        }
+      } catch (error) {
+        reject(error);
+      } finally {
+        fallback.remove();
+      }
+    });
+  }
+
+  function showCodeToast(message) {
+    const toast = document.querySelector("[data-schema-code-toast]");
+    if (!toast) {
+      return;
+    }
+
+    toast.textContent = message || "";
+    toast.hidden = false;
+    toast.classList.add("is-visible");
+
+    window.clearTimeout(codeToastTimer);
+    codeToastTimer = window.setTimeout(function () {
+      toast.classList.remove("is-visible");
+      window.setTimeout(function () {
+        if (!toast.classList.contains("is-visible")) {
+          toast.hidden = true;
+        }
+      }, 180);
+    }, 1600);
   }
 
   function renderCodeWorkspace() {

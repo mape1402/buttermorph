@@ -61,7 +61,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             Description = "Default C# type mappings.",
             LanguageKey = Key,
             Language = Key,
-            Namespace = "ButterMorph.Generated",
+            Namespace = string.Empty,
             RootTypeName = rootName,
             EmitAttributes = true,
             UseNullableReferences = true,
@@ -99,15 +99,15 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         SchemaViewerDisplayModel schema = SchemaViewerDisplayBuilder.Build(definition, rawJson);
         ButterMorphLanguageMappingProfile resolvedProfile = NormalizeProfile(profile, definition, rawJson);
         string rootTypeName = SanitizeTypeName(ResolveValue(resolvedProfile.RootTypeName, schema.Name, "Schema"));
-        string namespaceName = SanitizeNamespace(resolvedProfile.Namespace);
         TypeMappingLookup typeMappings = TypeMappingLookup.Create(resolvedProfile.TypeMappings);
         Dictionary<string, string> memberMappings = resolvedProfile.MemberMappings
             .Where(mapping => !string.IsNullOrWhiteSpace(mapping.FieldPath) && !string.IsNullOrWhiteSpace(mapping.MemberName))
             .GroupBy(mapping => mapping.FieldPath, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First().MemberName, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> referencedNamespaces = new(StringComparer.Ordinal);
 
         List<GeneratedClass> classes = [];
-        classes.Add(CreateClass(rootTypeName, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, diagnostics));
+        classes.Add(CreateClass(rootTypeName, schema.Root.Children, string.Empty, resolvedProfile, typeMappings, memberMappings, diagnostics, referencedNamespaces));
         bool usesFieldAttribute = classes
             .SelectMany(item => item.Properties)
             .Any(property => property.EmitAttribute);
@@ -122,11 +122,12 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             builder.AppendLine("using ButterMorph.Contracts;");
         }
 
-        if (!string.IsNullOrWhiteSpace(namespaceName))
+        foreach (string referencedNamespace in referencedNamespaces
+            .Where(item => !IsBuiltInUsing(item) && !string.IsNullOrWhiteSpace(item))
+            .OrderBy(item => item, StringComparer.Ordinal))
         {
-            builder.AppendLine();
-            builder.Append("namespace ");
-            builder.Append(namespaceName);
+            builder.Append("using ");
+            builder.Append(referencedNamespace);
             builder.AppendLine(";");
         }
 
@@ -150,7 +151,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
             IReadOnlyDictionary<string, string> aliases,
-            List<string> generationDiagnostics)
+            List<string> generationDiagnostics,
+            ISet<string> referencedTypeNamespaces)
         {
             GeneratedClass generatedClass = new()
             {
@@ -170,7 +172,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                     generationDiagnostics.Add($"Property name collision at '{fieldPath}' resolved as '{propertyName}'.");
                 }
 
-                string languageType = ResolveLanguageType(field, fieldPath, className, activeProfile, mappings, generationDiagnostics);
+                string languageType = ResolveLanguageType(field, fieldPath, className, activeProfile, mappings, generationDiagnostics, referencedTypeNamespaces);
                 generatedClass.Properties.Add(new GeneratedProperty
                 {
                     SchemaName = field.Name,
@@ -192,13 +194,14 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             string containingClassName,
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
-            List<string> generationDiagnostics)
+            List<string> generationDiagnostics,
+            ISet<string> referencedTypeNamespaces)
         {
             if (IsArray(field))
             {
                 string itemType = field.Children.Count > 0
-                    ? CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics)
-                    : ResolveMappedType(ResolveArrayItemTypeKey(field), ResolveArrayItemTypeVersion(field), mappings, generationDiagnostics);
+                    ? CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics, referencedTypeNamespaces)
+                    : ResolveMappedType(ResolveArrayItemTypeKey(field), ResolveArrayItemTypeVersion(field), mappings, generationDiagnostics, referencedTypeNamespaces);
                 return activeProfile.CollectionType == "Array"
                     ? itemType + "[]"
                     : ResolveCollectionType(activeProfile.CollectionType) + "<" + itemType + ">";
@@ -206,10 +209,10 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
 
             if (field.Children.Count > 0 || string.Equals(field.Kind, "object", StringComparison.OrdinalIgnoreCase))
             {
-                return CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics);
+                return CreateNestedClass(field, fieldPath, containingClassName, activeProfile, mappings, memberMappings, generationDiagnostics, referencedTypeNamespaces);
             }
 
-            return ResolveMappedType(ResolveTypeKey(field), ResolveTypeVersion(field), mappings, generationDiagnostics);
+            return ResolveMappedType(ResolveTypeKey(field), ResolveTypeVersion(field), mappings, generationDiagnostics, referencedTypeNamespaces);
         }
 
         string CreateNestedClass(
@@ -219,7 +222,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
             ButterMorphLanguageMappingProfile activeProfile,
             TypeMappingLookup mappings,
             IReadOnlyDictionary<string, string> aliases,
-            List<string> generationDiagnostics)
+            List<string> generationDiagnostics,
+            ISet<string> referencedTypeNamespaces)
         {
             string nestedClassName = SanitizeTypeName(containingClassName + field.Name);
             if (classes.Any(item => string.Equals(item.Name, nestedClassName, StringComparison.Ordinal)))
@@ -227,7 +231,7 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                 return nestedClassName;
             }
 
-            classes.Add(CreateClass(nestedClassName, field.Children, fieldPath, activeProfile, mappings, aliases, generationDiagnostics));
+            classes.Add(CreateClass(nestedClassName, field.Children, fieldPath, activeProfile, mappings, aliases, generationDiagnostics, referencedTypeNamespaces));
             return nestedClassName;
         }
     }
@@ -288,15 +292,32 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         return typeName.EndsWith("?", StringComparison.Ordinal) ? typeName : typeName + "?";
     }
 
-    private static string ResolveMappedType(string typeKey, string typeVersion, TypeMappingLookup mappings, List<string> diagnostics)
+    private static string ResolveMappedType(
+        string typeKey,
+        string typeVersion,
+        TypeMappingLookup mappings,
+        List<string> diagnostics,
+        ISet<string> referencedNamespaces)
     {
-        if (mappings.TryResolve(typeKey, typeVersion, out string mappedType))
+        if (mappings.TryResolve(typeKey, typeVersion, out CSharpMappedType mappedType))
         {
-            return mappedType;
+            if (!string.IsNullOrWhiteSpace(mappedType.Namespace))
+            {
+                referencedNamespaces.Add(mappedType.Namespace);
+            }
+
+            return mappedType.TypeName;
         }
 
         diagnostics.Add($"Type '{typeKey}'{FormatVersion(typeVersion)} does not have a C# mapping. Falling back to object.");
         return "object";
+    }
+
+    private static bool IsBuiltInUsing(string value)
+    {
+        return string.Equals(value, "System", StringComparison.Ordinal)
+            || string.Equals(value, "System.Collections.Generic", StringComparison.Ordinal)
+            || string.Equals(value, "ButterMorph.Contracts", StringComparison.Ordinal);
     }
 
     private static string ResolveCollectionType(string collectionType)
@@ -558,16 +579,6 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                 : string.Empty;
     }
 
-    private static string SanitizeNamespace(string value)
-    {
-        string[] segments = (value ?? string.Empty)
-            .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(SanitizeTypeName)
-            .Where(segment => !string.IsNullOrWhiteSpace(segment))
-            .ToArray();
-        return string.Join(".", segments);
-    }
-
     private static string SanitizeTypeName(string value)
     {
         string identifier = SanitizeIdentifier(value);
@@ -652,12 +663,19 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         public bool IsCollection { get; set; }
     }
 
+    private sealed class CSharpMappedType
+    {
+        public string TypeName { get; set; } = string.Empty;
+
+        public string Namespace { get; set; } = string.Empty;
+    }
+
     private sealed class TypeMappingLookup
     {
-        private readonly Dictionary<string, string> exactMappings;
-        private readonly Dictionary<string, string> typeMappings;
+        private readonly Dictionary<string, CSharpMappedType> exactMappings;
+        private readonly Dictionary<string, CSharpMappedType> typeMappings;
 
-        private TypeMappingLookup(Dictionary<string, string> exactMappings, Dictionary<string, string> typeMappings)
+        private TypeMappingLookup(Dictionary<string, CSharpMappedType> exactMappings, Dictionary<string, CSharpMappedType> typeMappings)
         {
             this.exactMappings = exactMappings;
             this.typeMappings = typeMappings;
@@ -665,8 +683,8 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
 
         public static TypeMappingLookup Create(IEnumerable<ButterMorphLanguageTypeMapping> mappings)
         {
-            Dictionary<string, string> exactMappings = new(StringComparer.OrdinalIgnoreCase);
-            Dictionary<string, string> typeMappings = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, CSharpMappedType> exactMappings = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, CSharpMappedType> typeMappings = new(StringComparer.OrdinalIgnoreCase);
             foreach (ButterMorphLanguageTypeMapping mapping in mappings ?? [])
             {
                 if (string.IsNullOrWhiteSpace(mapping.ButterMorphType) || string.IsNullOrWhiteSpace(mapping.LanguageType))
@@ -675,19 +693,20 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
                 }
 
                 string version = mapping.ButterMorphTypeVersion ?? string.Empty;
-                exactMappings[CreateKey(mapping.ButterMorphType, version)] = mapping.LanguageType;
+                CSharpMappedType mappedType = CreateMappedType(mapping.LanguageType);
+                exactMappings[CreateKey(mapping.ButterMorphType, version)] = mappedType;
                 if (!typeMappings.ContainsKey(mapping.ButterMorphType))
                 {
-                    typeMappings[mapping.ButterMorphType] = mapping.LanguageType;
+                    typeMappings[mapping.ButterMorphType] = mappedType;
                 }
             }
 
             return new TypeMappingLookup(exactMappings, typeMappings);
         }
 
-        public bool TryResolve(string typeKey, string typeVersion, out string languageType)
+        public bool TryResolve(string typeKey, string typeVersion, out CSharpMappedType languageType)
         {
-            languageType = string.Empty;
+            languageType = new CSharpMappedType();
             if (string.IsNullOrWhiteSpace(typeKey))
             {
                 return false;
@@ -711,6 +730,38 @@ public sealed class CSharpLanguageAdapter : IButterMorphLanguageAdapter, IButter
         private static string CreateKey(string typeKey, string version)
         {
             return (typeKey ?? string.Empty) + "@" + (version ?? string.Empty);
+        }
+
+        private static CSharpMappedType CreateMappedType(string value)
+        {
+            string typeName = (value ?? string.Empty).Trim();
+            string suffix = string.Empty;
+            while (typeName.EndsWith("[]", StringComparison.Ordinal))
+            {
+                suffix += "[]";
+                typeName = typeName[..^2];
+            }
+
+            if (typeName.EndsWith("?", StringComparison.Ordinal))
+            {
+                suffix = "?" + suffix;
+                typeName = typeName[..^1];
+            }
+
+            int lastDotIndex = typeName.LastIndexOf('.');
+            if (lastDotIndex <= 0 || lastDotIndex >= typeName.Length - 1 || typeName.Contains('<', StringComparison.Ordinal))
+            {
+                return new CSharpMappedType
+                {
+                    TypeName = typeName + suffix
+                };
+            }
+
+            return new CSharpMappedType
+            {
+                Namespace = typeName[..lastDotIndex],
+                TypeName = typeName[(lastDotIndex + 1)..] + suffix
+            };
         }
     }
 }

@@ -233,9 +233,9 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("data-schema-active-view=\"code\"", html, StringComparison.Ordinal);
-        Assert.Contains("ButterMorph.SampleSharedTypes.Rfc", html, StringComparison.Ordinal);
-        Assert.Contains("ButterMorph.SampleSharedTypes.Rfc RFC", html, StringComparison.Ordinal);
-        Assert.Contains("ButterMorph.Generated", html, StringComparison.Ordinal);
+        Assert.Contains("using ButterMorph.SampleSharedTypes;", html, StringComparison.Ordinal);
+        Assert.Contains("Rfc RFC", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("namespace ButterMorph.Generated;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("\"butterMorphType\":\"SecurityClasification\"", html, StringComparison.Ordinal);
     }
 

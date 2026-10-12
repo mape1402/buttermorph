@@ -150,8 +150,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         secondaryDocument.Key = "billing-csharp";
         secondaryDocument.Name = "Billing C#";
         secondaryDocument.Mappings
-            .Single(mapping => string.Equals(mapping.ButterMorph.Key, "RFC", StringComparison.OrdinalIgnoreCase))
-            .TargetLanguage.Reference = "Billing.SharedTypes.Rfc";
+            .Single(mapping => string.Equals(mapping.ButterMorph.Key, "string", StringComparison.OrdinalIgnoreCase))
+            .TargetLanguage.Reference = "Billing.SharedTypes.TextValue";
         FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
         {
             LoadResult = new ButterMorphLanguageTypeMappingLoadResult
@@ -175,13 +175,14 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-view-panel=\"code\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-source=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-code-language=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-schema-code-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-type-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-field-list=\"true\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("CustomerProfile", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
-        Assert.Contains("Billing.SharedTypes.Rfc", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("using Billing.SharedTypes;", html, StringComparison.Ordinal);
+        Assert.Contains("TextValue Name", html, StringComparison.Ordinal);
         Assert.Contains("\"displayName\":\"C#\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Customer C#", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Billing C#", html, StringComparison.Ordinal);
@@ -196,7 +197,11 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     {
         FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
         HttpClient client = CreateSchemaViewerHostClient(schemaHost, new FakeButterMorphLanguageTypeMappingHost());
-        string body = JsonSerializer.Serialize(CreateCSharpTypeMappingProfile(), new JsonSerializerOptions
+        ButterMorphLanguageMappingProfile profile = CreateCSharpTypeMappingProfile();
+        profile.TypeMappings
+            .Single(mapping => string.Equals(mapping.ButterMorphType, "string", StringComparison.OrdinalIgnoreCase))
+            .LanguageType = "Company.SharedTypes.TextValue";
+        string body = JsonSerializer.Serialize(profile, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
@@ -209,6 +214,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("public sealed class CustomerProfile", json, StringComparison.Ordinal);
+        Assert.Contains("using Company.SharedTypes;", json, StringComparison.Ordinal);
+        Assert.Contains("TextValue Name", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("namespace ButterMorph.Generated;", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Company.SharedTypes.TextValue Name", json, StringComparison.Ordinal);
         Assert.DoesNotContain("ButterMorphField", json, StringComparison.Ordinal);
         Assert.Contains("Name", json, StringComparison.Ordinal);
     }
