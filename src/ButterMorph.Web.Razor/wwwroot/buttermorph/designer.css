@@ -131,12 +131,17 @@ body {
   text-transform: uppercase;
 }
 
+.bm-topbar-controls,
 .bm-view-toggle,
 .bm-actions {
   align-items: center;
   display: flex;
   gap: 0.4rem;
   justify-content: flex-end;
+}
+
+.bm-topbar-controls {
+  min-width: 0;
 }
 
 button,
@@ -173,6 +178,19 @@ button:hover,
   border-color: transparent;
   color: var(--bm-sidebar-text);
   min-height: 30px;
+}
+
+.bm-document-import-button {
+  background-color: color-mix(in srgb, var(--bm-sidebar-bg) 70%, var(--bm-sidebar-accent) 30%);
+  border-color: color-mix(in srgb, var(--bm-sidebar-border) 72%, var(--bm-sidebar-accent) 28%);
+  color: #ffffff;
+  min-height: 30px;
+  white-space: nowrap;
+}
+
+.bm-document-import-button:hover {
+  background-color: color-mix(in srgb, var(--bm-sidebar-bg) 58%, var(--bm-sidebar-accent) 42%);
+  border-color: color-mix(in srgb, var(--bm-sidebar-border) 48%, var(--bm-sidebar-accent) 52%);
 }
 
 .bm-topbar .bm-view-button:hover {

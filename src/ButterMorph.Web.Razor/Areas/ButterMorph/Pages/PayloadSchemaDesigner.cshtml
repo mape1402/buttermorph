@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ButterMorph Schema Designer</title>
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=22" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema.css?v=schema-import-1" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
 </head>
 <body class="bm-schema-page"
@@ -77,6 +77,8 @@
                 </section>
             </div>
             <div class="contract-editor-actions">
+                <button class="btn btn-secondary" type="button" id="schema-import-button">Import</button>
+                <input type="file" id="schema-import-file" accept=".json,application/json" hidden />
                 <button class="btn btn-primary" type="submit">Save Schema</button>
             </div>
         </form>
@@ -106,8 +108,8 @@
             </div>
         </div>
     </div>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=19"></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js?v=6"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-builder.js?v=schema-import-1"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-schema-metadata-editor.js?v=schema-import-1"></script>
     @await Html.PartialAsync("_SchemaHostFlowScript")
 </body>
 </html>

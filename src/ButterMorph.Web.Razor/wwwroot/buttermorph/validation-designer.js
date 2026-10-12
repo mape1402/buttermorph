@@ -12,9 +12,12 @@ document.addEventListener("DOMContentLoaded", function () {
   const workbench = document.querySelector(".bm-workbench");
   const visualForm = document.querySelector("[data-validation-form='true']");
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
+  const dslImportButton = document.querySelector("[data-dsl-import-button='true']");
+  const dslImportFile = document.querySelector("[data-dsl-import-file='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
   const leftDockModeKey = "ButterMorphValidationDesigner.LeftDockMode";
   const leftDockPanelKey = "ButterMorphValidationDesigner.LeftDockPanel";
+  const importMessageKey = "ButterMorphValidationDesigner.ImportMessage";
 
   function readValue(source, key) {
     if (!source) {
@@ -372,6 +375,59 @@ document.addEventListener("DOMContentLoaded", function () {
       updateMessage(response, !readValue(response, "succeeded"));
     }).catch(function (error) {
       updateErrorMessage(error.message);
+    });
+  }
+
+  function importDslText(text) {
+    if (!dslEditor) {
+      return;
+    }
+    const content = (text || "").trim();
+    if (content.length === 0) {
+      updateErrorMessage("Import failed. The selected file is empty.");
+      return;
+    }
+    setDslValue(content);
+    const formData = new FormData();
+    formData.append("DslContent", content);
+    formData.append("ActiveView", "Dsl");
+    postForm("SyncDsl", formData).then(function (response) {
+      applyDslDiagnostics(response);
+      if (readValue(response, "succeeded")) {
+        window.sessionStorage.setItem(importMessageKey, "Validations imported. Review and save.");
+        window.location.reload();
+        return;
+      }
+      setActiveDesignerView("Dsl");
+      updateMessage(response, true);
+    }).catch(function (error) {
+      setActiveDesignerView("Dsl");
+      updateErrorMessage(error.message);
+    });
+  }
+
+  function importDslFile(file) {
+    if (!file) {
+      return;
+    }
+    if (!window.confirm("Importing will replace the current validation draft. Continue?")) {
+      return;
+    }
+    file.text().then(importDslText).catch(function () {
+      updateErrorMessage("Import failed. The selected file could not be read.");
+    });
+  }
+
+  function showStoredImportMessage() {
+    const message = window.sessionStorage.getItem(importMessageKey);
+    if (!message) {
+      return;
+    }
+    window.sessionStorage.removeItem(importMessageKey);
+    updateMessage({
+      succeeded: true,
+      message: message,
+      diagnosticsCount: 0
     });
   }
 
@@ -1304,6 +1360,14 @@ document.addEventListener("DOMContentLoaded", function () {
       setActiveDesignerView(button.getAttribute("data-view"));
     });
   });
+  dslImportButton?.addEventListener("click", function () {
+    dslImportFile?.click();
+  });
+  dslImportFile?.addEventListener("change", function () {
+    const file = dslImportFile.files && dslImportFile.files.length > 0 ? dslImportFile.files[0] : null;
+    importDslFile(file);
+    dslImportFile.value = "";
+  });
   document.querySelectorAll("[data-dock-pin]").forEach(function (button) {
     button.addEventListener("click", function () {
       const currentMode = workbench ? workbench.getAttribute("data-left-dock-mode") : "pinned";
@@ -1700,5 +1764,6 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   loadActiveDockPanel();
   loadLeftDockMode();
+  showStoredImportMessage();
   completeHostPopupFlow();
 });
