@@ -8,6 +8,7 @@
     <PackageTags>buttermorph razor razor-pages designer mapping schema ui</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ButterMorph.Contracts\ButterMorph.Contracts.csproj" />
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Design\ButterMorph.Design.csproj" />
     <ProjectReference Include="..\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
@@ -22,6 +23,10 @@
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-viewer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-viewer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-viewer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-viewer.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-language-type-mappings.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-language-type-mappings.css" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-language-type-mappings.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-language-type-mappings.js" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-language-type-bundles.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-language-type-bundles.css" />
+    <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-language-type-bundles.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-language-type-bundles.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-document-viewer.css" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-document-viewer.css" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-document-viewer.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-document-viewer.js" />
     <EmbeddedResource Include="wwwroot\buttermorph\buttermorph-schema-builder.js" LogicalName="ButterMorph.Web.Razor.wwwroot.buttermorph.buttermorph-schema-builder.js" />

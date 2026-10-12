@@ -22,7 +22,17 @@ public enum ButterMorphSchemaViewerViews
     Json = 2,
 
     /// <summary>
+    /// Enables the generated code viewer.
+    /// </summary>
+    Code = 4,
+
+    /// <summary>
     /// Enables both the user-friendly and raw JSON schema viewers.
     /// </summary>
-    UserFriendlyAndJson = UserFriendly | Json
+    UserFriendlyAndJson = UserFriendly | Json,
+
+    /// <summary>
+    /// Enables all schema viewer surfaces.
+    /// </summary>
+    All = UserFriendly | Json | Code
 }

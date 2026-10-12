@@ -2,39 +2,53 @@ namespace ButterMorph.Web.Razor;
 
 using System.Text.Json;
 using ButterMorph.SchemaDesign;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
 /// <summary>
 /// Displays a reusable read-only payload schema viewer.
 /// </summary>
+[IgnoreAntiforgeryToken]
 public sealed class PayloadSchemaViewerModel : PageModel
 {
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
         WriteIndented = true
     };
 
     private static readonly JsonSerializerOptions ViewerJsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
     };
 
     private readonly ButterMorphRazorDesignerOptions options;
     private readonly IEnumerable<IButterMorphPayloadSchemaViewerHost> hosts;
+    private readonly IReadOnlyCollection<IButterMorphLanguageAdapter> languageAdapters;
+    private readonly IEnumerable<IButterMorphLanguageTypeMappingHost> typeMappingHosts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PayloadSchemaViewerModel"/> class.
     /// </summary>
     /// <param name="options">The reusable designer options.</param>
     /// <param name="hosts">The optional schema viewer hosts.</param>
+    /// <param name="languageAdapters">The optional language adapters.</param>
+    /// <param name="typeMappingHosts">The optional language type mapping hosts.</param>
     public PayloadSchemaViewerModel(
         IOptions<ButterMorphRazorDesignerOptions> options,
-        IEnumerable<IButterMorphPayloadSchemaViewerHost> hosts)
+        IEnumerable<IButterMorphPayloadSchemaViewerHost> hosts,
+        IEnumerable<IButterMorphLanguageAdapter> languageAdapters,
+        IEnumerable<IButterMorphLanguageTypeMappingHost> typeMappingHosts)
     {
         this.options = options.Value;
         this.hosts = hosts;
+        this.languageAdapters = languageAdapters
+            .OrderBy(adapter => adapter.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        this.typeMappingHosts = typeMappingHosts;
     }
 
     /// <summary>
@@ -63,6 +77,11 @@ public sealed class PayloadSchemaViewerModel : PageModel
     public string RawJson { get; private set; } = "{}";
 
     /// <summary>
+    /// Gets the serialized code generation model for client interaction.
+    /// </summary>
+    public string CodeDataJson { get; private set; } = "{}";
+
+    /// <summary>
     /// Gets a user-facing message.
     /// </summary>
     public string Message { get; private set; } = string.Empty;
@@ -78,9 +97,14 @@ public sealed class PayloadSchemaViewerModel : PageModel
     public bool JsonEnabled => HasView(ButterMorphSchemaViewerViews.Json);
 
     /// <summary>
+    /// Gets a value indicating whether the code viewer is enabled.
+    /// </summary>
+    public bool CodeEnabled => HasView(ButterMorphSchemaViewerViews.Code) && languageAdapters.Count > 0;
+
+    /// <summary>
     /// Gets a value indicating whether the view switch should be shown.
     /// </summary>
-    public bool ShowViewSwitch => UserFriendlyEnabled && JsonEnabled;
+    public bool ShowViewSwitch => EnabledViewCount > 1;
 
     /// <summary>
     /// Gets the active viewer surface.
@@ -97,8 +121,37 @@ public sealed class PayloadSchemaViewerModel : PageModel
         RawJson = CreateRawJson(result);
         Viewer = SchemaViewerDisplayBuilder.Build(result.Definition, RawJson);
         ViewerDataJson = JsonSerializer.Serialize(Viewer, ViewerJsonOptions);
+        CodeDataJson = await CreateCodeDataJson(result.Definition);
         Message = result.Message;
         ActiveView = ResolveActiveView();
+    }
+
+    /// <summary>
+    /// Generates code from a posted language mapping profile.
+    /// </summary>
+    /// <returns>The generated code response.</returns>
+    public async Task<IActionResult> OnPostGenerateCode()
+    {
+        ButterMorphLanguageMappingProfile profile = await ReadProfile();
+        ButterMorphPayloadSchemaViewerLoadResult schema = await LoadSchema();
+        IButterMorphLanguageAdapter adapter = ResolveAdapter(profile.LanguageKey);
+        if (adapter == null)
+        {
+            return new JsonResult(new
+            {
+                succeeded = false,
+                code = string.Empty,
+                diagnostics = new[] { "Language adapter was not found." }
+            }, ViewerJsonOptions);
+        }
+
+        ButterMorphCodeGenerationResult result = adapter.GenerateCode(schema.Definition, CreateRawJson(schema), profile);
+        return new JsonResult(new
+        {
+            result.Succeeded,
+            result.Code,
+            result.Diagnostics
+        }, ViewerJsonOptions);
     }
 
     private async Task<ButterMorphPayloadSchemaViewerLoadResult> LoadSchema()
@@ -117,6 +170,123 @@ public sealed class PayloadSchemaViewerModel : PageModel
         {
             Message = "No schema viewer host is configured."
         };
+    }
+
+    private async Task<string> CreateCodeDataJson(PayloadSchemaDefinition definition)
+    {
+        if (!CodeEnabled)
+        {
+            return "{}";
+        }
+
+        ButterMorphLanguageTypeMappingLoadResult loadResult = await LoadTypeMappings();
+        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = CreateProfiles(definition, loadResult);
+        ButterMorphLanguageMappingProfile activeProfile = ResolveActiveProfile(profiles, loadResult.ActiveProfileId);
+        IButterMorphLanguageAdapter activeAdapter = ResolveAdapter(activeProfile.LanguageKey) ?? languageAdapters.First();
+        ButterMorphCodeGenerationResult generationResult = activeAdapter.GenerateCode(definition, RawJson, activeProfile);
+
+        return JsonSerializer.Serialize(new
+        {
+            languages = profiles.Select(profile => new
+            {
+                key = profile.Id,
+                displayName = profile.Name,
+                languageKey = profile.LanguageKey
+            }),
+            profiles,
+            activeProfileId = activeProfile.Id,
+            result = generationResult
+        }, ViewerJsonOptions);
+    }
+
+    private async Task<ButterMorphLanguageTypeMappingLoadResult> LoadTypeMappings()
+    {
+        foreach (IButterMorphLanguageTypeMappingHost host in typeMappingHosts)
+        {
+            return await host.Load(new ButterMorphLanguageTypeMappingLoadRequest
+            {
+                LanguageKey = string.Empty
+            }) ?? new ButterMorphLanguageTypeMappingLoadResult();
+        }
+
+        return new ButterMorphLanguageTypeMappingLoadResult();
+    }
+
+    private IReadOnlyCollection<ButterMorphLanguageMappingProfile> CreateProfiles(PayloadSchemaDefinition definition, ButterMorphLanguageTypeMappingLoadResult loadResult)
+    {
+        List<ButterMorphLanguageMappingProfile> profiles = [];
+        bool hasHostProfiles = loadResult.Profiles.Count > 0;
+        foreach (IButterMorphLanguageAdapter adapter in languageAdapters)
+        {
+            ButterMorphLanguageMappingProfile hostProfile = loadResult.Profiles
+                .FirstOrDefault(profile => string.Equals(profile.LanguageKey, adapter.Key, StringComparison.OrdinalIgnoreCase));
+            if (hostProfile != null)
+            {
+                profiles.Add(MergeWithDefaultProfile(adapter.CreateDefaultProfile(definition, RawJson), hostProfile));
+            }
+            else if (!hasHostProfiles)
+            {
+                profiles.Add(adapter.CreateDefaultProfile(definition, RawJson));
+            }
+        }
+
+        return profiles;
+    }
+
+    private static ButterMorphLanguageMappingProfile MergeWithDefaultProfile(ButterMorphLanguageMappingProfile defaultProfile, ButterMorphLanguageMappingProfile hostProfile)
+    {
+        if (hostProfile == null)
+        {
+            return defaultProfile;
+        }
+
+        Dictionary<string, ButterMorphLanguageTypeMapping> typeMappings = defaultProfile.TypeMappings
+            .Where(mapping => !string.IsNullOrWhiteSpace(mapping.ButterMorphType))
+            .ToDictionary(mapping => CreateMappingKey(mapping.ButterMorphType, mapping.ButterMorphTypeVersion), StringComparer.OrdinalIgnoreCase);
+        foreach (ButterMorphLanguageTypeMapping mapping in hostProfile.TypeMappings)
+        {
+            if (!string.IsNullOrWhiteSpace(mapping.ButterMorphType))
+            {
+                typeMappings[CreateMappingKey(mapping.ButterMorphType, mapping.ButterMorphTypeVersion)] = mapping;
+            }
+        }
+
+        hostProfile.TypeMappings = typeMappings.Values
+            .OrderBy(mapping => mapping.ButterMorphType, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(mapping => mapping.ButterMorphTypeVersion, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        hostProfile.Id = string.IsNullOrWhiteSpace(hostProfile.Id) ? defaultProfile.Id : hostProfile.Id;
+        hostProfile.Key = string.IsNullOrWhiteSpace(hostProfile.Key) ? defaultProfile.Key : hostProfile.Key;
+        hostProfile.Name = string.IsNullOrWhiteSpace(hostProfile.Name) ? defaultProfile.Name : hostProfile.Name;
+        hostProfile.Description = string.IsNullOrWhiteSpace(hostProfile.Description) ? defaultProfile.Description : hostProfile.Description;
+        hostProfile.LanguageKey = string.IsNullOrWhiteSpace(hostProfile.LanguageKey) ? defaultProfile.LanguageKey : hostProfile.LanguageKey;
+        hostProfile.Language = string.IsNullOrWhiteSpace(hostProfile.Language) ? defaultProfile.Language : hostProfile.Language;
+        hostProfile.Namespace = string.IsNullOrWhiteSpace(hostProfile.Namespace) ? defaultProfile.Namespace : hostProfile.Namespace;
+        hostProfile.RootTypeName = string.IsNullOrWhiteSpace(hostProfile.RootTypeName) ? defaultProfile.RootTypeName : hostProfile.RootTypeName;
+        hostProfile.CollectionType = string.IsNullOrWhiteSpace(hostProfile.CollectionType) ? defaultProfile.CollectionType : hostProfile.CollectionType;
+        return hostProfile;
+    }
+
+    private static string CreateMappingKey(string type, string version)
+    {
+        return (type ?? string.Empty) + "@" + (version ?? string.Empty);
+    }
+
+    private static ButterMorphLanguageMappingProfile ResolveActiveProfile(IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles, string activeProfileId)
+    {
+        return profiles.FirstOrDefault(profile => string.Equals(profile.Id, activeProfileId, StringComparison.OrdinalIgnoreCase))
+            ?? profiles.First();
+    }
+
+    private async Task<ButterMorphLanguageMappingProfile> ReadProfile()
+    {
+        return await JsonSerializer.DeserializeAsync<ButterMorphLanguageMappingProfile>(Request.Body, ViewerJsonOptions)
+            ?? new ButterMorphLanguageMappingProfile();
+    }
+
+    private IButterMorphLanguageAdapter ResolveAdapter(string languageKey)
+    {
+        return languageAdapters.FirstOrDefault(adapter => string.Equals(adapter.Key, languageKey, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string CreateRawJson(ButterMorphPayloadSchemaViewerLoadResult result)
@@ -142,6 +312,11 @@ public sealed class PayloadSchemaViewerModel : PageModel
             return "json";
         }
 
+        if (string.Equals(requestedView, "code", StringComparison.OrdinalIgnoreCase) && CodeEnabled)
+        {
+            return "code";
+        }
+
         if (string.Equals(requestedView, "ux", StringComparison.OrdinalIgnoreCase) && UserFriendlyEnabled)
         {
             return "ux";
@@ -152,18 +327,25 @@ public sealed class PayloadSchemaViewerModel : PageModel
             return "json";
         }
 
+        if (options.SchemaViewer.DefaultView == ButterMorphSchemaViewerView.Code && CodeEnabled)
+        {
+            return "code";
+        }
+
         if (UserFriendlyEnabled)
         {
             return "ux";
         }
 
-        return JsonEnabled ? "json" : "none";
+        return JsonEnabled ? "json" : CodeEnabled ? "code" : "none";
     }
 
     private bool HasView(ButterMorphSchemaViewerViews view)
     {
         return (options.SchemaViewer.EnabledViews & view) == view;
     }
+
+    private int EnabledViewCount => Convert.ToInt32(UserFriendlyEnabled) + Convert.ToInt32(JsonEnabled) + Convert.ToInt32(CodeEnabled);
 
     private static string PrettyJson(string json)
     {

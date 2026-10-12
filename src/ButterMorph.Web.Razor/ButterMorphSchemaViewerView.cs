@@ -13,5 +13,10 @@ public enum ButterMorphSchemaViewerView
     /// <summary>
     /// Shows the raw JSON schema viewer.
     /// </summary>
-    Json
+    Json,
+
+    /// <summary>
+    /// Shows the generated code schema viewer.
+    /// </summary>
+    Code
 }

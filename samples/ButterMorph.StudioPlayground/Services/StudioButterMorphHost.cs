@@ -19,7 +19,8 @@ internal sealed class StudioButterMorphHost :
     IButterMorphSchemaTypeDesignerHost,
     IButterMorphFieldMetadataDesignerHost,
     IButterMorphPayloadSchemaDesignerHost,
-    IButterMorphPayloadSchemaViewerHost
+    IButterMorphPayloadSchemaViewerHost,
+    IButterMorphLanguageTypeMappingHost
 {
     private readonly StudioStore store;
     private readonly IJsonSchemaImporter schemaImporter;
@@ -360,6 +361,54 @@ internal sealed class StudioButterMorphHost :
         });
     }
 
+    /// <inheritdoc />
+    Task<ButterMorphLanguageTypeMappingLoadResult> IButterMorphLanguageTypeMappingHost.Load(ButterMorphLanguageTypeMappingLoadRequest request)
+    {
+        IReadOnlyCollection<ButterMorphLanguageMappingProfile> profiles = store.LanguageTypeProfiles
+            .Where(item => string.IsNullOrWhiteSpace(request.LanguageKey) || string.Equals(item.LanguageKey, request.LanguageKey, StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.Profile)
+            .ToArray();
+        IReadOnlyCollection<ButterMorphLanguageTypeBundle> bundles = store.LanguageTypeBundles
+            .Where(item => string.IsNullOrWhiteSpace(request.LanguageKey) || string.Equals(item.LanguageKey, request.LanguageKey, StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.Bundle)
+            .ToArray();
+
+        return Task.FromResult(new ButterMorphLanguageTypeMappingLoadResult
+        {
+            ButterMorphTypes = CreateButterMorphTypeCatalog(),
+            Profiles = profiles,
+            Bundles = bundles,
+            ActiveProfileId = profiles.FirstOrDefault()?.Id ?? string.Empty
+        });
+    }
+
+    /// <inheritdoc />
+    Task<ButterMorphLanguageTypeMappingSaveResult> IButterMorphLanguageTypeMappingHost.SaveProfile(ButterMorphLanguageTypeMappingSaveRequest request)
+    {
+        ButterMorphLanguageMappingProfile profile = request.Profile ?? new ButterMorphLanguageMappingProfile();
+        string profileId = string.IsNullOrWhiteSpace(profile.Id)
+            ? profile.LanguageKey + "-type-mappings"
+            : profile.Id;
+        profile.Id = profileId;
+        profile.Key = string.IsNullOrWhiteSpace(profile.Key) ? profileId : profile.Key;
+        profile.LanguageKey = string.IsNullOrWhiteSpace(profile.LanguageKey) ? profile.Language : profile.LanguageKey;
+        profile.Language = string.IsNullOrWhiteSpace(profile.Language) ? profile.LanguageKey : profile.Language;
+
+        store.SaveLanguageTypeProfile(new StudioLanguageTypeProfile
+        {
+            Id = profileId,
+            LanguageKey = profile.LanguageKey,
+            Profile = profile
+        });
+
+        return Task.FromResult(new ButterMorphLanguageTypeMappingSaveResult
+        {
+            Succeeded = true,
+            Profile = profile,
+            Message = "Language type mappings saved into Studio host."
+        });
+    }
+
     /// <summary>
     /// Imports one stored schema into the canonical schema model.
     /// </summary>
@@ -447,6 +496,39 @@ internal sealed class StudioButterMorphHost :
                 ArrayItemDefinitionJson = item.ArrayItemDefinitionJson
             })
             .ToArray();
+    }
+
+    private IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> CreateButterMorphTypeCatalog()
+    {
+        List<ButterMorphTypeMappingCatalogItem> items =
+        [
+            TypeMapping("string", "String", "builtin", "Base text value."),
+            TypeMapping("number", "Number", "builtin", "Base numeric value."),
+            TypeMapping("boolean", "Boolean", "builtin", "Base boolean value."),
+            TypeMapping("date", "Date", "builtin", "Base date value."),
+            TypeMapping("datetime", "DateTime", "builtin", "Base date-time value."),
+            TypeMapping("time", "Time", "builtin", "Base time value."),
+            TypeMapping("timespan", "TimeSpan", "builtin", "Base duration value."),
+            TypeMapping("object", "Object", "builtin", "Base object value.")
+        ];
+
+        foreach (StudioCustomType customType in store.CustomTypes)
+        {
+            items.Add(TypeMapping(customType.Key, customType.Name, customType.Version, customType.Description));
+        }
+
+        return items;
+    }
+
+    private static ButterMorphTypeMappingCatalogItem TypeMapping(string key, string displayName, string version, string description)
+    {
+        return new ButterMorphTypeMappingCatalogItem
+        {
+            Key = key,
+            DisplayName = displayName,
+            Version = version,
+            Description = description
+        };
     }
 
     private StudioMapping ResolveMappingForLoad(string id)

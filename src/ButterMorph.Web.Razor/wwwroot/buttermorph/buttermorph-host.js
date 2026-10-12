@@ -270,7 +270,10 @@
             type === "ButterMorphSchemaTypeDesignerSaved" ||
             type === "ButterMorphFieldMetadataDesignerSaved" ||
             type === "ButterMorphPayloadSchemaDesignerSaved" ||
-            type === "ButterMorphSchemaDesignerSaved") {
+            type === "ButterMorphSchemaDesignerSaved" ||
+            type === "ButterMorphValidationDesignerSaved" ||
+            type === "ButterMorphLanguageTypeBundleSaved" ||
+            type === "ButterMorphLanguageTypeMappingsSaved") {
             closeFrame();
         }
     });

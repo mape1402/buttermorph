@@ -35,6 +35,8 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Studio Playground", html, StringComparison.Ordinal);
         Assert.Contains("Custom Types", html, StringComparison.Ordinal);
         Assert.Contains("Custom Fields", html, StringComparison.Ordinal);
+        Assert.Contains("Type Bundles", html, StringComparison.Ordinal);
+        Assert.Contains("Type Mappings", html, StringComparison.Ordinal);
         Assert.Contains("Schemas", html, StringComparison.Ordinal);
         Assert.Contains("Mappings", html, StringComparison.Ordinal);
         Assert.Contains("Validations", html, StringComparison.Ordinal);
@@ -61,6 +63,8 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Customer Profile", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile to Summary", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile Validation", json, StringComparison.Ordinal);
+        Assert.Contains("languageTypeProfiles", json, StringComparison.Ordinal);
+        Assert.Contains("csharp-type-mappings", json, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -124,6 +128,23 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("\"succeeded\":true", json, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("\"outputJson\":\"\"", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Confirms the Studio host exposes a host-owned bundle listing section.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioScriptIncludesLanguageTypeBundleListing()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string script = await client.GetStringAsync("/studio.js");
+
+        Assert.Contains("renderLanguageTypeBundles", script, StringComparison.Ordinal);
+        Assert.Contains("Language type bundles", script, StringComparison.Ordinal);
+        Assert.Contains("Create Bundle", script, StringComparison.Ordinal);
+        Assert.Contains("bundle-type-list", script, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -196,6 +217,103 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Customer Profile Validation", html, StringComparison.Ordinal);
         Assert.Contains("data-document-view-button=\"dsl\"", html, StringComparison.Ordinal);
         Assert.Contains("Customer id is required.", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms seeded schemas can be opened in the read-only code viewer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededSchemaCodeViewerRenders()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/buttermorph/payload-schema/viewer?context=schema-customer-profile&view=code");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-schema-active-view=\"code\"", html, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.Rfc RFC", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph.Generated", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"butterMorphType\":\"SecurityClasification\"", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms language type mappings can be opened in their own designer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioSeededLanguageTypeMappingsDesignerRenders()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/buttermorph/language-type-mappings/designer");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Type mapping packages", html, StringComparison.Ordinal);
+        Assert.Contains("New package", html, StringComparison.Ordinal);
+        Assert.Contains("Add mapping", html, StringComparison.Ordinal);
+        Assert.Contains("DataType (ButterMorph)", html, StringComparison.Ordinal);
+        Assert.Contains("DataType (Language)", html, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms language type bundles are created as a single discovered document.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioLanguageTypeBundlesDesignerRendersDocumentFlow()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/buttermorph/language-type-bundles/designer");
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Type Bundles", html, StringComparison.Ordinal);
+        Assert.Contains("Choose", html, StringComparison.Ordinal);
+        Assert.Contains("Preview", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Registered bundles", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("company-shared-types", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms the Studio host persists bundle documents received from ButterMorph events.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioLanguageTypeBundleEndpointPersistsBundleDocument()
+    {
+        HttpClient client = factory.CreateClient();
+        string body = """
+            {
+              "assemblyId": "test-shared-types",
+              "assemblyKey": "test-shared-types",
+              "assemblyDescription": "Test shared types.",
+              "assemblyVersion": "1.0.0",
+              "languageKey": "csharp",
+              "types": [
+                {
+                  "key": "TestRfc",
+                  "displayName": "Test RFC",
+                  "qualifiedName": "Company.SharedTypes.TestRfc",
+                  "version": "1.0.0",
+                  "description": "Test RFC type."
+                }
+              ]
+            }
+            """;
+        using StringContent content = new(body, Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.PostAsync("/api/language-type-bundles", content);
+        string json = await client.GetStringAsync("/api/state");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("test-shared-types", json, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.TestRfc", json, StringComparison.Ordinal);
     }
 
     /// <summary>

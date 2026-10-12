@@ -16,6 +16,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\ButterMorph.Contracts\ButterMorph.Contracts.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json\ButterMorph.Json.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.Json.Schema\ButterMorph.Json.Schema.csproj" />
@@ -23,6 +24,7 @@
     <ProjectReference Include="..\..\src\ButterMorph.Web.Razor\ButterMorph.Web.Razor.csproj" />
     <ProjectReference Include="..\..\src\ButterMorph.SchemaDesign\ButterMorph.SchemaDesign.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.Playground\ButterMorph.Playground.csproj" />
+    <ProjectReference Include="..\..\samples\ButterMorph.SampleSharedTypes\ButterMorph.SampleSharedTypes.csproj" />
     <ProjectReference Include="..\..\samples\ButterMorph.StudioPlayground\ButterMorph.StudioPlayground.csproj" />
   </ItemGroup>
 </Project>
