@@ -11,7 +11,12 @@ public sealed class ButterMorphLanguageTypeMappingLoadResult
     public IReadOnlyCollection<ButterMorphTypeMappingCatalogItem> ButterMorphTypes { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets host-owned language mapping profiles.
+    /// Gets or sets host-owned language type mapping documents.
+    /// </summary>
+    public IReadOnlyCollection<ButterMorphLanguageTypeMappingDocument> Documents { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets host-owned legacy language mapping profiles.
     /// </summary>
     public IReadOnlyCollection<ButterMorphLanguageMappingProfile> Profiles { get; set; } = [];
 
@@ -21,7 +26,12 @@ public sealed class ButterMorphLanguageTypeMappingLoadResult
     public IReadOnlyCollection<ButterMorphLanguageTypeBundle> Bundles { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the active profile id.
+    /// Gets or sets the active mapping document key.
+    /// </summary>
+    public string ActiveDocumentKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the active legacy profile id.
     /// </summary>
     public string ActiveProfileId { get; set; } = string.Empty;
 }

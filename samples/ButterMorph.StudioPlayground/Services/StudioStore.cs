@@ -2,6 +2,7 @@
 
 using System.Collections.Concurrent;
 using ButterMorph.StudioPlayground.Models;
+using ButterMorph.Web.Razor;
 
 /// <summary>
 /// Stores host-owned Studio Playground state in memory.
@@ -16,7 +17,7 @@ internal sealed class StudioStore
     private readonly ConcurrentDictionary<string, StudioMappingSetup> mappingSetups = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioValidation> validations = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioValidationSetup> validationSetups = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, StudioLanguageTypeProfile> languageTypeProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, StudioLanguageTypeMappingDocument> languageTypeMappings = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, StudioLanguageTypeBundle> languageTypeBundles = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -45,11 +46,11 @@ internal sealed class StudioStore
     public IReadOnlyCollection<StudioValidation> Validations => validations.Values.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
 
     /// <summary>
-    /// Gets all language type mapping profiles.
+    /// Gets all language type mapping documents.
     /// </summary>
-    public IReadOnlyCollection<StudioLanguageTypeProfile> LanguageTypeProfiles => languageTypeProfiles.Values
+    public IReadOnlyCollection<StudioLanguageTypeMappingDocument> LanguageTypeMappings => languageTypeMappings.Values
         .OrderBy(item => item.LanguageKey, StringComparer.OrdinalIgnoreCase)
-        .ThenBy(item => item.Profile.Name, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(item => item.Document.Name, StringComparer.OrdinalIgnoreCase)
         .ToArray();
 
     /// <summary>
@@ -111,13 +112,14 @@ internal sealed class StudioStore
     }
 
     /// <summary>
-    /// Saves a language type mapping profile.
+    /// Saves a language type mapping document.
     /// </summary>
-    /// <param name="item">The language type profile.</param>
-    public void SaveLanguageTypeProfile(StudioLanguageTypeProfile item)
+    /// <param name="item">The language type mapping document.</param>
+    public void SaveLanguageTypeMapping(StudioLanguageTypeMappingDocument item)
     {
+        NormalizeLanguageTypeMapping(item);
         item.SavedAt = DateTimeOffset.UtcNow;
-        languageTypeProfiles[item.Id] = item;
+        languageTypeMappings[item.Id] = item;
     }
 
     /// <summary>
@@ -159,7 +161,7 @@ internal sealed class StudioStore
         schemas.Clear();
         mappings.Clear();
         validations.Clear();
-        languageTypeProfiles.Clear();
+        languageTypeMappings.Clear();
         languageTypeBundles.Clear();
 
         foreach (StudioCustomType item in snapshot.CustomTypes)
@@ -202,11 +204,25 @@ internal sealed class StudioStore
             }
         }
 
-        foreach (StudioLanguageTypeProfile item in snapshot.LanguageTypeProfiles)
+        foreach (StudioLanguageTypeMappingDocument item in snapshot.LanguageTypeMappings)
         {
             if (!string.IsNullOrWhiteSpace(item.Id))
             {
-                languageTypeProfiles[item.Id] = item;
+                SaveLanguageTypeMapping(item);
+            }
+        }
+
+        foreach (StudioLanguageTypeProfile item in snapshot.LanguageTypeProfiles)
+        {
+            if (!string.IsNullOrWhiteSpace(item.Id) && !languageTypeMappings.ContainsKey(item.Id))
+            {
+                SaveLanguageTypeMapping(new StudioLanguageTypeMappingDocument
+                {
+                    Id = item.Id,
+                    LanguageKey = item.LanguageKey,
+                    Document = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(item.Profile),
+                    SavedAt = item.SavedAt
+                });
             }
         }
 
@@ -275,14 +291,14 @@ internal sealed class StudioStore
     }
 
     /// <summary>
-    /// Attempts to get a language type mapping profile.
+    /// Attempts to get a language type mapping document.
     /// </summary>
     /// <param name="id">The host-owned id.</param>
-    /// <param name="item">The language type profile.</param>
+    /// <param name="item">The language type mapping document.</param>
     /// <returns>True when found.</returns>
-    public bool TryGetLanguageTypeProfile(string id, out StudioLanguageTypeProfile item)
+    public bool TryGetLanguageTypeMapping(string id, out StudioLanguageTypeMappingDocument item)
     {
-        return languageTypeProfiles.TryGetValue(id, out item);
+        return languageTypeMappings.TryGetValue(id, out item);
     }
 
     /// <summary>
@@ -351,7 +367,8 @@ internal sealed class StudioStore
             "schemas" => schemas.TryRemove(id, out StudioSchema removedSchema),
             "mappings" => mappings.TryRemove(id, out StudioMapping removedMapping) | mappingSetups.TryRemove(id, out StudioMappingSetup removedSetup),
             "validations" => validations.TryRemove(id, out StudioValidation removedValidation) | validationSetups.TryRemove(id, out StudioValidationSetup removedValidationSetup),
-            "languageTypeProfiles" => languageTypeProfiles.TryRemove(id, out StudioLanguageTypeProfile removedLanguageTypeProfile),
+            "languageTypeMappings" => languageTypeMappings.TryRemove(id, out StudioLanguageTypeMappingDocument removedLanguageTypeMapping),
+            "languageTypeProfiles" => languageTypeMappings.TryRemove(id, out StudioLanguageTypeMappingDocument removedLanguageTypeProfile),
             "languageTypeBundles" => languageTypeBundles.TryRemove(id, out StudioLanguageTypeBundle removedLanguageTypeBundle),
             _ => false
         };
@@ -365,6 +382,14 @@ internal sealed class StudioStore
     public bool DeleteLanguageTypeBundle(string id)
     {
         return languageTypeBundles.TryRemove(id, out StudioLanguageTypeBundle removed);
+    }
+
+    private static void NormalizeLanguageTypeMapping(StudioLanguageTypeMappingDocument item)
+    {
+        item.Document ??= new ButterMorphLanguageTypeMappingDocument();
+        ButterMorphLanguageTypeMappingDocumentConverter.Normalize(item.Document);
+        item.Id = string.IsNullOrWhiteSpace(item.Id) ? item.Document.Key : item.Id;
+        item.LanguageKey = string.IsNullOrWhiteSpace(item.LanguageKey) ? item.Document.Language : item.LanguageKey;
     }
 }
 

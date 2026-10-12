@@ -63,7 +63,7 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         Assert.Contains("Customer Profile", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile to Summary", json, StringComparison.Ordinal);
         Assert.Contains("Customer Profile Validation", json, StringComparison.Ordinal);
-        Assert.Contains("languageTypeProfiles", json, StringComparison.Ordinal);
+        Assert.Contains("languageTypeMappings", json, StringComparison.Ordinal);
         Assert.Contains("csharp-type-mappings", json, StringComparison.Ordinal);
     }
 
@@ -233,8 +233,8 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("data-schema-active-view=\"code\"", html, StringComparison.Ordinal);
-        Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
-        Assert.Contains("Company.SharedTypes.Rfc RFC", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph.SampleSharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph.SampleSharedTypes.Rfc RFC", html, StringComparison.Ordinal);
         Assert.Contains("ButterMorph.Generated", html, StringComparison.Ordinal);
         Assert.DoesNotContain("\"butterMorphType\":\"SecurityClasification\"", html, StringComparison.Ordinal);
     }
@@ -252,12 +252,13 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
         string html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Type mapping packages", html, StringComparison.Ordinal);
-        Assert.Contains("New package", html, StringComparison.Ordinal);
+        Assert.Contains("Mapping document", html, StringComparison.Ordinal);
+        Assert.Contains("Save mappings", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("New package", html, StringComparison.Ordinal);
         Assert.Contains("Add mapping", html, StringComparison.Ordinal);
-        Assert.Contains("DataType (ButterMorph)", html, StringComparison.Ordinal);
-        Assert.Contains("DataType (Language)", html, StringComparison.Ordinal);
-        Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph DataType", html, StringComparison.Ordinal);
+        Assert.Contains("Language DataType", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph.SampleSharedTypes.Rfc", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -313,6 +314,53 @@ public sealed class StudioPlaygroundIntegrationTests : IClassFixture<WebApplicat
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("test-shared-types", json, StringComparison.Ordinal);
+        Assert.Contains("Company.SharedTypes.TestRfc", json, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms the Studio host persists language type mapping package documents received from ButterMorph events.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task StudioLanguageTypeMappingEndpointPersistsPackageDocument()
+    {
+        HttpClient client = factory.CreateClient();
+        string body = """
+            {
+              "key": "test-csharp-package",
+              "name": "Test C# Package",
+              "description": "Test package.",
+              "language": "csharp",
+              "bundles": [
+                {
+                  "key": "test-shared-types"
+                }
+              ],
+              "mappings": [
+                {
+                  "butterMorph": {
+                    "key": "RFC",
+                    "version": "1.0.0",
+                    "reference": "#/dataTypes/RFC@1.0.0"
+                  },
+                  "targetLanguage": {
+                    "key": "TestRfc",
+                    "version": "1.0.0",
+                    "reference": "Company.SharedTypes.TestRfc",
+                    "bundleKey": "test-shared-types"
+                  }
+                }
+              ]
+            }
+            """;
+        using StringContent content = new(body, Encoding.UTF8, "application/json");
+
+        HttpResponseMessage response = await client.PostAsync("/api/language-type-mappings", content);
+        string json = await client.GetStringAsync("/api/state");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("languageTypeMappings", json, StringComparison.Ordinal);
+        Assert.Contains("test-csharp-package", json, StringComparison.Ordinal);
         Assert.Contains("Company.SharedTypes.TestRfc", json, StringComparison.Ordinal);
     }
 

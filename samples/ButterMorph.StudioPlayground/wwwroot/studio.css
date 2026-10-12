@@ -209,6 +209,10 @@ textarea {
   overflow: hidden;
 }
 
+.type-mapping-work-card {
+  min-height: 0;
+}
+
 .card-header {
   align-items: center;
   border-bottom: 1px solid var(--border);
@@ -496,6 +500,87 @@ pre {
 
 .schema-preview-list span {
   color: var(--muted);
+}
+
+.type-mapping-overview {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: .75rem;
+}
+
+.type-mapping-overview article {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.type-mapping-overview header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: .55rem .65rem;
+}
+
+.type-mapping-overview header span {
+  background: color-mix(in srgb, var(--brand) 18%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--brand) 36%, var(--border));
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: .72rem;
+  font-weight: 800;
+  min-width: 24px;
+  padding: .08rem .45rem;
+  text-align: center;
+}
+
+.type-mapping-list {
+  display: grid;
+  gap: 1px;
+}
+
+.type-mapping-list div,
+.type-mapping-list p {
+  background: var(--panel);
+  margin: 0;
+  padding: .55rem .65rem;
+}
+
+.type-mapping-list div {
+  align-items: center;
+  display: grid;
+  gap: .35rem .65rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.type-mapping-list strong,
+.type-mapping-list span,
+.type-mapping-list small {
+  display: block;
+}
+
+.type-mapping-list strong,
+.type-mapping-list span,
+.type-mapping-list small {
+  grid-column: 1;
+}
+
+.type-mapping-list button {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+.type-mapping-list span,
+.type-mapping-list small {
+  color: var(--muted);
+  font-size: .78rem;
+  margin-top: .08rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bundle-detail-summary {

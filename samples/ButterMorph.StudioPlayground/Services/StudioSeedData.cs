@@ -150,8 +150,8 @@ internal static class StudioSeedData
 
         store.SaveSchema(customerProfile);
         store.SaveSchema(customerSummary);
-        store.SaveLanguageTypeBundle(CreateCompanySharedTypesBundle(uniqueIdentifier, rfc, email, phoneNumber));
-        store.SaveLanguageTypeProfile(CreateCSharpLanguageTypeProfile(uniqueIdentifier, rfc, email, phoneNumber));
+        store.SaveLanguageTypeBundle(CreateSampleSharedTypesBundle(uniqueIdentifier, rfc, email, phoneNumber));
+        store.SaveLanguageTypeMapping(CreateCSharpLanguageTypeMapping(uniqueIdentifier, rfc, email, phoneNumber));
         store.SaveMapping(CreateCustomerProfileToSummaryMapping(customerProfile, customerSummary));
         store.SaveValidation(CreateCustomerProfileValidation(customerProfile));
     }
@@ -476,54 +476,87 @@ internal static class StudioSeedData
         return validation;
     }
 
-    // Creates a seeded C# type mapping profile.
-    private static StudioLanguageTypeProfile CreateCSharpLanguageTypeProfile(
+    // Creates a seeded C# type mapping document.
+    private static StudioLanguageTypeMappingDocument CreateCSharpLanguageTypeMapping(
         StudioCustomType uniqueIdentifier,
         StudioCustomType rfc,
         StudioCustomType email,
         StudioCustomType phoneNumber)
     {
-        ButterMorphLanguageMappingProfile profile = new()
+        ButterMorphLanguageTypeMappingDocument document = new()
         {
-            Id = "csharp-type-mappings",
             Key = "csharp-type-mappings",
             Name = "C# Type Mappings",
             Description = "Maps ButterMorph base and seeded custom types to C# shared types.",
-            LanguageKey = "csharp",
             Language = "csharp",
-            Namespace = "ButterMorph.Generated",
-            RootTypeName = string.Empty,
-            EmitAttributes = true,
-            UseNullableReferences = true,
-            UseRequiredMembers = true,
-            CollectionType = "List",
-            TypeMappings =
+            Bundles =
             [
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "string", ButterMorphTypeVersion = "builtin", LanguageType = "string", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "number", ButterMorphTypeVersion = "builtin", LanguageType = "decimal", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "boolean", ButterMorphTypeVersion = "builtin", LanguageType = "bool", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "date", ButterMorphTypeVersion = "builtin", LanguageType = "DateOnly", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "datetime", ButterMorphTypeVersion = "builtin", LanguageType = "DateTimeOffset", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "time", ButterMorphTypeVersion = "builtin", LanguageType = "TimeOnly", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "timespan", ButterMorphTypeVersion = "builtin", LanguageType = "TimeSpan", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "object", ButterMorphTypeVersion = "builtin", LanguageType = "object", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = uniqueIdentifier.Key, ButterMorphTypeVersion = uniqueIdentifier.Version, LanguageType = "Company.SharedTypes.UniqueIdentifier", LanguageTypeVersion = uniqueIdentifier.Version },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = rfc.Key, ButterMorphTypeVersion = rfc.Version, LanguageType = "Company.SharedTypes.Rfc", LanguageTypeVersion = rfc.Version },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = email.Key, ButterMorphTypeVersion = email.Version, LanguageType = "string", LanguageTypeVersion = "builtin" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = phoneNumber.Key, ButterMorphTypeVersion = phoneNumber.Version, LanguageType = "string", LanguageTypeVersion = "builtin" }
+                new ButterMorphLanguageTypeMappingBundleReference
+                {
+                    Key = "sample-shared-types",
+                    Version = "1.0.0",
+                    Reference = "sample-shared-types:csharp:1.0.0"
+                }
+            ],
+            Mappings =
+            [
+                TypeMapping("string", "builtin", "String", "string", "string", "builtin", "primitive", string.Empty),
+                TypeMapping("number", "builtin", "Number", "decimal", "decimal", "builtin", "primitive", string.Empty),
+                TypeMapping("boolean", "builtin", "Boolean", "bool", "bool", "builtin", "primitive", string.Empty),
+                TypeMapping("date", "builtin", "Date", "DateOnly", "DateOnly", "builtin", "primitive", string.Empty),
+                TypeMapping("datetime", "builtin", "DateTime", "DateTimeOffset", "DateTimeOffset", "builtin", "primitive", string.Empty),
+                TypeMapping("time", "builtin", "Time", "TimeOnly", "TimeOnly", "builtin", "primitive", string.Empty),
+                TypeMapping("timespan", "builtin", "TimeSpan", "TimeSpan", "TimeSpan", "builtin", "primitive", string.Empty),
+                TypeMapping("object", "builtin", "Object", "object", "object", "builtin", "primitive", string.Empty),
+                TypeMapping(uniqueIdentifier.Key, uniqueIdentifier.Version, uniqueIdentifier.Name, "UniqueIdentifier", "ButterMorph.SampleSharedTypes.UniqueIdentifier", uniqueIdentifier.Version, "bundle", "sample-shared-types"),
+                TypeMapping(rfc.Key, rfc.Version, rfc.Name, "Rfc", "ButterMorph.SampleSharedTypes.Rfc", rfc.Version, "bundle", "sample-shared-types"),
+                TypeMapping(email.Key, email.Version, email.Name, "Email", "ButterMorph.SampleSharedTypes.Email", email.Version, "bundle", "sample-shared-types"),
+                TypeMapping(phoneNumber.Key, phoneNumber.Version, phoneNumber.Name, "PhoneNumber", "ButterMorph.SampleSharedTypes.PhoneNumber", phoneNumber.Version, "bundle", "sample-shared-types")
             ]
         };
 
-        return new StudioLanguageTypeProfile
+        return new StudioLanguageTypeMappingDocument
         {
-            Id = profile.Id,
-            LanguageKey = profile.LanguageKey,
-            Profile = profile
+            Id = document.Key,
+            LanguageKey = document.Language,
+            Document = document
         };
     }
 
-    // Creates seeded metadata that simulates a discovered company shared-types assembly.
-    private static StudioLanguageTypeBundle CreateCompanySharedTypesBundle(
+    private static ButterMorphLanguageTypeMappingDocumentEntry TypeMapping(
+        string butterMorphKey,
+        string butterMorphVersion,
+        string butterMorphDisplayName,
+        string languageKey,
+        string languageReference,
+        string languageVersion,
+        string languageSource,
+        string bundleKey)
+    {
+        return new ButterMorphLanguageTypeMappingDocumentEntry
+        {
+            ButterMorph = new ButterMorphLanguageTypeReference
+            {
+                Key = butterMorphKey,
+                DisplayName = butterMorphDisplayName,
+                Version = butterMorphVersion,
+                Reference = "#/dataTypes/" + butterMorphKey + "@" + butterMorphVersion,
+                Source = "buttermorph"
+            },
+            TargetLanguage = new ButterMorphLanguageTypeReference
+            {
+                Key = languageKey,
+                DisplayName = languageKey,
+                Version = languageVersion,
+                Reference = languageReference,
+                Source = languageSource,
+                BundleKey = bundleKey
+            }
+        };
+    }
+
+    // Creates seeded metadata that matches the discoverable sample shared-types assembly.
+    private static StudioLanguageTypeBundle CreateSampleSharedTypesBundle(
         StudioCustomType uniqueIdentifier,
         StudioCustomType rfc,
         StudioCustomType email,
@@ -531,17 +564,17 @@ internal static class StudioSeedData
     {
         ButterMorphLanguageTypeBundle bundle = new()
         {
-            AssemblyId = "company-shared-types:csharp:1.0.0",
-            AssemblyKey = "company-shared-types",
-            AssemblyDescription = "Company shared contract types discovered from an assembly.",
+            AssemblyId = "sample-shared-types:csharp:1.0.0",
+            AssemblyKey = "sample-shared-types",
+            AssemblyDescription = "Sample C# shared business types discovered from an assembly.",
             AssemblyVersion = "1.0.0",
             LanguageKey = "csharp",
             Types =
             [
-                LanguageType(uniqueIdentifier, "Company.SharedTypes.UniqueIdentifier"),
-                LanguageType(rfc, "Company.SharedTypes.Rfc"),
-                LanguageType(email, "Company.SharedTypes.Email"),
-                LanguageType(phoneNumber, "Company.SharedTypes.PhoneNumber")
+                LanguageType(uniqueIdentifier, "ButterMorph.SampleSharedTypes.UniqueIdentifier"),
+                LanguageType(rfc, "ButterMorph.SampleSharedTypes.Rfc"),
+                LanguageType(email, "ButterMorph.SampleSharedTypes.Email"),
+                LanguageType(phoneNumber, "ButterMorph.SampleSharedTypes.PhoneNumber")
             ]
         };
 
@@ -563,7 +596,7 @@ internal static class StudioSeedData
             Version = customType.Version,
             Description = customType.Description,
             Source = "bundle",
-            BundleKey = "company-shared-types"
+            BundleKey = "sample-shared-types"
         };
     }
 

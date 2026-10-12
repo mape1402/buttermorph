@@ -8,37 +8,33 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ButterMorph Type Mapping Packages</title>
+    <title>Type Mapping Packages</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=24" />
-    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-mappings.css?v=4" />
+    <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-mappings.css?v=12" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-mappings.js?v=4" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-language-type-mappings.js?v=12" defer></script>
 </head>
 <body class="bm-type-mapping-page" style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-type-mapping-shell">
         <header class="bm-type-mapping-topbar">
             <div>
-                <p class="bm-type-mapping-kicker">BUTTERMORPH</p>
-                <h1>Type mapping packages</h1>
+                <span>Mapping document</span>
+                <h1 data-type-mapping-title="true">Type mapping package</h1>
+                <p data-type-mapping-subtitle="true"></p>
             </div>
             <div class="bm-type-mapping-actions">
-                <button type="button" data-type-mapping-new="true">New package</button>
                 <button type="button" data-type-mapping-save="true">Save mappings</button>
             </div>
         </header>
 
         <section class="bm-type-mapping-package">
             <label>
-                <span>Package</span>
-                <select data-type-mapping-package="true"></select>
-            </label>
-            <label>
                 <span>Key</span>
-                <input type="text" data-type-mapping-key="true" />
+                <input type="text" data-type-mapping-key="true" placeholder="unique-package-key" />
             </label>
             <label>
                 <span>Name</span>
-                <input type="text" data-type-mapping-name="true" />
+                <input type="text" data-type-mapping-name="true" placeholder="Display name" />
             </label>
             <label>
                 <span>Language</span>
@@ -46,25 +42,15 @@
             </label>
             <label class="bm-type-mapping-description">
                 <span>Description</span>
-                <textarea data-type-mapping-description="true"></textarea>
+                <textarea data-type-mapping-description="true" placeholder="What this mapping package is for"></textarea>
             </label>
         </section>
 
         <section class="bm-type-mapping-table">
-            <div class="bm-type-mapping-toolbar">
-                <label>
-                    <span>Search mappings</span>
-                    <input type="search" data-type-mapping-search="true" aria-label="Search ButterMorph or language data types" />
-                </label>
-                <button type="button" data-type-mapping-add="true">Add mapping</button>
-                <strong data-type-mapping-summary="true"></strong>
-            </div>
             <div class="bm-type-mapping-header">
-                <span>DataType (ButterMorph)</span>
-                <span>Version</span>
-                <span>DataType (Language)</span>
-                <span>Version</span>
-                <span></span>
+                <span>ButterMorph DataType</span>
+                <span>Language DataType</span>
+                <button type="button" data-type-mapping-add="true">Add mapping</button>
             </div>
             <div data-type-mapping-list="true"></div>
         </section>

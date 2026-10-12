@@ -146,12 +146,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     public async Task SchemaViewerRendersCodeGenerationView()
     {
         FakeButterMorphPayloadSchemaViewerHost schemaHost = CreateSchemaViewerHost();
+        ButterMorphLanguageTypeMappingDocument secondaryDocument = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile());
+        secondaryDocument.Key = "billing-csharp";
+        secondaryDocument.Name = "Billing C#";
         FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
         {
             LoadResult = new ButterMorphLanguageTypeMappingLoadResult
             {
-                Profiles = [CreateCSharpTypeMappingProfile()],
-                ActiveProfileId = "customer-csharp"
+                Documents =
+                [
+                    ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile()),
+                    secondaryDocument
+                ],
+                ActiveDocumentKey = "customer-csharp"
             }
         };
         HttpClient client = CreateSchemaViewerHostClient(schemaHost, typeMappingHost);
@@ -170,6 +177,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.DoesNotContain("data-schema-code-save=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("CustomerProfile", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
+        Assert.Contains("Billing C#", html, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -240,12 +248,16 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
-    /// Confirms that language type mappings render and can be saved by the host.
+    /// Confirms that language type mappings render and publish a host-owned package document.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
     [Fact]
-    public async Task LanguageTypeMappingsDesignerSavesProfileThroughHost()
+    public async Task LanguageTypeMappingsDesignerPublishesDocument()
     {
+        ButterMorphLanguageTypeMappingDocument document = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile());
+        ButterMorphLanguageTypeMappingDocument secondaryDocument = ButterMorphLanguageTypeMappingDocumentConverter.FromProfile(CreateCSharpTypeMappingProfile());
+        secondaryDocument.Key = "billing-csharp";
+        secondaryDocument.Name = "Billing C#";
         FakeButterMorphLanguageTypeMappingHost typeMappingHost = new()
         {
             LoadResult = new ButterMorphLanguageTypeMappingLoadResult
@@ -255,38 +267,63 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                     new ButterMorphTypeMappingCatalogItem { Key = "string", DisplayName = "String" },
                     new ButterMorphTypeMappingCatalogItem { Key = "RFC", DisplayName = "RFC" }
                 ],
-                Profiles = [CreateCSharpTypeMappingProfile()],
-                ActiveProfileId = "customer-csharp"
+                Documents = [document, secondaryDocument],
+                Bundles =
+                [
+                    new ButterMorphLanguageTypeBundle
+                    {
+                        AssemblyId = "shared-csharp:1.0.0",
+                        AssemblyKey = "shared-csharp",
+                        AssemblyVersion = "1.0.0",
+                        LanguageKey = "csharp",
+                        Types =
+                        [
+                            new ButterMorphLanguageType
+                            {
+                                Key = "Rfc",
+                                DisplayName = "RFC",
+                                QualifiedName = "Company.SharedTypes.Rfc",
+                                Version = "1.0.0",
+                                Source = "bundle",
+                                BundleKey = "shared-csharp"
+                            }
+                        ]
+                    }
+                ],
+                ActiveDocumentKey = "customer-csharp"
             }
         };
         HttpClient client = CreateLanguageTypeMappingsClient(typeMappingHost);
         string html = await client.GetStringAsync("/buttermorph/language-type-mappings/designer");
-        string body = JsonSerializer.Serialize(CreateCSharpTypeMappingProfile(), new JsonSerializerOptions
+        string body = JsonSerializer.Serialize(document, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
         Assert.Equal(1, typeMappingHost.LoadCalls);
-        Assert.Contains("Type mapping packages", html, StringComparison.Ordinal);
-        Assert.Contains("New package", html, StringComparison.Ordinal);
+        Assert.Contains("Mapping document", html, StringComparison.Ordinal);
+        Assert.Contains("Save mappings", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("New package", html, StringComparison.Ordinal);
         Assert.Contains("Add mapping", html, StringComparison.Ordinal);
-        Assert.Contains("Search mappings", html, StringComparison.Ordinal);
-        Assert.Contains("data-type-mapping-summary=\"true\"", html, StringComparison.Ordinal);
-        Assert.Contains("DataType (ButterMorph)", html, StringComparison.Ordinal);
-        Assert.Contains("Version", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Search mappings", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-type-mapping-summary=\"true\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-type-mapping-bundles=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("ButterMorph DataType", html, StringComparison.Ordinal);
+        Assert.Contains("Language DataType", html, StringComparison.Ordinal);
         Assert.Contains("RFC", html, StringComparison.Ordinal);
         Assert.Contains("Company.SharedTypes.Rfc", html, StringComparison.Ordinal);
+        Assert.Contains("Billing C#", html, StringComparison.Ordinal);
 
         HttpResponseMessage response = await client.PostAsync(
-            "/buttermorph/language-type-mappings/designer?handler=SaveProfile",
+            "/buttermorph/language-type-mappings/designer?handler=SaveDocument",
             new StringContent(body, Encoding.UTF8, "application/json"));
         string json = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(1, typeMappingHost.SaveCalls);
-        Assert.Equal("customer-csharp", typeMappingHost.SavedProfile.Id);
+        Assert.Equal(0, typeMappingHost.SaveCalls);
         using JsonDocument saveDocument = JsonDocument.Parse(json);
         Assert.True(saveDocument.RootElement.GetProperty("succeeded").GetBoolean());
+        Assert.Equal("customer-csharp", saveDocument.RootElement.GetProperty("document").GetProperty("key").GetString());
     }
 
     /// <summary>

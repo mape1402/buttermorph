@@ -28,7 +28,7 @@ public sealed class ButterMorphLanguageTypeAttribute : Attribute
     /// <summary>
     /// Gets or sets the type version.
     /// </summary>
-    public string Version { get; set; } = string.Empty;
+    public string Version { get; set; } = "1.0.0";
 
     /// <summary>
     /// Gets or sets a short type description.
