@@ -15,7 +15,7 @@
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
-    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=designer-import-1"></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/designer.js?v=designer-dsl-block-1"></script>
 </head>
 <body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <main class="bm-workbench"
@@ -218,6 +218,11 @@
                     <div class="bm-canvas-header">
                         <div>
                             <h2>DSL</h2>
+                        </div>
+                        <div class="bm-dsl-actions">
+                            <button type="button" data-dsl-export-button="true">Export</button>
+                            <button type="button" data-dsl-copy-button="true">Copy</button>
+                            <span class="bm-dsl-action-toast" data-dsl-action-toast="true" role="status" aria-live="polite" hidden></span>
                         </div>
                     </div>
                     <input type="hidden" name="ActiveView" value="Dsl" />

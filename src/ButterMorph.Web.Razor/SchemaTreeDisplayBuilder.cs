@@ -116,9 +116,10 @@ internal static class SchemaTreeDisplayBuilder
             Kind = node.Kind,
             Description = ResolveDescription(node.Metadata),
             DataType = node.DataType,
+            DisplayType = ResolveDisplayType(node, children),
             Children = children,
             IsExpanded = true,
-            CanDrag = isSource && (node.Kind == SchemaNodeKind.Scalar || node.Kind == SchemaNodeKind.Array),
+            CanDrag = isSource && IsDraggableSourceNode(node),
             Expression = mapping.Expression,
             MappingMode = mapping.Mode,
             ConditionalConditionExpression = mapping.ConditionExpression,
@@ -144,6 +145,99 @@ internal static class SchemaTreeDisplayBuilder
         }
 
         return string.Empty;
+    }
+
+    private static string ResolveDisplayType(ISchemaTreeNode node, IReadOnlyCollection<SchemaTreeDisplayNode> children)
+    {
+        if (node.Kind == SchemaNodeKind.Array)
+        {
+            SchemaTreeDisplayNode item = children.FirstOrDefault() ?? new SchemaTreeDisplayNode();
+            string itemType = item.DisplayType;
+            return string.IsNullOrWhiteSpace(itemType) ? "array" : "array of " + itemType;
+        }
+
+        string referenceLabel = ResolveReferenceLabel(node.Metadata, node.Name);
+        if (!string.IsNullOrWhiteSpace(referenceLabel))
+        {
+            return referenceLabel;
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.DataType))
+        {
+            return node.DataType.Trim();
+        }
+
+        return node.Kind.ToString().ToLowerInvariant();
+    }
+
+    private static bool IsDraggableSourceNode(ISchemaTreeNode node)
+    {
+        return node.Kind == SchemaNodeKind.Scalar ||
+            node.Kind == SchemaNodeKind.Array ||
+            HasReference(node.Metadata);
+    }
+
+    private static bool HasReference(IReadOnlyDictionary<string, string> metadata)
+    {
+        return metadata.TryGetValue("$ref", out string reference) && !string.IsNullOrWhiteSpace(reference);
+    }
+
+    private static string ResolveReferenceLabel(IReadOnlyDictionary<string, string> metadata, string fallbackName)
+    {
+        if (metadata.TryGetValue("$ref", out string reference) && !string.IsNullOrWhiteSpace(reference))
+        {
+            string label = reference.Trim();
+            int slashIndex = label.LastIndexOf('/');
+            if (slashIndex >= 0 && slashIndex < label.Length - 1)
+            {
+                label = label[(slashIndex + 1)..];
+            }
+
+            int atIndex = label.IndexOf('@', StringComparison.Ordinal);
+            if (atIndex > 0)
+            {
+                label = label[..atIndex];
+            }
+
+            label = Uri.UnescapeDataString(label).Trim();
+            if (!IsGuidLike(label))
+            {
+                return label;
+            }
+
+            string fallback = ResolveReferenceFallbackName(fallbackName);
+            if (!string.IsNullOrWhiteSpace(fallback))
+            {
+                return fallback;
+            }
+        }
+
+        foreach (string key in new[] { "typeName", "typeKey", "typeId" })
+        {
+            if (metadata.TryGetValue(key, out string value) && !string.IsNullOrWhiteSpace(value) && !IsGuidLike(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveReferenceFallbackName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) ||
+            string.Equals(name, "$root", StringComparison.Ordinal) ||
+            string.Equals(name, "$item", StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        return name.Trim();
+    }
+
+    private static bool IsGuidLike(string value)
+    {
+        return Guid.TryParse(value, out _);
     }
 
     private static string CreateSourcePath(string sourceKey, string schemaPath)

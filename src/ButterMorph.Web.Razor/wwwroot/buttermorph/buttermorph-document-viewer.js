@@ -365,6 +365,9 @@
           if (stream.match(keywords)) {
             return "keyword";
           }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\s*\{)/)) {
+            return "property";
+          }
           if (stream.match(/[0-9]+(?:\.[0-9]+)?/)) {
             return "number";
           }

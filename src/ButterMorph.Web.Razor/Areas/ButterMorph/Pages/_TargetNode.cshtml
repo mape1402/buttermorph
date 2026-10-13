@@ -1,12 +1,16 @@
 @model ButterMorph.Web.Razor.SchemaTreeDisplayNode
 
+@{
+    string displayType = string.IsNullOrWhiteSpace(Model.DisplayType) ? Model.DataType : Model.DisplayType;
+}
+
 @if (Model.Children.Count > 0)
 {
     <details class="bm-tree-node bm-target-node" open>
         <summary>
             <span class="bm-json-key">@Model.Name</span>
             <span class="bm-json-brace">@((Model.Kind == ButterMorph.Abstractions.SchemaNodeKind.Array) ? "[" : "{")</span>
-            <span class="bm-node-meta">@Model.Kind</span>
+            <span class="bm-node-meta">@displayType</span>
         </summary>
         @if (Model.IsArrayProjection)
         {
@@ -56,10 +60,11 @@ else
          data-drop-target="true"
          data-array-source="@Model.ProjectionSourceExpression"
          data-array-alias="@Model.ProjectionAlias"
-         data-mapping-editor="true">
+         data-mapping-editor="true"
+         data-mapping-mode="@Model.MappingMode">
         <div class="bm-target-label">
-            <strong>@Model.Name</strong>
-            <span>@Model.DataType</span>
+            <strong title="@Model.Name">@Model.Name</strong>
+            <span>@displayType</span>
         </div>
         @if (Model.IsArrayTemplateField)
         {
