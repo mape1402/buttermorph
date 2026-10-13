@@ -173,6 +173,7 @@ internal static class SchemaTreeDisplayBuilder
     private static bool IsDraggableSourceNode(ISchemaTreeNode node)
     {
         return node.Kind == SchemaNodeKind.Scalar ||
+            node.Kind == SchemaNodeKind.Object ||
             node.Kind == SchemaNodeKind.Array ||
             HasReference(node.Metadata);
     }

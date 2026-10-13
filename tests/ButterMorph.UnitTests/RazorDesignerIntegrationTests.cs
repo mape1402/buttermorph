@@ -2705,6 +2705,57 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that object sources can be mapped into open object targets from the visual designer.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerAllowsObjectSourceToOpenObjectTargetMapping()
+    {
+        HttpClient client = _factory.CreateClient();
+        string html = await client.GetStringAsync("/buttermorph/designer");
+        string sourceToken = ExtractToken(html);
+        HttpResponseMessage sourceResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadSourceSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", sourceToken),
+                new KeyValuePair<string, string>("SourceName", "customer"),
+                new KeyValuePair<string, string>("SourceSchemaText", CustomerSchema())
+            ]));
+        string sourceHtml = await sourceResponse.Content.ReadAsStringAsync();
+        string targetToken = ExtractToken(sourceHtml);
+        HttpResponseMessage targetResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=LoadTargetSchema",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", targetToken),
+                new KeyValuePair<string, string>("OutputSchemaText", OpenObjectTargetSchema())
+            ]));
+        string targetHtml = await targetResponse.Content.ReadAsStringAsync();
+        string syncToken = ExtractToken(targetHtml);
+        HttpResponseMessage syncResponse = await client.PostAsync(
+            "/buttermorph/designer" + QueryMarker() + "handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", syncToken),
+                new KeyValuePair<string, string>("TargetPaths", "Payload"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Customer")
+            ]));
+        string json = await syncResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, targetResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+        Assert.Contains("name=\"TargetPaths\" value=\"Payload\"", targetHtml, StringComparison.Ordinal);
+        Assert.Contains("data-path=\"$customer.Customer\"", targetHtml, StringComparison.Ordinal);
+        Assert.Contains("draggable=\"true\"", targetHtml, StringComparison.Ordinal);
+        Assert.True(ReadBoolean(json, "succeeded"));
+        Assert.Equal(0, ReadNumber(json, "diagnosticsCount"));
+        Assert.Equal("$customer.Customer", ReadMapping(json, "Payload"));
+        Assert.Contains("Payload: $customer.Customer", ReadString(json, "dslContent"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that playground scenarios render editable array projection headers.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -3294,6 +3345,12 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     private static string CustomerSchema()
     {
         return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Customer\":{\"type\":\"" + MapType() + "\",\"properties\":{\"Name\":{\"type\":\"string\"},\"Email\":{\"type\":\"string\"}}}}}";
+    }
+
+    // Creates a target schema with an open object property.
+    private static string OpenObjectTargetSchema()
+    {
+        return "{\"type\":\"" + MapType() + "\",\"properties\":{\"Payload\":{\"type\":\"" + MapType() + "\",\"properties\":{}}}}";
     }
 
     // Creates a numeric target JSON Schema without Atlas-incompatible metadata.

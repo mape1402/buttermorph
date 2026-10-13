@@ -115,6 +115,30 @@ public sealed class TransformationEngineTests
     }
 
     /// <summary>
+    /// Confirms that source objects can fill open target object fields.
+    /// </summary>
+    [Fact]
+    public void TransformMapsSourceNodeToOpenTargetObject()
+    {
+        TransformationEngine engine = CreateEngine();
+        TransformationRequest request = CreateRequest(
+        [
+            new TransformationMapping
+            {
+                SourceExpression = CreatePathExpression("$source.Customer"),
+                TargetPath = "Payload"
+            }
+        ]);
+
+        TransformationResult result = engine.Transform(request);
+        IScalarStructureNode target = (IScalarStructureNode)new PathResolver().Resolve(result.ResultGraph.Root, "Payload.Name");
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal("Ada", target.Value.RawValue);
+    }
+
+    /// <summary>
     /// Confirms that target array syntax builds ordered target nodes.
     /// </summary>
     [Fact]

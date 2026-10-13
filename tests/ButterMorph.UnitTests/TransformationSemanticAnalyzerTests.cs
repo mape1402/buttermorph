@@ -115,6 +115,32 @@ public sealed class TransformationSemanticAnalyzerTests
     }
 
     /// <summary>
+    /// Confirms that object source nodes can map to open object targets.
+    /// </summary>
+    [Fact]
+    public void AnalyzeAllowsObjectMappingToOpenObjectTarget()
+    {
+        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
+        ITransformationDocument document = new TransformationDocument
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["source"] = CreateSourceSchema()
+            },
+            TargetSchema = CreateOpenObjectTargetSchema(),
+            Mappings =
+            [
+                CreateMapping(CreatePath("$source.Customer"), "Payload")
+            ]
+        };
+
+        SemanticAnalysisResult result = analyzer.Analyze(document);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
     /// Confirms that missing function descriptors are reported.
     /// </summary>
     [Fact]
@@ -428,6 +454,31 @@ public sealed class TransformationSemanticAnalyzerTests
                                 DataType = "Number"
                             }
                         ]
+                    }
+                ]
+            }
+        };
+    }
+
+    // Creates a target schema with an open object property.
+    private static IStructureSchema CreateOpenObjectTargetSchema()
+    {
+        return new StructureSchema
+        {
+            Key = "target",
+            Name = "Target",
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object,
+                Children =
+                [
+                    new SchemaNode
+                    {
+                        Name = "Payload",
+                        Kind = SchemaNodeKind.Object,
+                        DataType = "object",
+                        Children = []
                     }
                 ]
             }
