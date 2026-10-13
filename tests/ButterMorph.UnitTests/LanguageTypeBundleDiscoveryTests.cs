@@ -1,7 +1,10 @@
+using ButterMorph.Contracts;
+
+[assembly: ButterMorphLanguageTypeBundle("test-shared-types", "csharp", Version = "1.0.0", Description = "Test shared type bundle.")]
+
 namespace ButterMorph.UnitTests;
 
-using ButterMorph.Contracts;
-using ButterMorph.SampleSharedTypes;
+using System.Runtime.Loader;
 using ButterMorph.Web.Razor;
 
 /// <summary>
@@ -10,18 +13,19 @@ using ButterMorph.Web.Razor;
 public sealed class LanguageTypeBundleDiscoveryTests
 {
     /// <summary>
-    /// Confirms assemblies can expose a bundle provider and annotated custom types.
+    /// Confirms assemblies expose bundle metadata and annotated custom types without runtime providers.
     /// </summary>
     [Fact]
-    public void DiscoveryReadsBundleProviderAndAnnotatedTypes()
+    public void DiscoveryReadsBundleAttributeAndAnnotatedTypes()
     {
-        ReflectionButterMorphLanguageTypeBundleDiscovery discovery = new();
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
 
-        ButterMorphLanguageTypeBundleDiscoveryResult result = discovery.Discover(typeof(TestBundle).Assembly);
+        ButterMorphLanguageTypeBundleDiscoveryResult result = Discover(discovery, typeof(LanguageTypeBundleDiscoveryTests).Assembly.Location);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics));
         Assert.Equal("test-shared-types", result.Bundle.AssemblyKey);
         Assert.Equal("csharp", result.Bundle.LanguageKey);
+        Assert.Equal("1.0.0", result.Bundle.AssemblyVersion);
         Assert.Contains(result.Bundle.Types, type =>
             type.Key == "RFC" &&
             type.QualifiedName.Contains(nameof(TestRfc), StringComparison.Ordinal) &&
@@ -40,31 +44,77 @@ public sealed class LanguageTypeBundleDiscoveryTests
     [Fact]
     public void DiscoveryReadsSampleSharedTypesAssembly()
     {
-        ReflectionButterMorphLanguageTypeBundleDiscovery discovery = new();
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
+        string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ButterMorph.SampleSharedTypes.dll");
 
-        ButterMorphLanguageTypeBundleDiscoveryResult result = discovery.Discover(typeof(SampleLanguageTypeBundle).Assembly);
+        ButterMorphLanguageTypeBundleDiscoveryResult result = Discover(discovery, assemblyPath);
 
         Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics));
         Assert.Equal("sample-shared-types", result.Bundle.AssemblyKey);
         Assert.Equal("csharp", result.Bundle.LanguageKey);
         Assert.Contains(result.Bundle.Types, type =>
             type.Key == "RFC" &&
-            type.QualifiedName == typeof(Rfc).FullName &&
+            type.QualifiedName == "ButterMorph.SampleSharedTypes.Rfc" &&
             type.Version == "1.0.0");
         Assert.Contains(result.Bundle.Types, type =>
             type.Key == "Money" &&
-            type.QualifiedName == typeof(Money).FullName);
+            type.QualifiedName == "ButterMorph.SampleSharedTypes.Money");
     }
 
-    private sealed class TestBundle : IButterMorphLanguageTypeBundle
+    /// <summary>
+    /// Confirms scanning an uploaded DLL does not load it into the default assembly context.
+    /// </summary>
+    [Fact]
+    public void DiscoveryDoesNotLoadUploadedAssemblyIntoDefaultContext()
     {
-        public string Key => "test-shared-types";
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
+        string assemblyPath = Path.Combine(AppContext.BaseDirectory, "ButterMorph.SampleSharedTypes.dll");
+        int before = CountDefaultContextAssemblies("ButterMorph.SampleSharedTypes");
 
-        public string Language => "csharp";
+        ButterMorphLanguageTypeBundleDiscoveryResult result = Discover(discovery, assemblyPath);
 
-        public string Version => "1.0.0";
+        int after = CountDefaultContextAssemblies("ButterMorph.SampleSharedTypes");
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics));
+        Assert.Equal(before, after);
+    }
 
-        public string Description => "Test shared type bundle.";
+    /// <summary>
+    /// Confirms the scanner leaves uploaded files deletable after metadata inspection.
+    /// </summary>
+    [Fact]
+    public void DiscoveryLeavesUploadedFileDeletable()
+    {
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
+        string sourcePath = Path.Combine(AppContext.BaseDirectory, "ButterMorph.SampleSharedTypes.dll");
+        string temporaryPath = Path.Combine(Path.GetTempPath(), "buttermorph-test-" + Guid.NewGuid().ToString("N") + ".dll");
+        File.Copy(sourcePath, temporaryPath);
+
+        try
+        {
+            ButterMorphLanguageTypeBundleDiscoveryResult result = Discover(discovery, temporaryPath);
+
+            Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics));
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    /// <summary>
+    /// Confirms assemblies must declare metadata attributes instead of runtime providers.
+    /// </summary>
+    [Fact]
+    public void DiscoveryRejectsAssembliesWithoutBundleAttribute()
+    {
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery = new();
+        string assemblyPath = typeof(MetadataButterMorphLanguageTypeBundleDiscovery).Assembly.Location;
+
+        ButterMorphLanguageTypeBundleDiscoveryResult result = Discover(discovery, assemblyPath);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("ButterMorphLanguageTypeBundleAttribute", result.Diagnostics[0], StringComparison.Ordinal);
+        Assert.Contains("Runtime bundle providers are no longer supported", result.Diagnostics[0], StringComparison.Ordinal);
     }
 
     [ButterMorphLanguageType("RFC", Name = "RFC", Version = "2.1.0", Description = "RFC Mexico")]
@@ -75,5 +125,19 @@ public sealed class LanguageTypeBundleDiscoveryTests
     [ButterMorphLanguageType("DefaultVersion", Name = "Default Version", Description = "Uses the default version.")]
     private sealed class TestDefaultVersion
     {
+    }
+
+    private static ButterMorphLanguageTypeBundleDiscoveryResult Discover(
+        MetadataButterMorphLanguageTypeBundleDiscovery discovery,
+        string assemblyPath)
+    {
+        using FileStream stream = File.OpenRead(assemblyPath);
+        return discovery.Discover(stream, Path.GetFileName(assemblyPath));
+    }
+
+    private static int CountDefaultContextAssemblies(string assemblyName)
+    {
+        return AssemblyLoadContext.Default.Assemblies.Count(assembly =>
+            string.Equals(assembly.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase));
     }
 }

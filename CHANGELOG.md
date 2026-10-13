@@ -7,6 +7,23 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.1] - 2026-10-12
+
+### Added
+- Added metadata-only language type bundle discovery with `ButterMorphLanguageTypeBundleAttribute`.
+- Added `ButterMorphIgnoreAttribute` for excluding properties and fields from model-based schema discovery.
+
+### Changed
+- Replaced runtime language type bundle providers with assembly-level bundle metadata attributes so uploaded DLLs are scanned without loading or executing them.
+
+### Fixed
+- Fixed the Type Bundles save action styling so it follows the existing primary button design in light and dark modes.
+
+### Compatibility
+- Shared type assemblies must declare `ButterMorphLanguageTypeBundleAttribute`; runtime implementations of `IButterMorphLanguageTypeBundle` are no longer supported for bundle discovery.
+
+---
+
 ## [v2.1.0] - 2026-10-12
 
 ### Added

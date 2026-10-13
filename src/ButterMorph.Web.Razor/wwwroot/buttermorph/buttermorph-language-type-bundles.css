@@ -87,10 +87,10 @@ body[data-bm-theme-mode="dark"] .bm-type-bundle-upload button[type="submit"]:hov
   color: var(--bm-accent-text);
 }
 
-.bm-type-bundle-save,
-.bm-type-bundle-save:disabled,
-body[data-bm-theme-mode="dark"] .bm-type-bundle-save,
-body[data-bm-theme-mode="dark"] .bm-type-bundle-save:disabled {
+.bm-type-bundle-topbar .bm-type-bundle-save,
+.bm-type-bundle-topbar .bm-type-bundle-save:disabled,
+body[data-bm-theme-mode="dark"] .bm-type-bundle-topbar .bm-type-bundle-save,
+body[data-bm-theme-mode="dark"] .bm-type-bundle-topbar .bm-type-bundle-save:disabled {
   background: var(--bm-primary);
   background-color: var(--bm-primary);
   border-color: var(--bm-primary);
@@ -98,8 +98,8 @@ body[data-bm-theme-mode="dark"] .bm-type-bundle-save:disabled {
   opacity: 1;
 }
 
-.bm-type-bundle-save:hover:not(:disabled),
-body[data-bm-theme-mode="dark"] .bm-type-bundle-save:hover:not(:disabled) {
+.bm-type-bundle-topbar .bm-type-bundle-save:hover:not(:disabled),
+body[data-bm-theme-mode="dark"] .bm-type-bundle-topbar .bm-type-bundle-save:hover:not(:disabled) {
   background: var(--bm-primary-hover);
   background-color: var(--bm-primary-hover);
   border-color: var(--bm-primary-hover);

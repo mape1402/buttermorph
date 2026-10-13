@@ -66,27 +66,27 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="2.1.0" />
-<PackageReference Include="ButterMorph.Json" Version="2.1.0" />
+<PackageReference Include="ButterMorph" Version="2.1.1" />
+<PackageReference Include="ButterMorph.Json" Version="2.1.1" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.0" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.1" />
 ```
 
 Language adapters and code generation:
 
 ```xml
-<PackageReference Include="ButterMorph.Language" Version="2.1.0" />
-<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.0" />
+<PackageReference Include="ButterMorph.Language" Version="2.1.1" />
+<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.1" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.0" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.1" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -238,6 +238,37 @@ The schema, mapping, and validation viewers provide a user-friendly view and a r
 ## Language Type Mapping and Code Generation
 
 Language adapters are regular NuGet packages. `ButterMorph.Language` defines the adapter contracts and document models; `ButterMorph.Language.CSharp` provides the official C# adapter.
+
+Shared business type assemblies expose bundle metadata through attributes from `ButterMorph.Contracts`. ButterMorph scans uploaded DLLs with metadata-only inspection; it does not load the assembly into the host process and does not instantiate provider classes.
+
+```csharp
+using ButterMorph.Contracts;
+
+[assembly: ButterMorphLanguageTypeBundle(
+    "sample-shared-types",
+    "csharp",
+    Version = "1.0.0",
+    Description = "Sample C# shared business types.")]
+
+namespace Company.SharedTypes;
+
+[ButterMorphLanguageType("RFC", Name = "RFC", Version = "1.0.0", Description = "Mexican RFC business identifier.")]
+public readonly record struct Rfc(string Value);
+```
+
+`ButterMorphLanguageTypeBundleAttribute` is required for bundle discovery. Runtime bundle provider classes are not supported for uploaded DLLs. `ButterMorphLanguageTypeAttribute.Version` defaults to `1.0.0` when omitted.
+
+Use `[ButterMorphIgnore]` on properties or fields that should be excluded when a model is inspected for ButterMorph schema discovery:
+
+```csharp
+public sealed class CustomerContract
+{
+    public string Name { get; init; } = string.Empty;
+
+    [ButterMorphIgnore]
+    public string InternalTraceId { get; init; } = string.Empty;
+}
+```
 
 Hosts own language type mapping documents. A type mapping document selects one language, references the language type bundles used by the mapping, and maps ButterMorph data types to language-native types:
 
