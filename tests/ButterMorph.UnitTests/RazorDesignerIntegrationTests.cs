@@ -3,6 +3,7 @@ namespace ButterMorph.UnitTests;
 using ButterMorph.Abstractions;
 using ButterMorph.Contracts;
 using ButterMorph.Core;
+using ButterMorph.SchemaDesign;
 using ButterMorph.Web.Razor;
 using Microsoft.AspNetCore.Hosting;
 using System.Net;
@@ -135,6 +136,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-detail-dialog=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("\"root\":", html, StringComparison.Ordinal);
         Assert.Contains("Name", html, StringComparison.Ordinal);
+        Assert.Contains("\"dataType\":\"UniqueIdentifier\"", html, StringComparison.Ordinal);
+        Assert.Contains("\"dataType\":\"RFC\"", html, StringComparison.Ordinal);
         Assert.Contains("minLength", html, StringComparison.Ordinal);
         Assert.Contains("vendor/codemirror/codemirror.min.js", html, StringComparison.Ordinal);
         Assert.Contains("buttermorph-schema-viewer.js", html, StringComparison.Ordinal);
@@ -3073,7 +3076,28 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         {
             LoadResult = new ButterMorphPayloadSchemaViewerLoadResult
             {
-                JsonSchema = SchemaViewerJson()
+                JsonSchema = SchemaViewerJson(),
+                SchemaTypes =
+                [
+                    new SchemaTypeCatalogItem
+                    {
+                        TypeId = "1af5b754-142d-4136-8640-71ba70bec3c9",
+                        TypeVersionId = "unique-id-v1",
+                        Name = "UniqueIdentifier",
+                        VersionNumber = "1.0.0",
+                        BaseType = "string",
+                        JsonSchema = "{\"type\":\"string\"}"
+                    },
+                    new SchemaTypeCatalogItem
+                    {
+                        TypeId = "c2c0955c-acd1-43bc-b618-25001b71997e",
+                        TypeVersionId = "rfc-v1",
+                        Name = "RFC",
+                        VersionNumber = "1.0.0",
+                        BaseType = "string",
+                        JsonSchema = "{\"type\":\"string\"}"
+                    }
+                ]
             }
         };
     }
@@ -3098,7 +3122,10 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                 new ButterMorphLanguageTypeMapping { ButterMorphType = "number", LanguageType = "decimal" },
                 new ButterMorphLanguageTypeMapping { ButterMorphType = "boolean", LanguageType = "bool" },
                 new ButterMorphLanguageTypeMapping { ButterMorphType = "object", LanguageType = "object" },
-                new ButterMorphLanguageTypeMapping { ButterMorphType = "RFC", LanguageType = "Company.SharedTypes.Rfc" }
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "UniqueIdentifier", LanguageType = "Company.SharedTypes.UniqueIdentifier" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "RFC", LanguageType = "Company.SharedTypes.Rfc" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "1af5b754-142d-4136-8640-71ba70bec3c9", ButterMorphTypeVersion = "1.0.0", LanguageType = "Company.SharedTypes.UniqueIdentifier" },
+                new ButterMorphLanguageTypeMapping { ButterMorphType = "c2c0955c-acd1-43bc-b618-25001b71997e", ButterMorphTypeVersion = "1.0.0", LanguageType = "Company.SharedTypes.Rfc" }
             ]
         };
     }
@@ -3311,6 +3338,18 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
           "metadata": {
             "topic": "Customers"
           },
+          "$defs": {
+            "1af5b754-142d-4136-8640-71ba70bec3c9@1.0.0": {
+              "type": "string",
+              "minLength": 26,
+              "maxLength": 26
+            },
+            "c2c0955c-acd1-43bc-b618-25001b71997e@1.0.0": {
+              "type": "string",
+              "minLength": 12,
+              "maxLength": 13
+            }
+          },
           "properties": {
             "Name": {
               "type": "string",
@@ -3321,6 +3360,16 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
               "metadata": {
                 "classification": "Confidential"
               }
+            },
+            "Id": {
+              "$ref": "#/$defs/1af5b754-142d-4136-8640-71ba70bec3c9@1.0.0",
+              "description": "Unique Identifier",
+              "required": true
+            },
+            "RFC": {
+              "$ref": "#/$defs/c2c0955c-acd1-43bc-b618-25001b71997e@1.0.0",
+              "description": "RFC Mexico",
+              "required": true
             },
             "Contacts": {
               "type": "array",

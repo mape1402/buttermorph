@@ -13,6 +13,11 @@ public sealed class ButterMorphPayloadSchemaViewerLoadResult
     public PayloadSchemaDefinition Definition { get; set; }
 
     /// <summary>
+    /// Gets or sets the custom schema types available to this viewer launch.
+    /// </summary>
+    public IReadOnlyCollection<SchemaTypeCatalogItem> SchemaTypes { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets raw schema JSON used when a definition is not available.
     /// </summary>
     public string JsonSchema { get; set; } = string.Empty;

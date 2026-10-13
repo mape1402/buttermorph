@@ -353,9 +353,15 @@ internal sealed class StudioButterMorphHost :
             });
         }
 
+        IReadOnlyCollection<string> customTypeIds = ResolveInjectedIds([], schema.InjectedCustomTypeKeys);
+        IReadOnlyCollection<StudioCustomType> injectedTypes = store.CustomTypes
+            .Where(item => customTypeIds.Contains(item.Id, StringComparer.OrdinalIgnoreCase))
+            .ToArray();
+
         return Task.FromResult(new ButterMorphPayloadSchemaViewerLoadResult
         {
             Definition = ReadDefinition<PayloadSchemaDefinition>(schema.ButterMorphResultJson),
+            SchemaTypes = CreateTypeCatalog(injectedTypes),
             JsonSchema = ResolveSchemaJson(schema),
             Message = string.Empty
         });

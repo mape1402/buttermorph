@@ -7,6 +7,13 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.3] - 2026-10-13
+
+### Fixed
+- Fixed schema viewer custom type labels so referenced fields display the custom data type name instead of the generic custom type text.
+
+---
+
 ## [v2.1.2] - 2026-10-13
 
 ### Fixed
