@@ -119,7 +119,7 @@ public sealed class PayloadSchemaViewerModel : PageModel
     {
         ButterMorphPayloadSchemaViewerLoadResult result = await LoadSchema();
         RawJson = CreateRawJson(result);
-        Viewer = SchemaViewerDisplayBuilder.Build(result.Definition, RawJson);
+        Viewer = SchemaViewerDisplayBuilder.Build(result.Definition, RawJson, result.SchemaTypes);
         ViewerDataJson = JsonSerializer.Serialize(Viewer, ViewerJsonOptions);
         CodeDataJson = await CreateCodeDataJson(result.Definition);
         Message = result.Message;

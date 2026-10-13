@@ -80,13 +80,17 @@ internal static class SchemaViewerDisplayBuilder
         ["allowedValues"] = "Allowed values"
     };
 
-    internal static SchemaViewerDisplayModel Build(PayloadSchemaDefinition definition, string rawJson)
+    internal static SchemaViewerDisplayModel Build(
+        PayloadSchemaDefinition definition,
+        string rawJson,
+        IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes = null)
     {
         string json = string.IsNullOrWhiteSpace(rawJson) ? "{}" : rawJson;
+        IReadOnlyDictionary<string, string> typeLabels = CreateTypeLabels(schemaTypes);
         try
         {
             using JsonDocument document = JsonDocument.Parse(json);
-            return Build(definition, document.RootElement);
+            return Build(definition, document.RootElement, typeLabels);
         }
         catch (JsonException)
         {
@@ -109,12 +113,15 @@ internal static class SchemaViewerDisplayBuilder
         }
     }
 
-    private static SchemaViewerDisplayModel Build(PayloadSchemaDefinition definition, JsonElement root)
+    private static SchemaViewerDisplayModel Build(
+        PayloadSchemaDefinition definition,
+        JsonElement root,
+        IReadOnlyDictionary<string, string> typeLabels)
     {
         List<SchemaViewerNodeDisplayModel> fields = [];
         int nextId = 0;
         IReadOnlyCollection<SchemaViewerNodeDisplayModel> children = TryGetObject(root, "properties", out JsonElement properties)
-            ? ReadProperties(properties, string.Empty, root, fields, [], ref nextId)
+            ? ReadProperties(properties, string.Empty, root, fields, [], typeLabels, ref nextId)
             : [];
 
         IReadOnlyCollection<SchemaViewerEntryDisplayModel> metadata = ReadMetadata(root);
@@ -161,12 +168,13 @@ internal static class SchemaViewerDisplayBuilder
         JsonElement root,
         List<SchemaViewerNodeDisplayModel> fields,
         HashSet<string> visitedRefs,
+        IReadOnlyDictionary<string, string> typeLabels,
         ref int nextId)
     {
         List<SchemaViewerNodeDisplayModel> nodes = [];
         foreach (JsonProperty property in properties.EnumerateObject())
         {
-            nodes.Add(ReadField(property.Name, property.Value, parentPath, root, fields, visitedRefs, ref nextId));
+            nodes.Add(ReadField(property.Name, property.Value, parentPath, root, fields, visitedRefs, typeLabels, ref nextId));
         }
 
         return nodes;
@@ -179,16 +187,17 @@ internal static class SchemaViewerDisplayBuilder
         JsonElement root,
         List<SchemaViewerNodeDisplayModel> fields,
         HashSet<string> visitedRefs,
+        IReadOnlyDictionary<string, string> typeLabels,
         ref int nextId)
     {
         string path = string.IsNullOrWhiteSpace(parentPath) ? name : parentPath + "." + name;
         string reference = ReadString(element, "$ref", string.Empty);
         JsonElement effectiveElement = ResolveEffectiveElement(element, root, reference);
         string kind = ResolveKind(element, effectiveElement);
-        string dataType = ResolveDisplayType(element, effectiveElement, root);
+        string dataType = ResolveDisplayType(element, effectiveElement, root, typeLabels, name);
         IReadOnlyCollection<SchemaViewerEntryDisplayModel> restrictions = MergeEntries(ReadRestrictions(effectiveElement), ReadRestrictions(element));
         IReadOnlyCollection<SchemaViewerEntryDisplayModel> metadata = ReadMetadata(element);
-        IReadOnlyCollection<SchemaViewerNodeDisplayModel> children = ReadChildren(element, effectiveElement, path, root, fields, visitedRefs, ref nextId);
+        IReadOnlyCollection<SchemaViewerNodeDisplayModel> children = ReadChildren(element, effectiveElement, path, root, fields, visitedRefs, typeLabels, ref nextId);
         bool isRequired = ReadBoolean(element, "required");
         SchemaViewerNodeDisplayModel field = new()
         {
@@ -219,6 +228,7 @@ internal static class SchemaViewerDisplayBuilder
         JsonElement root,
         List<SchemaViewerNodeDisplayModel> fields,
         HashSet<string> visitedRefs,
+        IReadOnlyDictionary<string, string> typeLabels,
         ref int nextId)
     {
         if (TryGetObject(element, "items", out JsonElement items))
@@ -227,18 +237,18 @@ internal static class SchemaViewerDisplayBuilder
             JsonElement effectiveItems = ResolveEffectiveElement(items, root, ReadString(items, "$ref", string.Empty));
             if (TryGetObject(effectiveItems, "properties", out JsonElement itemProperties))
             {
-                return ReadProperties(itemProperties, itemPath, root, fields, visitedRefs, ref nextId);
+                return ReadProperties(itemProperties, itemPath, root, fields, visitedRefs, typeLabels, ref nextId);
             }
 
             if (TryGetObject(items, "properties", out JsonElement inlineItemProperties))
             {
-                return ReadProperties(inlineItemProperties, itemPath, root, fields, visitedRefs, ref nextId);
+                return ReadProperties(inlineItemProperties, itemPath, root, fields, visitedRefs, typeLabels, ref nextId);
             }
         }
 
         if (TryGetObject(element, "properties", out JsonElement childProperties))
         {
-            return ReadProperties(childProperties, path, root, fields, visitedRefs, ref nextId);
+            return ReadProperties(childProperties, path, root, fields, visitedRefs, typeLabels, ref nextId);
         }
 
         if (TryGetObject(effectiveElement, "properties", out JsonElement effectiveProperties))
@@ -246,7 +256,7 @@ internal static class SchemaViewerDisplayBuilder
             string reference = ReadString(element, "$ref", string.Empty);
             if (string.IsNullOrWhiteSpace(reference) || visitedRefs.Add(reference))
             {
-                IReadOnlyCollection<SchemaViewerNodeDisplayModel> nodes = ReadProperties(effectiveProperties, path, root, fields, visitedRefs, ref nextId);
+                IReadOnlyCollection<SchemaViewerNodeDisplayModel> nodes = ReadProperties(effectiveProperties, path, root, fields, visitedRefs, typeLabels, ref nextId);
                 if (!string.IsNullOrWhiteSpace(reference))
                 {
                     visitedRefs.Remove(reference);
@@ -383,21 +393,72 @@ internal static class SchemaViewerDisplayBuilder
         return ReadValue(element);
     }
 
-    private static string ResolveDisplayType(JsonElement element, JsonElement effectiveElement, JsonElement root)
+    private static string ResolveDisplayType(
+        JsonElement element,
+        JsonElement effectiveElement,
+        JsonElement root,
+        IReadOnlyDictionary<string, string> typeLabels,
+        string fallbackName)
     {
-        if (!string.IsNullOrWhiteSpace(ReadString(element, "$ref", string.Empty)))
+        string reference = ReadString(element, "$ref", string.Empty);
+        if (!string.IsNullOrWhiteSpace(reference))
         {
-            return "custom type";
+            return ResolveReferenceLabel(element, effectiveElement, reference, fallbackName, typeLabels);
         }
 
         string type = NormalizeType(ReadString(element, "type", ReadString(effectiveElement, "type", string.Empty)));
         if (string.Equals(type, "array", StringComparison.OrdinalIgnoreCase) &&
             TryGetObject(element, "items", out JsonElement items))
         {
-            return "array of " + ResolveDisplayType(items, ResolveEffectiveElement(items, root, ReadString(items, "$ref", string.Empty)), root);
+            return "array of " + ResolveDisplayType(items, ResolveEffectiveElement(items, root, ReadString(items, "$ref", string.Empty)), root, typeLabels, string.Empty);
         }
 
         return string.IsNullOrWhiteSpace(type) ? ResolveKind(element, effectiveElement) : type;
+    }
+
+    private static string ResolveReferenceLabel(
+        JsonElement element,
+        JsonElement effectiveElement,
+        string reference,
+        string fallbackName,
+        IReadOnlyDictionary<string, string> typeLabels)
+    {
+        string referenceKey = ExtractReferenceKey(reference);
+        if (!string.IsNullOrWhiteSpace(referenceKey) &&
+            typeLabels.TryGetValue(referenceKey, out string label) &&
+            !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        string unversionedKey = RemoveVersion(referenceKey);
+        if (!string.IsNullOrWhiteSpace(unversionedKey) &&
+            typeLabels.TryGetValue(unversionedKey, out label) &&
+            !string.IsNullOrWhiteSpace(label))
+        {
+            return label;
+        }
+
+        foreach (string key in new[] { "typeName", "name", "title", "typeKey", "key", "typeId" })
+        {
+            string value = ResolveValue(ReadString(element, key, string.Empty), ReadString(effectiveElement, key, string.Empty));
+            if (!string.IsNullOrWhiteSpace(value) && !IsGuidLike(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(unversionedKey) && !IsGuidLike(unversionedKey))
+        {
+            return unversionedKey;
+        }
+
+        if (!string.IsNullOrWhiteSpace(fallbackName))
+        {
+            return fallbackName.Trim();
+        }
+
+        return "custom type";
     }
 
     private static string ResolveKind(JsonElement element, JsonElement effectiveElement)
@@ -436,6 +497,70 @@ internal static class SchemaViewerDisplayBuilder
         return TryGetObject(root, "$defs", out JsonElement definitions) &&
             definitions.TryGetProperty(key, out definition) &&
             definition.ValueKind == JsonValueKind.Object;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateTypeLabels(IReadOnlyCollection<SchemaTypeCatalogItem> schemaTypes)
+    {
+        Dictionary<string, string> labels = new(StringComparer.OrdinalIgnoreCase);
+        foreach (SchemaTypeCatalogItem item in schemaTypes ?? [])
+        {
+            string label = ResolveValue(item.Name, item.TypeId, item.TypeVersionId);
+            AddTypeLabel(labels, ResolveDefinitionKey(item), label);
+            AddTypeLabel(labels, item.TypeVersionId, label);
+            AddTypeLabel(labels, item.TypeId, label);
+            AddTypeLabel(labels, item.Name, label);
+        }
+
+        return labels;
+    }
+
+    private static void AddTypeLabel(Dictionary<string, string> labels, string key, string label)
+    {
+        if (!string.IsNullOrWhiteSpace(key) &&
+            !string.IsNullOrWhiteSpace(label) &&
+            !labels.ContainsKey(key.Trim()))
+        {
+            labels[key.Trim()] = label.Trim();
+        }
+    }
+
+    private static string ResolveDefinitionKey(SchemaTypeCatalogItem item)
+    {
+        string key = string.IsNullOrWhiteSpace(item.TypeId)
+            ? item.Name
+            : item.TypeId;
+
+        return string.IsNullOrWhiteSpace(item.VersionNumber)
+            ? key
+            : key.Trim() + "@" + item.VersionNumber.Trim();
+    }
+
+    private static string ExtractReferenceKey(string reference)
+    {
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            return string.Empty;
+        }
+
+        string label = reference.Trim();
+        int slashIndex = label.LastIndexOf('/');
+        if (slashIndex >= 0 && slashIndex < label.Length - 1)
+        {
+            label = label[(slashIndex + 1)..];
+        }
+
+        return Uri.UnescapeDataString(label).Trim();
+    }
+
+    private static string RemoveVersion(string value)
+    {
+        int atIndex = value.IndexOf('@', StringComparison.Ordinal);
+        return atIndex > 0 ? value[..atIndex].Trim() : value;
+    }
+
+    private static bool IsGuidLike(string value)
+    {
+        return Guid.TryParse(value, out _);
     }
 
     private static string ResolveSchemaName(PayloadSchemaDefinition definition, JsonElement root)
