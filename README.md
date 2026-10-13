@@ -1,8 +1,9 @@
 # ButterMorph
 
-[![Build and Release](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
-[![NuGet Package](https://img.shields.io/nuget/v/ButterMorph.svg?label=NuGet)](https://www.nuget.org/packages/ButterMorph)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/ButterMorph.svg?label=Downloads)](https://www.nuget.org/packages/ButterMorph)
+[![Build](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
+[![NuGet](https://img.shields.io/nuget/v/ButterMorph.svg?label=NuGet)](https://www.nuget.org/packages/ButterMorph)
+[![Downloads](https://img.shields.io/nuget/dt/ButterMorph.svg?label=Downloads)](https://www.nuget.org/packages/ButterMorph)
+[![Coverage](https://img.shields.io/badge/Coverage-78%25-yellowgreen)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
 [![License](https://img.shields.io/github/license/mape1402/buttermorph.svg)](LICENSE)
 
 ButterMorph is a modular .NET toolkit for designing, storing, validating, and executing shape-neutral data transformations.
