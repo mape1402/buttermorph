@@ -7,6 +7,14 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.2] - 2026-10-13
+
+### Fixed
+- Fixed mapping designer object passthrough support so source object nodes can be assigned to open object target fields.
+- Added regression coverage for open object target mapping across visual designer sync, DSL roundtrip, semantic analysis, transformation execution, and schema validation.
+
+---
+
 ## [v2.1.1] - 2026-10-12
 
 ### Added

@@ -240,6 +240,30 @@ public sealed class DslExporterTests
     }
 
     /// <summary>
+    /// Confirms that direct object mappings export and parse back as a field assignment.
+    /// </summary>
+    [Fact]
+    public void ExportRoundtripPreservesDirectObjectMapping()
+    {
+        ITransformationDocument document = new TransformationDocument
+        {
+            Mappings =
+            [
+                CreateMapping(CreatePath("$source.Customer"), "Payload")
+            ]
+        };
+
+        string dsl = new DslExporter().Export(document);
+        ITransformationDocument parsed = Parse(dsl);
+
+        Assert.Contains("Payload: $source.Customer", dsl, System.StringComparison.Ordinal);
+        ITransformationMapping mapping = Assert.Single(parsed.Mappings);
+        Assert.Equal("Payload", mapping.TargetPath);
+        IPathExpression expression = Assert.IsAssignableFrom<IPathExpression>(mapping.SourceExpression);
+        Assert.Equal("$source.Customer", expression.Path);
+    }
+
+    /// <summary>
     /// Confirms that validation DSL exports and parses assertions back into a validation document.
     /// </summary>
     [Fact]

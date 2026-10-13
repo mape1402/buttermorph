@@ -37,6 +37,56 @@ public sealed class SchemaValidatorTests
     }
 
     /// <summary>
+    /// Confirms that object schemas without defined children accept arbitrary object payloads.
+    /// </summary>
+    [Fact]
+    public void ValidateAllowsOpenObjectChildren()
+    {
+        SchemaValidator validator = new();
+        ValidationRequest request = new()
+        {
+            SourceGraph = ReadJson(
+                """
+                {
+                  "payload": {
+                    "name": "Ada",
+                    "nested": {
+                      "id": "A1"
+                    }
+                  }
+                }
+                """),
+            Schema = new StructureSchema
+            {
+                Key = "OpenPayload",
+                Name = "Open Payload",
+                Root = new SchemaNode
+                {
+                    Name = "$root",
+                    Kind = SchemaNodeKind.Object,
+                    DataType = "object",
+                    Children =
+                    [
+                        new SchemaNode
+                        {
+                            Name = "payload",
+                            Kind = SchemaNodeKind.Object,
+                            DataType = "object",
+                            IsRequired = true,
+                            Children = []
+                        }
+                    ]
+                }
+            }
+        };
+
+        ValidationResult result = validator.Validate(request);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    /// <summary>
     /// Confirms that required fields and schema metadata restrictions are enforced.
     /// </summary>
     [Fact]
