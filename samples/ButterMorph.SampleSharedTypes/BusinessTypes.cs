@@ -1,6 +1,8 @@
-namespace ButterMorph.SampleSharedTypes;
-
 using ButterMorph.Contracts;
+
+[assembly: ButterMorphLanguageTypeBundle("sample-shared-types", "csharp", Version = "1.0.0", Description = "Sample C# shared business types for bundle discovery.")]
+
+namespace ButterMorph.SampleSharedTypes;
 
 /// <summary>
 /// Sample unique identifier value object.

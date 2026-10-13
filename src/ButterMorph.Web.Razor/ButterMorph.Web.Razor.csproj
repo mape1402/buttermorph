@@ -8,6 +8,7 @@
     <PackageTags>buttermorph razor razor-pages designer mapping schema ui</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
     <ProjectReference Include="..\ButterMorph.Contracts\ButterMorph.Contracts.csproj" />
     <ProjectReference Include="..\ButterMorph\ButterMorph.csproj" />
     <ProjectReference Include="..\ButterMorph.Design\ButterMorph.Design.csproj" />

@@ -10,7 +10,7 @@
 
     save.disabled = !discoveredBundle;
     if (!discoveredBundle) {
-      preview.innerHTML = '<p class="bm-type-bundle-empty">Upload a .dll with a bundle provider and annotated language types.</p>';
+      preview.innerHTML = '<p class="bm-type-bundle-empty">Upload a .dll with bundle metadata and annotated language types.</p>';
       return;
     }
 
