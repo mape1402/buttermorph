@@ -1,5 +1,9 @@
 @model ButterMorph.Web.Razor.SchemaTreeDisplayNode
 
+@{
+    string displayType = string.IsNullOrWhiteSpace(Model.DisplayType) ? Model.DataType : Model.DisplayType;
+}
+
 @if (Model.Children.Count > 0)
 {
     <details class="bm-tree-node bm-source-node">
@@ -12,7 +16,7 @@
                  data-field-description="@Model.Description"
                  aria-label="@Model.Path">
             <span class="bm-node-name">@Model.Name</span>
-            <span class="bm-node-meta">@Model.Kind</span>
+            <span class="bm-node-meta">@displayType</span>
             <span class="bm-sidebar-tooltip bm-source-field-tooltip" role="tooltip">
                 <span><strong>Key</strong><span>@Model.Path</span></span>
                 @if (!string.IsNullOrWhiteSpace(Model.Description))
@@ -41,7 +45,7 @@ else
             data-field-description="@Model.Description"
             aria-label="@Model.Path">
         <span class="bm-node-name">@Model.Name</span>
-        <span class="bm-node-meta">@Model.DataType</span>
+        <span class="bm-node-meta">@displayType</span>
         <span class="bm-sidebar-tooltip bm-source-field-tooltip" role="tooltip">
             <span><strong>Key</strong><span>@Model.Path</span></span>
             @if (!string.IsNullOrWhiteSpace(Model.Description))

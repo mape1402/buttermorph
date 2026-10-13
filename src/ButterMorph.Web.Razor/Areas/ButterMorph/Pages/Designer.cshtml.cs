@@ -1631,7 +1631,8 @@ public sealed class DesignerModel : PageModel
                 Name = node.Name,
                 Kind = node.Kind,
                 Description = node.Description,
-                DataType = node.DataType
+                DataType = node.DataType,
+                DisplayType = node.DisplayType
             });
         }
 

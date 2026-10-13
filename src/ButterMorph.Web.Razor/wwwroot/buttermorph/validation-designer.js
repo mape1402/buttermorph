@@ -14,10 +14,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const dslImportButton = document.querySelector("[data-dsl-import-button='true']");
   const dslImportFile = document.querySelector("[data-dsl-import-file='true']");
+  const dslExportButton = document.querySelector("[data-dsl-export-button='true']");
+  const dslCopyButton = document.querySelector("[data-dsl-copy-button='true']");
+  const dslActionToast = document.querySelector("[data-dsl-action-toast='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
   const leftDockModeKey = "ButterMorphValidationDesigner.LeftDockMode";
   const leftDockPanelKey = "ButterMorphValidationDesigner.LeftDockPanel";
   const importMessageKey = "ButterMorphValidationDesigner.ImportMessage";
+  let dslActionToastTimer = 0;
 
   function readValue(source, key) {
     if (!source) {
@@ -110,6 +114,9 @@ document.addEventListener("DOMContentLoaded", function () {
           }
           if (stream.match(keywords)) {
             return "keyword";
+          }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\s*\{)/)) {
+            return "property";
           }
           if (stream.match(/[0-9]+(?:\.[0-9]+)?/)) {
             return "number";
@@ -416,6 +423,96 @@ document.addEventListener("DOMContentLoaded", function () {
     file.text().then(importDslText).catch(function () {
       updateErrorMessage("Import failed. The selected file could not be read.");
     });
+  }
+
+  function exportDslFile() {
+    downloadTextFile(readDslValue(), resolveDslExportFileName());
+    showDslActionToast("File exported");
+  }
+
+  function copyDslToClipboard() {
+    copyTextToClipboard(readDslValue()).then(function () {
+      showDslActionToast("Copied");
+    }).catch(function () {
+      showDslActionToast("Copy failed");
+    });
+  }
+
+  function resolveDslExportFileName() {
+    const heading = document.querySelector(".bm-topbar h1");
+    const name = heading ? heading.textContent : "validation";
+    return sanitizeFileName(name || "validation") + ".bmh";
+  }
+
+  function downloadTextFile(value, fileName) {
+    const blob = new Blob([value || ""], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function copyTextToClipboard(value) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value || "");
+    }
+
+    return new Promise(function (resolve, reject) {
+      const fallback = document.createElement("textarea");
+      fallback.value = value || "";
+      fallback.setAttribute("readonly", "readonly");
+      fallback.style.position = "fixed";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+
+      try {
+        if (document.execCommand("copy")) {
+          resolve();
+        } else {
+          reject(new Error("Copy command failed."));
+        }
+      } catch (error) {
+        reject(error);
+      } finally {
+        fallback.remove();
+      }
+    });
+  }
+
+  function showDslActionToast(message) {
+    if (!dslActionToast) {
+      return;
+    }
+
+    dslActionToast.textContent = message || "";
+    dslActionToast.hidden = false;
+    dslActionToast.classList.add("is-visible");
+    window.clearTimeout(dslActionToastTimer);
+    dslActionToastTimer = window.setTimeout(function () {
+      dslActionToast.classList.remove("is-visible");
+      window.setTimeout(function () {
+        if (!dslActionToast.classList.contains("is-visible")) {
+          dslActionToast.hidden = true;
+        }
+      }, 180);
+    }, 1500);
+  }
+
+  function sanitizeFileName(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "validation";
   }
 
   function showStoredImportMessage() {
@@ -1270,6 +1367,12 @@ document.addEventListener("DOMContentLoaded", function () {
     return input;
   }
 
+  function clearValidationDropHover() {
+    document.querySelectorAll(".bm-validation-drop-hover").forEach(function (element) {
+      element.classList.remove("bm-validation-drop-hover");
+    });
+  }
+
   function canWriteToInput(input) {
     return !!input &&
       document.contains(input) &&
@@ -1368,6 +1471,8 @@ document.addEventListener("DOMContentLoaded", function () {
     importDslFile(file);
     dslImportFile.value = "";
   });
+  dslExportButton?.addEventListener("click", exportDslFile);
+  dslCopyButton?.addEventListener("click", copyDslToClipboard);
   document.querySelectorAll("[data-dock-pin]").forEach(function (button) {
     button.addEventListener("click", function () {
       const currentMode = workbench ? workbench.getAttribute("data-left-dock-mode") : "pinned";
@@ -1424,6 +1529,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     event.preventDefault();
+    clearValidationDropHover();
     target.classList.add("bm-validation-drop-hover");
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "copy";
@@ -1432,7 +1538,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("dragleave", function (event) {
     const target = findValidationDropTarget(event.target);
     if (target) {
-      target.classList.remove("bm-validation-drop-hover");
+      clearValidationDropHover();
     }
   });
   document.addEventListener("drop", function (event) {
@@ -1441,9 +1547,10 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     event.preventDefault();
-    target.classList.remove("bm-validation-drop-hover");
+    clearValidationDropHover();
     writeDropValue(target, readDroppedExpression(event));
   });
+  document.addEventListener("dragend", clearValidationDropHover);
   document.addEventListener("focusin", function (event) {
     if (event.target.matches(".bm-expression-input")) {
       activeExpressionInput = event.target;

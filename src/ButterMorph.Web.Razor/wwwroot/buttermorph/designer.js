@@ -15,11 +15,15 @@ document.addEventListener("DOMContentLoaded", function () {
   const dslEditor = document.querySelector("[data-dsl-editor='true']");
   const dslImportButton = document.querySelector("[data-dsl-import-button='true']");
   const dslImportFile = document.querySelector("[data-dsl-import-file='true']");
+  const dslExportButton = document.querySelector("[data-dsl-export-button='true']");
+  const dslCopyButton = document.querySelector("[data-dsl-copy-button='true']");
+  const dslActionToast = document.querySelector("[data-dsl-action-toast='true']");
   const leftDock = document.querySelector("[data-left-dock='true']");
   const leftDockModeKey = "ButterMorphDesigner.LeftDockMode";
   const leftDockPanelKey = "ButterMorphDesigner.LeftDockPanel";
   const legacyToolboxModeKey = "ButterMorphDesigner.ToolboxMode";
   const importMessageKey = "ButterMorphDesigner.ImportMessage";
+  let dslActionToastTimer = 0;
   function completeHostPopupFlow(response) {
     const completed = response
       ? readValue(response, "hostSaveCompleted")
@@ -84,6 +88,9 @@ document.addEventListener("DOMContentLoaded", function () {
           }
           if (stream.match(keywords)) {
             return "keyword";
+          }
+          if (stream.match(/[A-Za-z_][A-Za-z0-9_]*(?=\s*\{)/)) {
+            return "property";
           }
           if (stream.match(/[0-9]+(?:\.[0-9]+)?/)) {
             return "number";
@@ -859,6 +866,86 @@ document.addEventListener("DOMContentLoaded", function () {
       updateErrorMessage("Import failed. The selected file could not be read.");
     });
   }
+  function exportDslFile() {
+    downloadTextFile(getDslValue(), resolveDslExportFileName());
+    showDslActionToast("File exported");
+  }
+  function copyDslToClipboard() {
+    copyTextToClipboard(getDslValue()).then(function () {
+      showDslActionToast("Copied");
+    }).catch(function () {
+      showDslActionToast("Copy failed");
+    });
+  }
+  function resolveDslExportFileName() {
+    const metadataName = document.querySelector(".bm-kicker + h1");
+    const name = metadataName ? metadataName.textContent : "mapping";
+    return sanitizeFileName(name || "mapping") + ".bmh";
+  }
+  function downloadTextFile(value, fileName) {
+    const blob = new Blob([value || ""], { type: "text/plain;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      window.URL.revokeObjectURL(url);
+    }, 0);
+  }
+  function copyTextToClipboard(value) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value || "");
+    }
+    return new Promise(function (resolve, reject) {
+      const fallback = document.createElement("textarea");
+      fallback.value = value || "";
+      fallback.setAttribute("readonly", "readonly");
+      fallback.style.position = "fixed";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+      try {
+        if (document.execCommand("copy")) {
+          resolve();
+        } else {
+          reject(new Error("Copy command failed."));
+        }
+      } catch (error) {
+        reject(error);
+      } finally {
+        fallback.remove();
+      }
+    });
+  }
+  function showDslActionToast(message) {
+    if (!dslActionToast) {
+      return;
+    }
+    dslActionToast.textContent = message || "";
+    dslActionToast.hidden = false;
+    dslActionToast.classList.add("is-visible");
+    window.clearTimeout(dslActionToastTimer);
+    dslActionToastTimer = window.setTimeout(function () {
+      dslActionToast.classList.remove("is-visible");
+      window.setTimeout(function () {
+        if (!dslActionToast.classList.contains("is-visible")) {
+          dslActionToast.hidden = true;
+        }
+      }, 180);
+    }, 1500);
+  }
+  function sanitizeFileName(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, "-")
+      .replace(/\s+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "mapping";
+  }
   function showStoredImportMessage() {
     const message = window.sessionStorage.getItem(importMessageKey);
     if (!message) {
@@ -1581,7 +1668,11 @@ document.addEventListener("DOMContentLoaded", function () {
       input.type !== "hidden" &&
       !input.closest("[hidden]");
   }
-  function getActiveDropInput(target) {
+  function getActiveDropInput(target, eventTarget) {
+    const directInput = eventTarget && eventTarget.closest ? eventTarget.closest(".bm-expression-input") : null;
+    if (isUsableExpressionInput(directInput) && target.contains(directInput)) {
+      return directInput;
+    }
     if (isUsableExpressionInput(activeExpressionInput) && target.contains(activeExpressionInput)) {
       return activeExpressionInput;
     }
@@ -1593,6 +1684,21 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
     return Array.prototype.slice.call(target.querySelectorAll(".bm-expression-input")).find(isUsableExpressionInput) || null;
+  }
+  function clearMappingDropHover() {
+    document.querySelectorAll(".bm-drop-hover").forEach(function (element) {
+      element.classList.remove("bm-drop-hover");
+    });
+  }
+  function readDroppedExpression(event) {
+    if (!event.dataTransfer) {
+      return { functionTemplate: "", sourcePath: "", text: "" };
+    }
+    return {
+      functionTemplate: event.dataTransfer.getData("application/x-buttermorph-function-template") || "",
+      sourcePath: event.dataTransfer.getData("application/x-buttermorph-source-path") || "",
+      text: event.dataTransfer.getData("text/plain") || ""
+    };
   }
   function syncMappingEditorFromChild(element) {
     const editor = element ? element.closest("[data-mapping-editor='true']") : null;
@@ -1733,6 +1839,8 @@ document.addEventListener("DOMContentLoaded", function () {
     importDslFile(file);
     dslImportFile.value = "";
   });
+  dslExportButton?.addEventListener("click", exportDslFile);
+  dslCopyButton?.addEventListener("click", copyDslToClipboard);
   document.querySelectorAll("[data-dock-pin]").forEach(function (button) {
     button.addEventListener("click", function () {
       const currentMode = workbench ? workbench.getAttribute("data-left-dock-mode") : "pinned";
@@ -2028,34 +2136,41 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll(".bm-target-field, .bm-array-mapping").forEach(function (target) {
     target.addEventListener("dragover", function (event) {
       event.preventDefault();
+      clearMappingDropHover();
       target.classList.add("bm-drop-hover");
+      const input = target.hasAttribute("data-array-drop-target")
+        ? target.querySelector(".bm-array-source-input")
+        : getActiveDropInput(target, event.target);
+      if (input) {
+        input.classList.add("bm-drop-hover");
+      }
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = "copy";
       }
     });
     target.addEventListener("dragleave", function () {
-      target.classList.remove("bm-drop-hover");
+      clearMappingDropHover();
     });
     target.addEventListener("drop", function (event) {
       event.preventDefault();
-      target.classList.remove("bm-drop-hover");
-      const functionTemplate = event.dataTransfer.getData("application/x-buttermorph-function-template");
-      const sourcePath = event.dataTransfer.getData("application/x-buttermorph-source-path");
-      const text = event.dataTransfer.getData("text/plain");
-      const expression = functionTemplate || sourcePath || text;
+      clearMappingDropHover();
+      const drop = readDroppedExpression(event);
+      const expression = drop.functionTemplate || drop.sourcePath || drop.text;
       const input = target.hasAttribute("data-array-drop-target")
         ? target.querySelector(".bm-array-source-input")
-        : getActiveDropInput(target);
+        : getActiveDropInput(target, event.target);
       if (input && expression) {
-        if (functionTemplate && !target.hasAttribute("data-array-drop-target")) {
+        if (drop.functionTemplate && !target.hasAttribute("data-array-drop-target")) {
           if (hasTextSelection(input)) {
-            insertIntoExpressionInput(input, functionTemplate, true);
+            insertIntoExpressionInput(input, drop.functionTemplate, true);
           } else {
-            replaceExpressionInput(input, functionTemplate, true);
+            replaceExpressionInput(input, drop.functionTemplate, true);
           }
           return;
         }
-        const value = target.hasAttribute("data-array-drop-target") ? expression : relativizePath(expression, target);
+        const value = target.hasAttribute("data-array-drop-target") || !drop.sourcePath
+          ? expression
+          : relativizePath(drop.sourcePath, target);
         if (!target.hasAttribute("data-array-drop-target") && hasTextSelection(input)) {
           insertIntoExpressionInput(input, value, false);
           return;
@@ -2077,6 +2192,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
+  document.addEventListener("dragend", clearMappingDropHover);
   document.querySelectorAll(".bm-clear-mapping").forEach(function (button) {
     button.addEventListener("click", function () {
       const editor = button.closest("[data-mapping-editor='true']");

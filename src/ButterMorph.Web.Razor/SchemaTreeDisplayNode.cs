@@ -38,6 +38,11 @@ public sealed class SchemaTreeDisplayNode
     public string DataType { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the user-facing data type label.
+    /// </summary>
+    public string DisplayType { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets child display nodes.
     /// </summary>
     public IReadOnlyCollection<SchemaTreeDisplayNode> Children { get; set; } = [];
