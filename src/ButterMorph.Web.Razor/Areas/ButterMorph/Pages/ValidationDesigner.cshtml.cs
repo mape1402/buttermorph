@@ -4,6 +4,7 @@ using ButterMorph.Abstractions;
 using ButterMorph.Core;
 using ButterMorph.Design;
 using ButterMorph.Semantics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -243,7 +244,15 @@ public sealed class ValidationDesignerModel : PageModel
             return Redirect(sessionUrl);
         }
 
-        _designerSessions.Acquire(SessionHandle);
+        try
+        {
+            _designerSessions.Acquire(SessionHandle);
+        }
+        catch (ButterMorphDesignerSessionCapacityException exception)
+        {
+            return SessionCapacityReached(exception);
+        }
+
         await PreloadHostState();
         LoadViewState();
         return Page();
@@ -671,6 +680,13 @@ public sealed class ValidationDesignerModel : PageModel
     {
         _designerSessions.Close(SessionHandle);
         return new EmptyResult();
+    }
+
+    // Returns a controlled response when all retained workspaces are currently active.
+    private IActionResult SessionCapacityReached(ButterMorphDesignerSessionCapacityException exception)
+    {
+        Response.Headers.RetryAfter = "60";
+        return StatusCode(StatusCodes.Status429TooManyRequests, exception.Message);
     }
 
     // Gets the last registered host integration so consuming apps can override defaults.

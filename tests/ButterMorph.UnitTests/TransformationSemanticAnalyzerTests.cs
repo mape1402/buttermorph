@@ -89,6 +89,38 @@ public sealed class TransformationSemanticAnalyzerTests
     }
 
     /// <summary>
+    /// Confirms that a complete host snapshot with no target keeps mappings intact but prevents
+    /// them from being treated as valid.
+    /// </summary>
+    [Fact]
+    public void AnalyzeReportsUnavailableTargetSchema()
+    {
+        TransformationSemanticAnalyzer analyzer = CreateAnalyzer(CreateFunctionRegistry(), CreateValidationRegistry());
+        ITransformationDocument document = new TransformationDocument
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["source"] = CreateSourceSchema()
+            },
+            TargetSchema = new StructureSchema
+            {
+                Key = string.Empty,
+                Name = string.Empty
+            },
+            Mappings =
+            [
+                CreateMapping(CreatePath("$source.Customer.Name"), "Customer.Name")
+            ]
+        };
+
+        SemanticAnalysisResult result = analyzer.Analyze(document);
+
+        Assert.False(result.Succeeded);
+        AssertDiagnostic(result, "BMSM013");
+        AssertDiagnostic(result, "BMSM003");
+    }
+
+    /// <summary>
     /// Confirms that scalar data type differences do not block mappings.
     /// </summary>
     [Fact]

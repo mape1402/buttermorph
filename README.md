@@ -219,7 +219,7 @@ On every open or reopen, ButterMorph calls the host `Load(...)` integration agai
 - `SchemaRevision` identifies the input/output schemas supplied by the host.
 - `DesignRevision` identifies the saved mapping or validation document. The generic schema designer uses `SchemaRevision` for its document revision.
 - `SessionId` is provided for diagnostics and correlation only; it is never a host persistence key.
-- Mapping hosts set `HasSchemaSnapshot = true` when their source and target schemas are a complete catalog. This also lets an intentionally empty source list remove stale source schemas from an existing workspace.
+- Mapping hosts set `HasSchemaSnapshot = true` when their source and target schemas are a complete catalog. This replaces both sides of the catalog: an intentionally empty source list removes stale sources, and a `null` target removes the prior output schema. Persisted or unsaved mappings are retained and reported as diagnostics when they reference fields that no longer exist.
 
 For a clean workspace, a changed host revision reloads the host document and schemas. For synchronized unsaved changes, ButterMorph preserves the local document, replaces only the current schema catalog, and presents diagnostics for now-incompatible mapping or validation references. Generic schema edits are likewise preserved rather than overwritten. A host save receives `ExpectedSchemaRevision` and `ExpectedDesignRevision`; reject a stale write with `IsConflict = true` and diagnostics. ButterMorph retains the local work on a conflict.
 
@@ -245,18 +245,21 @@ public sealed class CustomerSchemaChangedHandler
 }
 ```
 
-`Close(...)` immediately releases a workspace and its associated designer state. The browser keeps an active editor alive with a heartbeat; abandoned inactive sessions and idle active sessions are released by the configured policy. Configure the policy during registration:
+`Close(...)` immediately releases a workspace and its associated designer state. The hosted editor registers its close endpoint with the supplied `buttermorph-host.js` helper: closing an iframe through `closeFrame()` or a popup opened through `openPopup()` sends that explicit close request. It deliberately does not use `beforeunload`, so form posts, internal navigation, and reloads do not discard work. If a browser disappears without notifying ButterMorph, the heartbeat lease expires first, then the normal inactive retention policy can remove the session. Configure the policy during registration:
 
 ```csharp
 builder.Services.AddButterMorphRazorDesigner(options =>
 {
     options.Sessions.InactiveTimeout = TimeSpan.FromMinutes(20);
     options.Sessions.ActiveTimeout = TimeSpan.FromHours(8);
+    options.Sessions.HeartbeatTimeout = TimeSpan.FromMinutes(3);
     options.Sessions.SweepInterval = TimeSpan.FromMinutes(2);
     options.Sessions.MaximumSessions = 256;
     options.Sessions.MaximumSessionsPerContext = 16;
 });
 ```
+
+When every candidate is still active, ButterMorph rejects another open with HTTP `429 Too Many Requests` and a clear message instead of evicting an active editor or returning an unhandled server error.
 
 The default coordinator is intentionally process-local. In a multi-replica deployment, use sticky affinity for active designer requests. ButterMorph does not silently distribute mutable in-memory workspaces or require a particular database; hosts that need cross-replica workspace coordination must provide it at their application boundary and continue to enforce the optimistic host revisions above.
 

@@ -4,7 +4,9 @@
     const overlayId = "buttermorph-host-frame-overlay";
     const previousOverflowAttribute = "data-buttermorph-previous-overflow";
     const themeMessageType = "ButterMorphThemeChanged";
+    const sessionRegistrationType = "ButterMorphDesignerSessionRegistered";
     const trackedPopups = [];
+    const closeRequests = new Map();
     let currentThemeMode = resolveInitialThemeMode();
     let currentTheme = null;
 
@@ -105,6 +107,11 @@
     }
 
     function closeFrame() {
+        const iframe = document.getElementById(frameId);
+        if (iframe) {
+            closeDesignerSession(iframe.contentWindow, iframe);
+        }
+
         const overlay = document.getElementById(overlayId);
         if (overlay && overlay.parentElement) {
             overlay.parentElement.removeChild(overlay);
@@ -230,6 +237,109 @@
         postThemeMode(popup, currentThemeMode, currentTheme);
         window.setTimeout(function () { postThemeMode(popup, currentThemeMode, currentTheme); }, 250);
         window.setTimeout(function () { postThemeMode(popup, currentThemeMode, currentTheme); }, 1000);
+
+        const monitor = window.setInterval(function () {
+            if (popup && !popup.closed) {
+                return;
+            }
+
+            window.clearInterval(monitor);
+            closeDesignerSession(popup);
+            const index = trackedPopups.indexOf(popup);
+            if (index >= 0) {
+                trackedPopups.splice(index, 1);
+            }
+        }, 500);
+    }
+
+    function closeDesignerSession(targetWindow, iframe) {
+        if (!targetWindow) {
+            return;
+        }
+
+        let request = closeRequests.get(targetWindow) || null;
+        if (!request && iframe) {
+            request = createFrameCloseRequest(iframe);
+        }
+
+        if (!request || request.dispatched) {
+            return;
+        }
+
+        request.dispatched = true;
+        closeRequests.set(targetWindow, request);
+
+        const body = new URLSearchParams();
+        body.set("__RequestVerificationToken", request.requestVerificationToken);
+        fetch(request.closeUrl, {
+            method: "POST",
+            body: body,
+            credentials: "same-origin",
+            keepalive: true
+        }).catch(function () {
+            // Expiration remains the fallback when a browser exits before this best-effort notification completes.
+        });
+    }
+
+    function createFrameCloseRequest(iframe) {
+        try {
+            const frameDocument = iframe.contentDocument;
+            const token = frameDocument && frameDocument.querySelector("input[name='__RequestVerificationToken']");
+            const frameUrl = new URL(iframe.contentWindow.location.href);
+            if (!token || frameUrl.origin !== window.location.origin) {
+                return null;
+            }
+
+            frameUrl.searchParams.set("handler", "CloseSession");
+            return {
+                closeUrl: frameUrl.pathname + frameUrl.search,
+                requestVerificationToken: token.value,
+                dispatched: false
+            };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function registerCloseRequest(event) {
+        if (!isTrackedDesignerWindow(event.source)) {
+            return;
+        }
+
+        const request = normalizeCloseRequest(event.data);
+        if (request) {
+            closeRequests.set(event.source, request);
+        }
+    }
+
+    function isTrackedDesignerWindow(targetWindow) {
+        const iframe = document.getElementById(frameId);
+        if (iframe && iframe.contentWindow === targetWindow) {
+            return true;
+        }
+
+        return trackedPopups.indexOf(targetWindow) >= 0;
+    }
+
+    function normalizeCloseRequest(data) {
+        if (!data || !data.closeUrl || !data.requestVerificationToken) {
+            return null;
+        }
+
+        try {
+            const closeUrl = new URL(data.closeUrl, window.location.origin);
+            if (closeUrl.origin !== window.location.origin || closeUrl.searchParams.get("handler") !== "CloseSession") {
+                return null;
+            }
+
+            return {
+                closeUrl: closeUrl.pathname + closeUrl.search,
+                requestVerificationToken: data.requestVerificationToken,
+                dispatched: false
+            };
+        } catch (error) {
+            return null;
+        }
     }
 
     function broadcastThemeMode() {
@@ -266,6 +376,11 @@
         }
 
         const type = event.data.type || "";
+        if (type === sessionRegistrationType) {
+            registerCloseRequest(event);
+            return;
+        }
+
         if (type === "ButterMorphDesignerSaved" ||
             type === "ButterMorphSchemaTypeDesignerSaved" ||
             type === "ButterMorphFieldMetadataDesignerSaved" ||

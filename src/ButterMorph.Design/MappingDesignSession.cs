@@ -58,7 +58,7 @@ public sealed class MappingDesignSession : IMappingDesignSession
         {
             Definition = document.Definition,
             SourceSchemas = document.SourceSchemas,
-            TargetSchema = document.TargetSchema,
+            TargetSchema = document.TargetSchema ?? CreateMissingTargetSchema(),
             Mappings = document.Mappings,
             Metadata = document.Metadata
         };
@@ -110,7 +110,7 @@ public sealed class MappingDesignSession : IMappingDesignSession
     /// Replaces the source and target schemas while preserving the editable mappings.
     /// </summary>
     /// <param name="sourceSchemas">The current source schemas keyed by alias.</param>
-    /// <param name="targetSchema">The current target schema, when provided.</param>
+    /// <param name="targetSchema">The current target schema, or <see langword="null"/> when a complete catalog no longer contains a target.</param>
     /// <returns>The operation result.</returns>
     public IMappingOperationResult ReplaceSchemas(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas, IStructureSchema targetSchema)
     {
@@ -127,8 +127,9 @@ public sealed class MappingDesignSession : IMappingDesignSession
         if (targetSchema != null)
         {
             AddTargetSchemaIdentityDiagnostics(diagnostics, targetSchema);
-            _document.TargetSchema = targetSchema;
         }
+
+        _document.TargetSchema = targetSchema ?? CreateMissingTargetSchema();
 
         _document.SourceSchemas = new Dictionary<string, IStructureSchema>(sourceSchemas, StringComparer.Ordinal);
         return ResultFromDiagnostics(diagnostics);
@@ -290,6 +291,22 @@ public sealed class MappingDesignSession : IMappingDesignSession
         return _semanticAnalyzer.Analyze(_document);
     }
 
+    // Represents an intentionally absent target in a complete host snapshot. StructureSchema has
+    // non-empty defaults, so use an explicit empty identity instead of a default instance.
+    private static IStructureSchema CreateMissingTargetSchema()
+    {
+        return new StructureSchema
+        {
+            Key = string.Empty,
+            Name = string.Empty,
+            Root = new SchemaNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object
+            }
+        };
+    }
+
     // Creates a successful operation result.
     private static IMappingOperationResult Success()
     {
@@ -371,6 +388,12 @@ public sealed class MappingDesignSession : IMappingDesignSession
     // Adds schema identity diagnostics for target schemas.
     private static void AddTargetSchemaIdentityDiagnostics(List<DiagnosticEntry> diagnostics, IStructureSchema schema)
     {
+        if (schema == null)
+        {
+            diagnostics.Add(CreateDiagnostic("BMDG016", "Target schema is not available.", "target", "Error"));
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(schema.Key))
         {
             diagnostics.Add(CreateDiagnostic("BMDG012", "Target schema canonical key cannot be blank.", "target", "Error"));

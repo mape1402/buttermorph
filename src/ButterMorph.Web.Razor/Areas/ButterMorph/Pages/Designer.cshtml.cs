@@ -323,7 +323,15 @@ public sealed class DesignerModel : PageModel
             return Redirect(sessionUrl);
         }
 
-        _designerSessions.Acquire(SessionHandle);
+        try
+        {
+            _designerSessions.Acquire(SessionHandle);
+        }
+        catch (ButterMorphDesignerSessionCapacityException exception)
+        {
+            return SessionCapacityReached(exception);
+        }
+
         await PreloadHostState();
         LoadViewState();
         return Page();
@@ -776,7 +784,11 @@ public sealed class DesignerModel : PageModel
             Session.ImportDsl(result.InitialDslContent);
         }
 
-        if (result.HasSchemaSnapshot || result.SourceSchemas.Count > 0 || result.TargetSchema != null)
+        if (result.HasSchemaSnapshot)
+        {
+            Session.ReplaceSchemas(result.SourceSchemas, result.TargetSchema);
+        }
+        else if (result.SourceSchemas.Count > 0 || result.TargetSchema != null)
         {
             Session.ReplaceSchemas(result.SourceSchemas, result.TargetSchema ?? Session.Document.TargetSchema);
         }
@@ -816,6 +828,13 @@ public sealed class DesignerModel : PageModel
     {
         _designerSessions.Close(SessionHandle);
         return new EmptyResult();
+    }
+
+    // Returns a controlled response when all retained workspaces are currently active.
+    private IActionResult SessionCapacityReached(ButterMorphDesignerSessionCapacityException exception)
+    {
+        Response.Headers.RetryAfter = "60";
+        return StatusCode(StatusCodes.Status429TooManyRequests, exception.Message);
     }
 
     // Gets the last registered host integration so consuming apps can override defaults.
@@ -882,10 +901,25 @@ public sealed class DesignerModel : PageModel
         SourceNodes = sourceNodes;
         SourceSchemas = sourceSchemas;
         FunctionCategories = CreateFunctionCategories();
-        TargetNodes = SchemaTreeFlattener.Flatten(_schemaExplorer.Explore(document.TargetSchema));
         Mappings = CreateMappings(document);
-        TargetFields = CreateTargetFields(TargetNodes, Mappings);
-        TargetTree = SchemaTreeDisplayBuilder.BuildTarget(_schemaExplorer.Explore(document.TargetSchema), mappingDetails, diagnostics, projections);
+
+        if (string.IsNullOrWhiteSpace(document.TargetSchema?.Key))
+        {
+            TargetNodes = [];
+            TargetFields = [];
+            TargetTree = new SchemaTreeDisplayNode
+            {
+                Name = "$root",
+                Kind = SchemaNodeKind.Object
+            };
+        }
+        else
+        {
+            ISchemaTreeNode targetTree = _schemaExplorer.Explore(document.TargetSchema);
+            TargetNodes = SchemaTreeFlattener.Flatten(targetTree);
+            TargetFields = CreateTargetFields(TargetNodes, Mappings);
+            TargetTree = SchemaTreeDisplayBuilder.BuildTarget(targetTree, mappingDetails, diagnostics, projections);
+        }
 
         if (string.IsNullOrWhiteSpace(DslContent))
         {

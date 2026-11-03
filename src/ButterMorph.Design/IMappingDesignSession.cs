@@ -38,7 +38,7 @@ public interface IMappingDesignSession
     /// Replaces the source and target schemas while preserving the editable mappings.
     /// </summary>
     /// <param name="sourceSchemas">The current source schemas keyed by alias.</param>
-    /// <param name="targetSchema">The current target schema, when provided.</param>
+    /// <param name="targetSchema">The current target schema, or <see langword="null"/> when a complete catalog no longer contains a target.</param>
     /// <returns>The operation result.</returns>
     IMappingOperationResult ReplaceSchemas(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas, IStructureSchema targetSchema);
 

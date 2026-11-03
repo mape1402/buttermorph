@@ -2247,6 +2247,286 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that a complete host snapshot removes the prior target and sources while preserving
+    /// unsaved mappings as invalid work for the editor to resolve.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerCompleteSnapshotRemovesMissingSchemasAndReportsDirtyMappings()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer", "CurrentName")
+                },
+                TargetSchema = CreateDesignerSchema("Target", "RetiredOutput"),
+                HasSchemaSnapshot = true,
+                SchemaRevision = "schemas-1",
+                DesignRevision = "mapping-1"
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string url = "/buttermorph/designer" + QueryMarker() + "context=complete-snapshot&session=editor-one";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage syncResponse = await client.PostAsync(
+            url + "&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "RetiredOutput"),
+                new KeyValuePair<string, string>("Expressions", "$customer.CurrentName")
+            ]));
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+
+        host.LoadResult = new ButterMorphDesignerLoadResult
+        {
+            HasSchemaSnapshot = true,
+            SchemaRevision = "schemas-2",
+            DesignRevision = "mapping-2"
+        };
+
+        string refreshed = await client.GetStringAsync(url);
+
+        Assert.Contains("No sources loaded.", refreshed, StringComparison.Ordinal);
+        Assert.Contains("No output schema loaded.", refreshed, StringComparison.Ordinal);
+        Assert.Contains("$customer.CurrentName", refreshed, StringComparison.Ordinal);
+        Assert.Contains("3 diagnostics", refreshed, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that complete snapshots replace a prior target, while partial load results retain
+    /// the existing catalog for hosts that have not opted in to snapshot semantics.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerCompleteSnapshotReplacesTargetAndPartialLoadKeepsExistingCatalog()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer", "LegacySource")
+                },
+                TargetSchema = CreateDesignerSchema("Target", "RetiredOutput"),
+                HasSchemaSnapshot = true,
+                SchemaRevision = "schemas-1"
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string url = "/buttermorph/designer" + QueryMarker() + "context=replace-snapshot&session=editor-one";
+
+        await client.GetStringAsync(url);
+        host.LoadResult = new ButterMorphDesignerLoadResult
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema>
+            {
+                ["order"] = CreateDesignerSchema("Order", "CurrentSource")
+            },
+            TargetSchema = CreateDesignerSchema("Target", "CurrentOutput"),
+            HasSchemaSnapshot = true,
+            SchemaRevision = "schemas-2"
+        };
+
+        string replaced = await client.GetStringAsync(url);
+
+        Assert.Contains("CurrentSource", replaced, StringComparison.Ordinal);
+        Assert.Contains("CurrentOutput", replaced, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacySource", replaced, StringComparison.Ordinal);
+        Assert.DoesNotContain("RetiredOutput", replaced, StringComparison.Ordinal);
+
+        host.LoadResult = new ButterMorphDesignerLoadResult
+        {
+            SchemaRevision = "schemas-3"
+        };
+
+        string partial = await client.GetStringAsync(url);
+
+        Assert.Contains("CurrentSource", partial, StringComparison.Ordinal);
+        Assert.Contains("CurrentOutput", partial, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that a real designer close request frees the server workspace so repeated editor
+    /// opens do not exhaust the default context capacity.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerCloseSessionReleasesRepeatedEditorsForTheSameContext()
+    {
+        HttpClient client = _factory.CreateClient();
+
+        for (int index = 0; index < 20; index++)
+        {
+            string url = "/buttermorph/designer" + QueryMarker() + "context=close-loop&session=editor-" + index;
+            string html = await client.GetStringAsync(url);
+            string token = ExtractToken(html);
+            HttpResponseMessage close = await client.PostAsync(
+                url + "&handler=CloseSession",
+                new FormUrlEncodedContent(
+                [
+                    new KeyValuePair<string, string>("__RequestVerificationToken", token)
+                ]));
+
+            Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+        }
+
+        HttpResponseMessage reopened = await client.GetAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=close-loop&session=editor-final");
+
+        Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms that capacity exhaustion returns a controlled response instead of an unhandled
+    /// server failure.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerCapacityLimitReturnsTooManyRequests()
+    {
+        FakeButterMorphDesignerHost host = new();
+        HttpClient client = CreateHostClient(host, options =>
+        {
+            options.Sessions.MaximumSessions = 1;
+            options.Sessions.MaximumSessionsPerContext = 1;
+        });
+
+        HttpResponseMessage first = await client.GetAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=first&session=editor-one");
+        HttpResponseMessage second = await client.GetAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=second&session=editor-two");
+        string content = await second.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+        Assert.Equal("60", second.Headers.RetryAfter?.Delta?.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Contains("maximum number of active designer sessions", content, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that a page reload and ordinary editor activity do not look like an explicit close
+    /// and therefore retain the current workspace.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerReloadAndHeartbeatKeepItsWorkspaceActive()
+    {
+        HttpClient client = CreateHostClient(new FakeButterMorphDesignerHost(), options =>
+        {
+            options.Sessions.MaximumSessions = 1;
+            options.Sessions.MaximumSessionsPerContext = 1;
+        });
+        string url = "/buttermorph/designer" + QueryMarker() + "context=reload&session=editor-one";
+        string initial = await client.GetStringAsync(url);
+        string token = ExtractToken(initial);
+
+        HttpResponseMessage reload = await client.GetAsync(url);
+        HttpResponseMessage heartbeat = await client.PostAsync(
+            url + "&handler=TouchSession",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+        HttpResponseMessage secondEditor = await client.GetAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=reload&session=editor-two");
+
+        Assert.Equal(HttpStatusCode.OK, reload.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, heartbeat.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondEditor.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms that closing a validation editor frees only its workspace before the next editor
+    /// for the same context is opened.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerCloseSessionFreesContextCapacity()
+    {
+        HttpClient client = CreateValidationHostClient(new FakeButterMorphValidationDesignerHost(), options =>
+        {
+            options.Sessions.MaximumSessions = 1;
+            options.Sessions.MaximumSessionsPerContext = 1;
+        });
+        string url = "/buttermorph/validations/designer" + QueryMarker() + "context=validation-close&session=editor-one";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage close = await client.PostAsync(
+            url + "&handler=CloseSession",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+        HttpResponseMessage reopened = await client.GetAsync(
+            "/buttermorph/validations/designer" + QueryMarker() + "context=validation-close&session=editor-two");
+
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms that closing a generic schema editor frees its workspace before the next editor
+    /// for the same context is opened.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaDesignerCloseSessionFreesContextCapacity()
+    {
+        HttpClient client = CreateSchemaDesignerHostClient(new FakeButterMorphSchemaDesignerHost(), options =>
+        {
+            options.Sessions.MaximumSessions = 1;
+            options.Sessions.MaximumSessionsPerContext = 1;
+        });
+        string url = "/buttermorph/schema-designer" + QueryMarker() + "context=schema-close&session=editor-one";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage close = await client.PostAsync(
+            url + "&handler=CloseSession",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ]));
+        HttpResponseMessage reopened = await client.GetAsync(
+            "/buttermorph/schema-designer" + QueryMarker() + "context=schema-close&session=editor-two");
+
+        Assert.Equal(HttpStatusCode.OK, close.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+    }
+
+    /// <summary>
+    /// Confirms that the hosted editor and host integration publish the explicit close protocol
+    /// instead of relying on unload events that would also run during a page refresh.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerHostAssetsExposeExplicitSessionCloseProtocol()
+    {
+        HttpClient client = _factory.CreateClient();
+        string editor = await client.GetStringAsync(
+            "/buttermorph/designer" + QueryMarker() + "context=close-protocol&session=editor-one");
+        string childScript = await client.GetStringAsync(
+            "/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-designer-session.js");
+        string hostScript = await client.GetStringAsync(
+            "/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-host.js");
+
+        Assert.Contains("buttermorph-designer-session.js", editor, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesignerSessionRegistered", childScript, StringComparison.Ordinal);
+        Assert.Contains("ButterMorphDesignerCloseRequested", childScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("beforeunload", childScript, StringComparison.Ordinal);
+        Assert.Contains("closeDesignerSession", hostScript, StringComparison.Ordinal);
+        Assert.Contains("closeFrame", hostScript, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that a generic schema draft is not overwritten when its host revision changes.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -3168,39 +3448,60 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     // Creates a test client with a fake host integration.
-    private HttpClient CreateHostClient(FakeButterMorphDesignerHost host)
+    private HttpClient CreateHostClient(
+        FakeButterMorphDesignerHost host,
+        Action<ButterMorphRazorDesignerOptions> configure = null)
     {
         WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IButterMorphDesignerHost>(host);
+
+                if (configure != null)
+                {
+                    services.Configure(configure);
+                }
             });
         });
         return factory.CreateClient();
     }
 
     // Creates a test client with a fake validation host integration.
-    private HttpClient CreateValidationHostClient(FakeButterMorphValidationDesignerHost host)
+    private HttpClient CreateValidationHostClient(
+        FakeButterMorphValidationDesignerHost host,
+        Action<ButterMorphRazorDesignerOptions> configure = null)
     {
         WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IButterMorphValidationDesignerHost>(host);
+
+                if (configure != null)
+                {
+                    services.Configure(configure);
+                }
             });
         });
         return factory.CreateClient();
     }
 
     // Creates a test client with a fake generic schema designer host integration.
-    private HttpClient CreateSchemaDesignerHostClient(FakeButterMorphSchemaDesignerHost host)
+    private HttpClient CreateSchemaDesignerHostClient(
+        FakeButterMorphSchemaDesignerHost host,
+        Action<ButterMorphRazorDesignerOptions> configure = null)
     {
         WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IButterMorphSchemaDesignerHost>(host);
+
+                if (configure != null)
+                {
+                    services.Configure(configure);
+                }
             });
         });
         return factory.CreateClient();
@@ -3418,7 +3719,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     // Creates a simple schema with one scalar field.
-    private static IStructureSchema CreateDesignerSchema(string name)
+    private static IStructureSchema CreateDesignerSchema(string name, string fieldName = "Name")
     {
         return new StructureSchema
         {
@@ -3432,7 +3733,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                 [
                     new SchemaNode
                     {
-                        Name = "Name",
+                        Name = fieldName,
                         Kind = SchemaNodeKind.Scalar,
                         DataType = "string"
                     }

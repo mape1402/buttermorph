@@ -34,11 +34,24 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
     public SemanticAnalysisResult Analyze(ITransformationDocument document)
     {
         List<DiagnosticEntry> diagnostics = [];
+        bool hasTargetSchema = HasTargetSchema(document.TargetSchema);
+
+        if (!hasTargetSchema)
+        {
+            diagnostics.Add(CreateDiagnostic("BMSM013", "The target schema is not available in the current schema catalog.", "target"));
+        }
 
         foreach (ITransformationMapping mapping in document.Mappings)
         {
             AnalyzeExpression(document, mapping.SourceExpression, new Dictionary<string, ISchemaNode>(StringComparer.Ordinal), diagnostics, mapping.TargetPath);
-            TryResolveTargetPath(document, mapping.TargetPath, diagnostics);
+            if (hasTargetSchema)
+            {
+                TryResolveTargetPath(document, mapping.TargetPath, diagnostics);
+            }
+            else
+            {
+                diagnostics.Add(CreateDiagnostic("BMSM003", "The target field is unavailable because the target schema was removed.", mapping.TargetPath));
+            }
         }
 
         return new SemanticAnalysisResult
@@ -46,6 +59,12 @@ public sealed class TransformationSemanticAnalyzer : ITransformationSemanticAnal
             Succeeded = diagnostics.Count == 0,
             Diagnostics = diagnostics
         };
+    }
+
+    // Determines whether the document has a target schema that can be used for semantic path resolution.
+    private static bool HasTargetSchema(IStructureSchema schema)
+    {
+        return schema != null && !string.IsNullOrWhiteSpace(schema.Key);
     }
 
     // Analyzes an expression and infers its value kind.

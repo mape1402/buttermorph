@@ -15,6 +15,7 @@
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/codemirror.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/vendor/codemirror/show-hint.min.js?v=codemirror-5-65-16"></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-designer-session.js?v=1" defer></script>
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/validation-designer.js?v=validation-dsl-block-1"></script>
 </head>
 <body style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
@@ -847,18 +848,5 @@
             </section>
         </div>
     </template>
-    <script>
-        (function () {
-            var token = document.querySelector("input[name='__RequestVerificationToken']");
-            if (!token) return;
-            window.setInterval(function () {
-                var url = new URL(window.location.href);
-                url.searchParams.set("handler", "TouchSession");
-                var body = new URLSearchParams();
-                body.set("__RequestVerificationToken", token.value);
-                fetch(url.toString(), { method: "POST", body: body, credentials: "same-origin", keepalive: true });
-            }, 60000);
-        }());
-    </script>
 </body>
 </html>

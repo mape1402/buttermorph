@@ -8,6 +8,9 @@ public sealed class ButterMorphDesignerSessionSnapshot
     /// <summary>Gets or sets the workspace handle.</summary>
     public ButterMorphDesignerSessionHandle Handle { get; set; } = new();
 
+    /// <summary>Gets or sets whether the browser is still actively reporting activity for the workspace.</summary>
+    public bool IsActive { get; set; }
+
     /// <summary>Gets or sets whether the workspace contains unsaved synchronized changes.</summary>
     public bool IsDirty { get; set; }
 

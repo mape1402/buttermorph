@@ -21,6 +21,14 @@ public sealed class ButterMorphDesignerSessionOptions
     public TimeSpan ActiveTimeout { get; set; } = TimeSpan.FromHours(8);
 
     /// <summary>
+    /// Gets or sets how long an editor can stop reporting browser activity before it is treated as inactive.
+    /// </summary>
+    /// <remarks>
+    /// This protects the host from sessions left behind by a closed browser that could not send an explicit close request.
+    /// </remarks>
+    public TimeSpan HeartbeatTimeout { get; set; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>
     /// Gets or sets how often the background cleanup service evaluates retained sessions.
     /// </summary>
     public TimeSpan SweepInterval { get; set; } = TimeSpan.FromMinutes(2);

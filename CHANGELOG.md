@@ -7,6 +7,18 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.5] - 2026-11-03
+
+### Fixed
+- Fixed explicit closure of mapping, validation, and generic schema designer sessions when editors are closed through the supplied iframe or popup host helpers.
+- Added heartbeat lease expiry for abandoned browser sessions, controlled HTTP `429` capacity responses, and regression coverage for reloads, active-editor isolation, expiry, and configured limits.
+- Fixed complete mapping schema snapshots so removed sources or a missing output schema replace stale fields while preserving local mappings and exposing blocking diagnostics.
+
+### Changed
+- Complete mapping schema catalogs now remove a prior output schema when the host returns `HasSchemaSnapshot = true` with a `null` target; partial host responses retain the existing catalog for compatibility.
+
+---
+
 ## [v2.1.4] - 2026-11-03
 
 ### Added

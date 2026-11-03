@@ -14,6 +14,7 @@
     <title>ButterMorph Schema Designer</title>
     <link rel="stylesheet" href="/_content/ButterMorph.Web.Razor/buttermorph/designer.css?v=schema-designer-bm-1" />
     <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-theme.js?v=1" defer></script>
+    <script src="/_content/ButterMorph.Web.Razor/buttermorph/buttermorph-designer-session.js?v=1" defer></script>
 </head>
 <body class="bm-page" style="@Model.ThemeStyle" data-bm-theme-mode="@Model.ThemeMode">
     <div class="bm-schema-shell bm-schema-legacy-shell">
@@ -94,19 +95,6 @@
             })();
         </script>
     }
-    <script>
-        (function () {
-            var token = document.querySelector("input[name='__RequestVerificationToken']");
-            if (!token) return;
-            window.setInterval(function () {
-                var url = new URL(window.location.href);
-                url.searchParams.set("handler", "TouchSession");
-                var body = new URLSearchParams();
-                body.set("__RequestVerificationToken", token.value);
-                fetch(url.toString(), { method: "POST", body: body, credentials: "same-origin", keepalive: true });
-            }, 60000);
-        }());
-    </script>
 </body>
 </html>
 
