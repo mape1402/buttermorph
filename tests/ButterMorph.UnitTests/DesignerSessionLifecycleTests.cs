@@ -108,6 +108,25 @@ public sealed class DesignerSessionLifecycleTests
     }
 
     /// <summary>
+    /// Confirms that closing one editor leaves another editor for the same context intact.
+    /// </summary>
+    [Fact]
+    public void CloseOnlyReleasesTheRequestedEditor()
+    {
+        using ServiceProvider provider = CreateProvider();
+        IButterMorphDesignerSessionManager manager = provider.GetRequiredService<IButterMorphDesignerSessionManager>();
+        ButterMorphDesignerSessionHandle first = Handle("customer-42", "first");
+        ButterMorphDesignerSessionHandle second = Handle("customer-42", "second");
+
+        manager.Acquire(first);
+        manager.Acquire(second);
+
+        Assert.True(manager.Close(first));
+        Assert.Null(manager.GetSnapshot(first));
+        Assert.NotNull(manager.GetSnapshot(second));
+    }
+
+    /// <summary>
     /// Confirms that abandoned inactive workspaces are expired by policy.
     /// </summary>
     [Fact]
@@ -125,6 +144,30 @@ public sealed class DesignerSessionLifecycleTests
     }
 
     /// <summary>
+    /// Confirms that a workspace without browser heartbeats becomes inactive before the longer active timeout.
+    /// </summary>
+    [Fact]
+    public void SweepDeactivatesAbandonedActiveWorkspaceBeforeActiveTimeout()
+    {
+        using ServiceProvider provider = CreateProvider(options =>
+        {
+            options.Sessions.HeartbeatTimeout = TimeSpan.FromMinutes(1);
+            options.Sessions.InactiveTimeout = TimeSpan.FromMinutes(1);
+            options.Sessions.ActiveTimeout = TimeSpan.FromHours(8);
+        });
+        IButterMorphDesignerSessionManager manager = provider.GetRequiredService<IButterMorphDesignerSessionManager>();
+        ButterMorphDesignerSessionHandle handle = Handle("customer-42", "abandoned");
+
+        ButterMorphDesignerSessionSnapshot initial = manager.Acquire(handle);
+        DateTimeOffset abandonedAt = initial.LastActivityUtc.AddMinutes(2);
+
+        Assert.Equal(0, manager.SweepExpired(abandonedAt));
+        Assert.False(manager.GetSnapshot(handle).IsActive);
+        Assert.Equal(1, manager.SweepExpired(abandonedAt.AddMinutes(2)));
+        Assert.Null(manager.GetSnapshot(handle));
+    }
+
+    /// <summary>
     /// Confirms that capacity eviction only removes inactive workspaces.
     /// </summary>
     [Fact]
@@ -136,13 +179,41 @@ public sealed class DesignerSessionLifecycleTests
         ButterMorphDesignerSessionHandle second = Handle("second", "two");
 
         manager.Acquire(first);
-        Assert.Throws<InvalidOperationException>(() => manager.Acquire(second));
+        ButterMorphDesignerSessionCapacityException exception = Assert.Throws<ButterMorphDesignerSessionCapacityException>(() => manager.Acquire(second));
+        Assert.False(exception.IsContextLimit);
 
         manager.Deactivate(first);
         manager.Acquire(second);
 
         Assert.Null(manager.GetSnapshot(first));
         Assert.NotNull(manager.GetSnapshot(second));
+    }
+
+    /// <summary>
+    /// Confirms that a context-specific capacity limit does not evict an unrelated inactive workspace.
+    /// </summary>
+    [Fact]
+    public void ContextCapacityRejectsOnlyTheOverLimitContext()
+    {
+        using ServiceProvider provider = CreateProvider(options =>
+        {
+            options.Sessions.MaximumSessions = 4;
+            options.Sessions.MaximumSessionsPerContext = 1;
+        });
+        IButterMorphDesignerSessionManager manager = provider.GetRequiredService<IButterMorphDesignerSessionManager>();
+        ButterMorphDesignerSessionHandle first = Handle("customer-42", "first");
+        ButterMorphDesignerSessionHandle otherContext = Handle("order-42", "other");
+        ButterMorphDesignerSessionHandle secondForFirstContext = Handle("customer-42", "second");
+
+        manager.Acquire(first);
+        manager.Acquire(otherContext);
+        manager.Deactivate(otherContext);
+
+        ButterMorphDesignerSessionCapacityException exception = Assert.Throws<ButterMorphDesignerSessionCapacityException>(() => manager.Acquire(secondForFirstContext));
+
+        Assert.True(exception.IsContextLimit);
+        Assert.NotNull(manager.GetSnapshot(first));
+        Assert.NotNull(manager.GetSnapshot(otherContext));
     }
 
     private static ServiceProvider CreateProvider(Action<ButterMorphRazorDesignerOptions> configure = null)

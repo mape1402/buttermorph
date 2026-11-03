@@ -50,6 +50,7 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
 
             entry.IsActive = true;
             entry.LastActivityUtc = now;
+            entry.LastHeartbeatUtc = now;
         }
 
         ReleaseResources(released);
@@ -64,6 +65,7 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
             {
                 entry.IsActive = true;
                 entry.LastActivityUtc = DateTimeOffset.UtcNow;
+                entry.LastHeartbeatUtc = entry.LastActivityUtc;
             }
         }
     }
@@ -229,14 +231,16 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
         int maxPerContext = Math.Max(1, options.MaximumSessionsPerContext);
         while (entries.Count >= maxSessions || CountForContext(incoming) >= maxPerContext)
         {
+            bool isContextLimitReached = CountForContext(incoming) >= maxPerContext;
             SessionEntry candidate = entries.Values
-                .Where(entry => !entry.IsActive)
+                .Where(entry => !entry.IsActive &&
+                    (!isContextLimitReached || IsSameContext(entry.Handle, incoming)))
                 .OrderBy(entry => entry.LastActivityUtc)
                 .FirstOrDefault();
 
             if (candidate == null)
             {
-                throw new InvalidOperationException("The configured ButterMorph designer session limit was reached by active sessions. Close an editor or increase the session limits.");
+                throw new ButterMorphDesignerSessionCapacityException(isContextLimitReached, isContextLimitReached ? maxPerContext : maxSessions);
             }
 
             entries.Remove(candidate.Handle.StorageKey);
@@ -246,15 +250,23 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
 
     private int CountForContext(ButterMorphDesignerSessionHandle handle)
     {
-        return entries.Values.Count(entry => entry.Handle.Kind == handle.Kind && string.Equals(entry.Handle.ContextKey, handle.ContextKey, StringComparison.Ordinal));
+        return entries.Values.Count(entry => IsSameContext(entry.Handle, handle));
     }
 
     private void CollectExpired(DateTimeOffset now, List<ButterMorphDesignerSessionHandle> released)
     {
         TimeSpan inactiveTimeout = NormalizeTimeout(options.InactiveTimeout, TimeSpan.FromMinutes(20));
         TimeSpan activeTimeout = NormalizeTimeout(options.ActiveTimeout, TimeSpan.FromHours(8));
+        TimeSpan heartbeatTimeout = NormalizeTimeout(options.HeartbeatTimeout, TimeSpan.FromMinutes(3));
         foreach (SessionEntry entry in entries.Values.ToArray())
         {
+            if (entry.IsActive && now - entry.LastHeartbeatUtc >= heartbeatTimeout)
+            {
+                entry.IsActive = false;
+                entry.LastActivityUtc = now;
+                continue;
+            }
+
             TimeSpan timeout = entry.IsActive ? activeTimeout : inactiveTimeout;
             if (now - entry.LastActivityUtc < timeout)
             {
@@ -318,6 +330,11 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
         return configured > TimeSpan.Zero ? configured : fallback;
     }
 
+    private static bool IsSameContext(ButterMorphDesignerSessionHandle left, ButterMorphDesignerSessionHandle right)
+    {
+        return left.Kind == right.Kind && string.Equals(left.ContextKey, right.ContextKey, StringComparison.Ordinal);
+    }
+
     private static void Validate(ButterMorphDesignerSessionHandle handle)
     {
         ArgumentNullException.ThrowIfNull(handle);
@@ -332,6 +349,7 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
         return new ButterMorphDesignerSessionSnapshot
         {
             Handle = Clone(entry.Handle),
+            IsActive = entry.IsActive,
             IsDirty = entry.IsDirty,
             IsInvalidated = entry.IsInvalidated,
             HasPendingRemoteChanges = entry.HasPendingRemoteChanges,
@@ -357,10 +375,12 @@ internal sealed class ButterMorphDesignerSessionManager : IButterMorphDesignerSe
         {
             Handle = handle;
             LastActivityUtc = now;
+            LastHeartbeatUtc = now;
         }
 
         internal ButterMorphDesignerSessionHandle Handle { get; }
         internal DateTimeOffset LastActivityUtc { get; set; }
+        internal DateTimeOffset LastHeartbeatUtc { get; set; }
         internal bool IsActive { get; set; }
         internal bool IsDirty { get; set; }
         internal bool IsInvalidated { get; set; }

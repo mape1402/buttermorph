@@ -172,6 +172,25 @@ public sealed class DesignSessionTests
         Assert.Single(session.Document.Mappings);
     }
 
+    /// <summary>
+    /// Confirms that a complete host catalog can remove a target schema without preserving the stale target fields.
+    /// </summary>
+    [Fact]
+    public void SessionReplacesTargetWithEmptySchemaWhenTargetIsRemoved()
+    {
+        IMappingDesignSession session = CreateSession();
+        session.LoadSourceSchema("old", CreateSchema("Old"));
+        session.LoadTargetSchema(CreateSchema("Target"));
+        session.AddPathMapping("$old.Customer.Name", "Customer.Name");
+
+        session.ReplaceSchemas(new Dictionary<string, IStructureSchema>(), null);
+
+        Assert.Empty(session.Document.SourceSchemas);
+        Assert.True(string.IsNullOrWhiteSpace(session.Document.TargetSchema.Key));
+        Assert.Empty(session.Document.TargetSchema.Root.Children);
+        Assert.Single(session.Document.Mappings);
+    }
+
     // Creates a test session.
     private static IMappingDesignSession CreateSession()
     {

@@ -3,6 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Abstractions;
 using ButterMorph.Design;
 using ButterMorph.SchemaDesign;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -160,7 +161,15 @@ public sealed class SchemaDesignerModel : PageModel
             return Redirect(sessionUrl);
         }
 
-        designerSessions.Acquire(SessionHandle);
+        try
+        {
+            designerSessions.Acquire(SessionHandle);
+        }
+        catch (ButterMorphDesignerSessionCapacityException exception)
+        {
+            return SessionCapacityReached(exception);
+        }
+
         await ApplyHostPreload();
         RefreshView();
 
@@ -419,6 +428,13 @@ public sealed class SchemaDesignerModel : PageModel
     {
         designerSessions.Close(SessionHandle);
         return new EmptyResult();
+    }
+
+    // Returns a controlled response when all retained workspaces are currently active.
+    private IActionResult SessionCapacityReached(ButterMorphDesignerSessionCapacityException exception)
+    {
+        Response.Headers.RetryAfter = "60";
+        return StatusCode(StatusCodes.Status429TooManyRequests, exception.Message);
     }
 
     private ButterMorphDesignerSessionHandle SessionHandle => new()
