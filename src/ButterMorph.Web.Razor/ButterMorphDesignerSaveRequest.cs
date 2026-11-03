@@ -26,4 +26,21 @@ public sealed class ButterMorphDesignerSaveRequest
     /// Gets or sets the exported DSL content.
     /// </summary>
     public string DslContent { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the opaque ButterMorph editor session that produced this save.
+    /// </summary>
+    public string SessionId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the schema revision observed before editing.
+    /// Hosts can use this as an optimistic concurrency token.
+    /// </summary>
+    public string ExpectedSchemaRevision { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the design revision observed before editing.
+    /// Hosts can use this as an optimistic concurrency token.
+    /// </summary>
+    public string ExpectedDesignRevision { get; set; } = string.Empty;
 }

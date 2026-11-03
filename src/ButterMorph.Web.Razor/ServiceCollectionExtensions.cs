@@ -61,6 +61,9 @@ public static class ServiceCollectionExtensions
         services.AddButterMorphDesign();
         services.AddButterMorphSchemaDesign();
         services.Configure(configure);
+        services.AddSingleton<DesignerContextStateStore>();
+        services.AddSingleton<IButterMorphDesignerSessionManager, ButterMorphDesignerSessionManager>();
+        services.AddHostedService<ButterMorphDesignerSessionCleanupService>();
         services.AddSingleton<IButterMorphLanguageTypeResolver, ButterMorphLanguageTypeResolver>();
         services.AddSingleton<IButterMorphLanguageTypeBundleDiscovery, MetadataButterMorphLanguageTypeBundleDiscovery>();
     }

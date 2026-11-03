@@ -18,6 +18,12 @@ public sealed class ButterMorphDesignerLoadResult
     public IReadOnlyDictionary<string, ButterMorphDesignerSourceMetadata> SourceMetadata { get; set; } = new Dictionary<string, ButterMorphDesignerSourceMetadata>();
 
     /// <summary>
+    /// Gets or sets a value indicating that <see cref="SourceSchemas"/> and <see cref="TargetSchema"/>
+    /// represent the complete current schema catalog, including an intentionally empty source list.
+    /// </summary>
+    public bool HasSchemaSnapshot { get; set; }
+
+    /// <summary>
     /// Gets or sets the target schema.
     /// </summary>
     public IStructureSchema TargetSchema { get; set; }
@@ -41,4 +47,14 @@ public sealed class ButterMorphDesignerLoadResult
     /// Gets or sets the optional load message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the host revision for the schemas supplied with this snapshot.
+    /// </summary>
+    public string SchemaRevision { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the host revision for the persisted mapping document.
+    /// </summary>
+    public string DesignRevision { get; set; } = string.Empty;
 }

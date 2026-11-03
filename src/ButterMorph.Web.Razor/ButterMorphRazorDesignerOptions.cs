@@ -49,4 +49,9 @@ public sealed class ButterMorphRazorDesignerOptions
     /// Gets or sets the query parameter that identifies the host return URL.
     /// </summary>
     public string ReturnUrlQueryParameter { get; set; } = "returnUrl";
+
+    /// <summary>
+    /// Gets the lifecycle policy used by the mapping, validation, and generic schema designers.
+    /// </summary>
+    public ButterMorphDesignerSessionOptions Sessions { get; } = new();
 }

@@ -7,6 +7,19 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.4] - 2026-11-03
+
+### Added
+- Added explicit lifecycle management for mapping, validation, and generic schema designer sessions, including public close, invalidate, refresh, inspection, and bounded cleanup APIs.
+- Added host revision contracts and visible conflict diagnostics so hosts can refresh schemas and persisted designs without silently discarding incompatible references or unsaved local work.
+- Added configurable session expiration, active-session heartbeat protection, and retained-state limits, with coverage for refresh, invalidation, expiry, capacity, and concurrent editing.
+
+### Changed
+- Designer tabs now use independent opaque sessions while the host-owned context remains stable; each open or reopen reloads current host data.
+- Documented host integration, dirty-work handling, revision-based save conflicts, and multi-replica deployment limitations.
+
+---
+
 ## [v2.1.3] - 2026-10-13
 
 ### Fixed

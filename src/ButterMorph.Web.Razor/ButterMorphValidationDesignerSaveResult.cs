@@ -21,4 +21,13 @@ public sealed class ButterMorphValidationDesignerSaveResult
     /// Gets or sets save diagnostics.
     /// </summary>
     public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
+
+    /// <summary>Gets or sets whether the host rejected the save because its revision changed.</summary>
+    public bool IsConflict { get; set; }
+
+    /// <summary>Gets or sets the schema revision after a successful save or conflict lookup.</summary>
+    public string SchemaRevision { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the validation design revision after a successful save or conflict lookup.</summary>
+    public string DesignRevision { get; set; } = string.Empty;
 }

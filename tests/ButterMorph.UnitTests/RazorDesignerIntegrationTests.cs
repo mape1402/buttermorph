@@ -2180,6 +2180,190 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
     }
 
     /// <summary>
+    /// Confirms that reopening a dirty mapping workspace keeps local mappings while replacing host schemas.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task DesignerRefreshPreservesDirtyMappingsAndShowsCurrentSchemas()
+    {
+        FakeButterMorphDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                TargetSchema = CreateDesignerSchema("Target"),
+                SchemaRevision = "schemas-1",
+                DesignRevision = "mapping-1"
+            }
+        };
+        HttpClient client = CreateHostClient(host);
+        string url = "/buttermorph/designer" + QueryMarker() + "context=refresh&session=editor-one";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage syncResponse = await client.PostAsync(
+            url + "&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("TargetPaths", "Name"),
+                new KeyValuePair<string, string>("Expressions", "$customer.Name")
+            ]));
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+
+        StructureSchema changedSource = (StructureSchema)CreateDesignerSchema("Customer");
+        changedSource.Root = new SchemaNode
+        {
+            Name = "$root",
+            Kind = SchemaNodeKind.Object,
+            Children =
+            [
+                new SchemaNode
+                {
+                    Name = "CurrentName",
+                    Kind = SchemaNodeKind.Scalar,
+                    DataType = "string"
+                }
+            ]
+        };
+        host.LoadResult = new ButterMorphDesignerLoadResult
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema> { ["customer"] = changedSource },
+            TargetSchema = CreateDesignerSchema("Target"),
+            SchemaRevision = "schemas-2",
+            DesignRevision = "mapping-2"
+        };
+
+        string refreshed = await client.GetStringAsync(url);
+
+        Assert.Contains("Your unsaved mappings were kept", refreshed, StringComparison.Ordinal);
+        Assert.Contains("CurrentName", refreshed, StringComparison.Ordinal);
+        Assert.Contains("$customer.Name", refreshed, StringComparison.Ordinal);
+        Assert.Contains("1 diagnostics", refreshed, StringComparison.Ordinal);
+        Assert.True(host.LoadCalls >= 2);
+    }
+
+    /// <summary>
+    /// Confirms that a generic schema draft is not overwritten when its host revision changes.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task SchemaDesignerRefreshPreservesDirtySchemaDraft()
+    {
+        FakeButterMorphSchemaDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphSchemaDesignerLoadResult
+            {
+                Schema = CreateDesignerSchema("HostSchema"),
+                SchemaRevision = "schema-1"
+            }
+        };
+        HttpClient client = CreateSchemaDesignerHostClient(host);
+        string url = "/buttermorph/schema-designer" + QueryMarker() + "context=schema-refresh&session=schema-editor";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage edit = await client.PostAsync(
+            url + "&handler=AddNode",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("ParentPath", "$root"),
+                new KeyValuePair<string, string>("NodeName", "LocalField"),
+                new KeyValuePair<string, string>("NodeKind", "Scalar"),
+                new KeyValuePair<string, string>("DataType", "string")
+            ]));
+        Assert.Equal(HttpStatusCode.OK, edit.StatusCode);
+
+        StructureSchema remoteSchema = (StructureSchema)CreateDesignerSchema("HostSchema");
+        remoteSchema.Root = new SchemaNode
+        {
+            Name = "$root",
+            Kind = SchemaNodeKind.Object,
+            Children =
+            [
+                new SchemaNode { Name = "RemoteField", Kind = SchemaNodeKind.Scalar, DataType = "string" }
+            ]
+        };
+        host.LoadResult = new ButterMorphSchemaDesignerLoadResult
+        {
+            Schema = remoteSchema,
+            SchemaRevision = "schema-2"
+        };
+
+        string refreshed = await client.GetStringAsync(url);
+
+        Assert.Contains("Your unsaved edits were kept", refreshed, StringComparison.Ordinal);
+        Assert.Contains("LocalField", refreshed, StringComparison.Ordinal);
+        Assert.DoesNotContain("RemoteField", refreshed, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that a validation draft is preserved and checked against refreshed host schemas.
+    /// </summary>
+    /// <returns>The asynchronous test task.</returns>
+    [Fact]
+    public async Task ValidationDesignerRefreshPreservesDirtyRulesAndShowsDiagnostics()
+    {
+        FakeButterMorphValidationDesignerHost host = new()
+        {
+            LoadResult = new ButterMorphValidationDesignerLoadResult
+            {
+                SourceSchemas = new Dictionary<string, IStructureSchema>
+                {
+                    ["customer"] = CreateDesignerSchema("Customer")
+                },
+                SchemaRevision = "schemas-1",
+                DesignRevision = "validation-1"
+            }
+        };
+        HttpClient client = CreateValidationHostClient(host);
+        string url = "/buttermorph/validations/designer" + QueryMarker() + "context=validation-refresh&session=validation-editor";
+        string html = await client.GetStringAsync(url);
+        string token = ExtractToken(html);
+
+        HttpResponseMessage syncResponse = await client.PostAsync(
+            url + "&handler=SyncVisual",
+            new FormUrlEncodedContent(
+            [
+                new KeyValuePair<string, string>("__RequestVerificationToken", token),
+                new KeyValuePair<string, string>("AssertionKinds", "Simple"),
+                new KeyValuePair<string, string>("SimpleFieldPaths", "$customer.Name"),
+                new KeyValuePair<string, string>("SimpleOperators", "exists"),
+                new KeyValuePair<string, string>("SimpleValues", string.Empty),
+                new KeyValuePair<string, string>("AssertionMessages", "Name is required.")
+            ]));
+        Assert.Equal(HttpStatusCode.OK, syncResponse.StatusCode);
+
+        StructureSchema changedSource = (StructureSchema)CreateDesignerSchema("Customer");
+        changedSource.Root = new SchemaNode
+        {
+            Name = "$root",
+            Kind = SchemaNodeKind.Object,
+            Children =
+            [
+                new SchemaNode { Name = "CurrentName", Kind = SchemaNodeKind.Scalar, DataType = "string" }
+            ]
+        };
+        host.LoadResult = new ButterMorphValidationDesignerLoadResult
+        {
+            SourceSchemas = new Dictionary<string, IStructureSchema> { ["customer"] = changedSource },
+            SchemaRevision = "schemas-2",
+            DesignRevision = "validation-2"
+        };
+
+        string refreshed = await client.GetStringAsync(url);
+
+        Assert.Contains("Your unsaved validations were kept", refreshed, StringComparison.Ordinal);
+        Assert.Contains("CurrentName", refreshed, StringComparison.Ordinal);
+        Assert.Contains("$customer.Name", refreshed, StringComparison.Ordinal);
+        Assert.Contains("1 diagnostics", refreshed, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Confirms that saving mappings calls the host integration.
     /// </summary>
     /// <returns>The asynchronous test task.</returns>
@@ -2195,7 +2379,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
                     ["customer"] = CreateDesignerSchema("Customer")
                 },
                 TargetSchema = CreateDesignerSchema("Target"),
-                ShowSchemaActions = false
+                ShowSchemaActions = false,
+                SchemaRevision = "schema-r1",
+                DesignRevision = "mapping-r1"
             }
         };
         HttpClient client = CreateHostClient(host);
@@ -2213,6 +2399,9 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(1, host.SaveCalls);
         Assert.Equal("atlas-save-123", host.LastSaveRequest.ContextKey);
+        Assert.Equal("schema-r1", host.LastSaveRequest.ExpectedSchemaRevision);
+        Assert.Equal("mapping-r1", host.LastSaveRequest.ExpectedDesignRevision);
+        Assert.False(string.IsNullOrWhiteSpace(host.LastSaveRequest.SessionId));
         Assert.Single(host.LastSaveRequest.Document.Mappings);
         Assert.Contains("$customer.Name", host.LastSaveRequest.DslContent, StringComparison.Ordinal);
     }
@@ -2999,6 +3188,19 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<IButterMorphValidationDesignerHost>(host);
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    // Creates a test client with a fake generic schema designer host integration.
+    private HttpClient CreateSchemaDesignerHostClient(FakeButterMorphSchemaDesignerHost host)
+    {
+        WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<IButterMorphSchemaDesignerHost>(host);
             });
         });
         return factory.CreateClient();

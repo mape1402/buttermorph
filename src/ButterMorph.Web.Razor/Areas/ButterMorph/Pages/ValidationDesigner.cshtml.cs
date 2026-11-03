@@ -3,6 +3,7 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Abstractions;
 using ButterMorph.Core;
 using ButterMorph.Design;
+using ButterMorph.Semantics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -34,8 +35,11 @@ public sealed class ValidationDesignerModel : PageModel
     // Provides optional host application integration.
     private readonly IEnumerable<IButterMorphValidationDesignerHost> _designerHosts;
 
-    // Stores web-only state for validation designer contexts.
-    private static readonly DesignerContextStateStore ContextStates = new();
+    // Coordinates isolated workspaces and their lifecycle.
+    private readonly IButterMorphDesignerSessionManager _designerSessions;
+
+    // Stores web-only state for validation designer workspaces.
+    private readonly DesignerContextStateStore _contextStates;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ValidationDesignerModel"/> class.
@@ -47,6 +51,8 @@ public sealed class ValidationDesignerModel : PageModel
     /// <param name="validationDslExporter">The validation DSL exporter.</param>
     /// <param name="options">The Razor designer options.</param>
     /// <param name="designerHosts">The optional designer host integrations.</param>
+    /// <param name="designerSessions">The designer lifecycle coordinator.</param>
+    /// <param name="contextStates">The web-only context state store.</param>
     public ValidationDesignerModel(
         IValidationDesignSessionStore sessionStore,
         ISchemaExplorer schemaExplorer,
@@ -54,7 +60,9 @@ public sealed class ValidationDesignerModel : PageModel
         IDslParser dslParser,
         IValidationDslExporter validationDslExporter,
         IOptions<ButterMorphRazorDesignerOptions> options,
-        IEnumerable<IButterMorphValidationDesignerHost> designerHosts)
+        IEnumerable<IButterMorphValidationDesignerHost> designerHosts,
+        IButterMorphDesignerSessionManager designerSessions,
+        DesignerContextStateStore contextStates)
     {
         _sessionStore = sessionStore;
         _schemaExplorer = schemaExplorer;
@@ -63,6 +71,8 @@ public sealed class ValidationDesignerModel : PageModel
         _validationDslExporter = validationDslExporter;
         _options = options.Value;
         _designerHosts = designerHosts;
+        _designerSessions = designerSessions;
+        _contextStates = contextStates;
     }
 
     /// <summary>
@@ -226,10 +236,17 @@ public sealed class ValidationDesignerModel : PageModel
     /// Displays the validation designer.
     /// </summary>
     /// <returns>The asynchronous page task.</returns>
-    public async Task OnGet()
+    public async Task<IActionResult> OnGet()
     {
+        if (DesignerSessionKeyResolver.TryCreateEditorSessionRedirect(this, _options, out string sessionUrl))
+        {
+            return Redirect(sessionUrl);
+        }
+
+        _designerSessions.Acquire(SessionHandle);
         await PreloadHostState();
         LoadViewState();
+        return Page();
     }
 
     /// <summary>
@@ -242,6 +259,7 @@ public sealed class ValidationDesignerModel : PageModel
 
         if (diagnostics.Count == 0)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             Message = string.Empty;
             return new JsonResult(CreateSyncResponse(true, Message));
         }
@@ -261,6 +279,7 @@ public sealed class ValidationDesignerModel : PageModel
 
         if (result.Succeeded)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             Message = string.Empty;
             Diagnostics = [];
             return new JsonResult(CreateSyncResponse(true, Message));
@@ -281,6 +300,7 @@ public sealed class ValidationDesignerModel : PageModel
 
         if (diagnostics.Count == 0)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             bool hostSaved = await SaveHostState();
 
             if (hostSaved)
@@ -306,6 +326,10 @@ public sealed class ValidationDesignerModel : PageModel
     public IActionResult OnPostImportDsl()
     {
         IValidationOperationResult result = Session.ImportDsl(DslContent);
+        if (result.Succeeded)
+        {
+            _designerSessions.MarkDirty(SessionHandle);
+        }
         Message = CreateMessage(result, "DSL imported.");
         ActiveView = "Dsl";
         Diagnostics = result.Succeeded ? [] : result.Diagnostics;
@@ -329,8 +353,163 @@ public sealed class ValidationDesignerModel : PageModel
         return Page();
     }
 
+    // Validates source paths against the schemas currently supplied by the host. This is kept
+    // separate from DSL shape validation so stale persisted designs remain visible and explainable.
+    private void RunSchemaDiagnostics()
+    {
+        List<DiagnosticEntry> diagnostics = [];
+        ValidateStatementsAgainstSchemas(Session.Document.Statements, new HashSet<string>(StringComparer.Ordinal), diagnostics);
+        Diagnostics = diagnostics;
+    }
+
+    private void ValidateStatementsAgainstSchemas(
+        IReadOnlyCollection<IValidationStatement> statements,
+        HashSet<string> localAliases,
+        List<DiagnosticEntry> diagnostics)
+    {
+        foreach (IValidationStatement statement in statements)
+        {
+            if (statement is IValidationAssertion assertion)
+            {
+                ValidateExpressionAgainstSchemas(assertion.Expression, localAliases, diagnostics);
+                continue;
+            }
+
+            if (statement is IValidationForEach forEach)
+            {
+                ValidateExpressionAgainstSchemas(forEach.SourceExpression, localAliases, diagnostics);
+                HashSet<string> nestedAliases = new(localAliases, StringComparer.Ordinal);
+                if (!string.IsNullOrWhiteSpace(forEach.ItemAlias))
+                {
+                    nestedAliases.Add(forEach.ItemAlias);
+                }
+
+                ValidateStatementsAgainstSchemas(forEach.Statements, nestedAliases, diagnostics);
+            }
+        }
+    }
+
+    private void ValidateExpressionAgainstSchemas(
+        ITransformationExpression expression,
+        HashSet<string> localAliases,
+        List<DiagnosticEntry> diagnostics)
+    {
+        if (expression is IPathExpression pathExpression)
+        {
+            ValidateSourcePath(pathExpression.Path, localAliases, diagnostics);
+            return;
+        }
+
+        if (expression is IFunctionCallExpression function)
+        {
+            foreach (ITransformationExpression argument in function.Arguments)
+            {
+                ValidateExpressionAgainstSchemas(argument, localAliases, diagnostics);
+            }
+
+            return;
+        }
+
+        if (expression is IConditionalExpression conditional)
+        {
+            ValidateExpressionAgainstSchemas(conditional.Condition, localAliases, diagnostics);
+            ValidateExpressionAgainstSchemas(conditional.ThenExpression, localAliases, diagnostics);
+            ValidateExpressionAgainstSchemas(conditional.ElseExpression, localAliases, diagnostics);
+            return;
+        }
+
+        if (expression is IObjectExpression map)
+        {
+            foreach (IObjectPropertyExpression property in map.Properties)
+            {
+                ValidateExpressionAgainstSchemas(property.Expression, localAliases, diagnostics);
+            }
+
+            return;
+        }
+
+        if (expression is IArrayExpression array)
+        {
+            foreach (ITransformationExpression item in array.Items)
+            {
+                ValidateExpressionAgainstSchemas(item, localAliases, diagnostics);
+            }
+
+            return;
+        }
+
+        if (expression is ICollectionProjectionExpression projection)
+        {
+            ValidateExpressionAgainstSchemas(projection.SourceExpression, localAliases, diagnostics);
+            HashSet<string> nestedAliases = new(localAliases, StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(projection.ItemAlias))
+            {
+                nestedAliases.Add(projection.ItemAlias);
+            }
+
+            ValidateExpressionAgainstSchemas(projection.BodyExpression, nestedAliases, diagnostics);
+        }
+    }
+
+    private void ValidateSourcePath(string path, HashSet<string> localAliases, List<DiagnosticEntry> diagnostics)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !path.StartsWith('$'))
+        {
+            return;
+        }
+
+        string normalized = path[1..];
+        int firstSeparator = normalized.IndexOf('.');
+        string sourceKey = firstSeparator < 0 ? normalized : normalized[..firstSeparator];
+        string schemaPath = firstSeparator < 0 ? string.Empty : normalized[(firstSeparator + 1)..];
+
+        if (localAliases.Contains(sourceKey))
+        {
+            return;
+        }
+
+        if (!ContextState.SourceSchemas.TryGetValue(sourceKey, out IStructureSchema schema))
+        {
+            diagnostics.Add(CreateSchemaDiagnostic(path, "Source '" + sourceKey + "' is not available in the current host schemas."));
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(schemaPath))
+        {
+            return;
+        }
+
+        try
+        {
+            _ = new SchemaPathResolver().Resolve(schema.Root, schemaPath);
+        }
+        catch (Exception)
+        {
+            diagnostics.Add(CreateSchemaDiagnostic(path, "Path '" + path + "' is not available in the current source schema."));
+        }
+    }
+
+    private static DiagnosticEntry CreateSchemaDiagnostic(string path, string message)
+    {
+        return new DiagnosticEntry
+        {
+            Code = "BVDG100",
+            Message = message,
+            Path = path,
+            Severity = "Error"
+        };
+    }
+
     // Gets the current validation design session.
-    private string SessionKey => "validation:" + DesignerSessionKeyResolver.Resolve(this, _options);
+    private ButterMorphDesignerSessionHandle SessionHandle => new()
+    {
+        Kind = ButterMorphDesignerSessionKind.Validation,
+        ContextKey = ContextKey,
+        SessionId = DesignerSessionKeyResolver.ResolveEditorSessionId(this, _options)
+    };
+
+    // Gets the internal isolated workspace key for the current request.
+    private string SessionKey => SessionHandle.StorageKey;
 
     // Gets the host context key for the current request.
     private string ContextKey => DesignerSessionKeyResolver.ResolveContextKey(this, _options);
@@ -342,17 +521,24 @@ public sealed class ValidationDesignerModel : PageModel
         StringComparison.OrdinalIgnoreCase);
 
     // Gets web-only state for the current designer context.
-    private DesignerContextState ContextState => ContextStates.GetOrCreate(SessionKey, _options);
+    private DesignerContextState ContextState => _contextStates.GetOrCreate(SessionKey, _options);
 
     // Gets the current validation design session.
-    private IValidationDesignSession Session => _sessionStore.GetOrCreate(SessionKey);
+    private IValidationDesignSession Session
+    {
+        get
+        {
+            _designerSessions.Acquire(SessionHandle);
+            return _sessionStore.GetOrCreate(SessionKey);
+        }
+    }
 
     // Applies host-provided state to the current session when available.
     private async Task PreloadHostState()
     {
         DesignerContextState state = ContextState;
 
-        if (!_options.UseHostPreload || state.HostPreloadApplied)
+        if (!_options.UseHostPreload)
         {
             return;
         }
@@ -361,23 +547,31 @@ public sealed class ValidationDesignerModel : PageModel
 
         if (host == null)
         {
-            state.HostPreloadApplied = true;
             return;
         }
 
         ButterMorphValidationDesignerLoadResult result = await host.Load(new ButterMorphValidationDesignerLoadRequest
         {
-            ContextKey = ContextKey
+            ContextKey = ContextKey,
+            SessionId = SessionHandle.SessionId
         });
 
-        ApplyHostLoadResult(result);
+        ButterMorphDesignerSessionRefreshResult refresh = _designerSessions.ObserveHostSnapshot(SessionHandle, result.SchemaRevision, result.DesignRevision);
+        if (refresh.Disposition is ButterMorphDesignerSessionRefreshDisposition.Initial or ButterMorphDesignerSessionRefreshDisposition.Reload)
+        {
+            ApplyHostLoadResult(result, true);
+        }
+        else if (refresh.Disposition == ButterMorphDesignerSessionRefreshDisposition.PreserveLocalChanges)
+        {
+            ApplyHostLoadResult(result, false);
+            Message = "The host context changed. Your unsaved validations were kept and are now checked against the current schemas.";
+        }
 
-        if (!string.IsNullOrWhiteSpace(result.Message))
+        if (!string.IsNullOrWhiteSpace(result.Message) && refresh.Disposition != ButterMorphDesignerSessionRefreshDisposition.PreserveLocalChanges)
         {
             Message = result.Message;
         }
 
-        state.HostPreloadApplied = true;
     }
 
     // Saves the current session through the optional host integration.
@@ -387,32 +581,44 @@ public sealed class ValidationDesignerModel : PageModel
 
         if (host == null)
         {
+            ButterMorphDesignerSessionSnapshot localSnapshot = _designerSessions.GetSnapshot(SessionHandle);
+            _designerSessions.MarkSaved(SessionHandle, localSnapshot?.SchemaRevision, localSnapshot?.DesignRevision);
             Message = "Validations saved.";
             return true;
         }
 
+        ButterMorphDesignerSessionSnapshot snapshot = _designerSessions.GetSnapshot(SessionHandle);
         ButterMorphValidationDesignerSaveResult result = await host.Save(new ButterMorphValidationDesignerSaveRequest
         {
             ContextKey = ContextKey,
             Document = Session.Document,
             SourceMetadata = ContextState.SourceMetadata,
-            DslContent = Session.ExportDsl()
+            DslContent = Session.ExportDsl(),
+            SessionId = SessionHandle.SessionId,
+            ExpectedSchemaRevision = snapshot?.SchemaRevision ?? string.Empty,
+            ExpectedDesignRevision = snapshot?.DesignRevision ?? string.Empty
         });
 
         if (result.Succeeded)
         {
+            _designerSessions.MarkSaved(SessionHandle, result.SchemaRevision, result.DesignRevision);
             Message = ResolveMessage(result.Message, "Validations saved.");
             Diagnostics = [];
             return true;
         }
 
+        if (result.IsConflict && (!string.IsNullOrWhiteSpace(result.SchemaRevision) || !string.IsNullOrWhiteSpace(result.DesignRevision)))
+        {
+            _designerSessions.ObserveHostSnapshot(SessionHandle, result.SchemaRevision, result.DesignRevision);
+        }
+
         Diagnostics = result.Diagnostics;
-        Message = ResolveMessage(result.Message, "Validations could not be saved.");
+        Message = ResolveMessage(result.Message, result.IsConflict ? "Validations could not be saved because the host document changed. Refresh the context and resolve the diagnostics." : "Validations could not be saved.");
         return false;
     }
 
     // Applies schemas and validation document content returned by the host.
-    private void ApplyHostLoadResult(ButterMorphValidationDesignerLoadResult result)
+    private void ApplyHostLoadResult(ButterMorphValidationDesignerLoadResult result, bool loadPersistedDesign)
     {
         ContextState.SourceSchemas.Clear();
         ContextState.SourceMetadata.Clear();
@@ -435,14 +641,36 @@ public sealed class ValidationDesignerModel : PageModel
             }
         }
 
-        if (result.InitialDocument != null)
+        if (loadPersistedDesign && result.InitialDocument != null)
         {
             Session.LoadDocument(result.InitialDocument);
         }
-        else if (!string.IsNullOrWhiteSpace(result.InitialDslContent))
+        else if (loadPersistedDesign && !string.IsNullOrWhiteSpace(result.InitialDslContent))
         {
             Session.ImportDsl(result.InitialDslContent);
         }
+
+        RunSchemaDiagnostics();
+    }
+
+    /// <summary>
+    /// Marks the browser workspace as active without mutating its document.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostTouchSession()
+    {
+        _designerSessions.Touch(SessionHandle);
+        return new EmptyResult();
+    }
+
+    /// <summary>
+    /// Closes the browser workspace and releases all server-side state.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostCloseSession()
+    {
+        _designerSessions.Close(SessionHandle);
+        return new EmptyResult();
     }
 
     // Gets the last registered host integration so consuming apps can override defaults.

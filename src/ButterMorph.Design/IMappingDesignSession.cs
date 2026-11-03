@@ -35,6 +35,14 @@ public interface IMappingDesignSession
     IMappingOperationResult LoadTargetSchema(IStructureSchema schema);
 
     /// <summary>
+    /// Replaces the source and target schemas while preserving the editable mappings.
+    /// </summary>
+    /// <param name="sourceSchemas">The current source schemas keyed by alias.</param>
+    /// <param name="targetSchema">The current target schema, when provided.</param>
+    /// <returns>The operation result.</returns>
+    IMappingOperationResult ReplaceSchemas(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas, IStructureSchema targetSchema);
+
+    /// <summary>
     /// Adds a path mapping.
     /// </summary>
     /// <param name="sourcePath">The source path.</param>
