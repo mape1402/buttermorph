@@ -21,4 +21,19 @@ public sealed class ButterMorphDesignerSaveResult
     /// Gets or sets save diagnostics.
     /// </summary>
     public IReadOnlyCollection<DiagnosticEntry> Diagnostics { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating that the host rejected the save because its revision changed.
+    /// </summary>
+    public bool IsConflict { get; set; }
+
+    /// <summary>
+    /// Gets or sets the schema revision after a successful save or conflict lookup.
+    /// </summary>
+    public string SchemaRevision { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the design revision after a successful save or conflict lookup.
+    /// </summary>
+    public string DesignRevision { get; set; } = string.Empty;
 }

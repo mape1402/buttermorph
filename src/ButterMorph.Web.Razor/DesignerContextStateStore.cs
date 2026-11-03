@@ -1,7 +1,9 @@
 namespace ButterMorph.Web.Razor;
 
-// Stores web-only designer context state by session key.
-internal sealed class DesignerContextStateStore
+/// <summary>
+/// Stores web-only designer context state by isolated session key.
+/// </summary>
+public sealed class DesignerContextStateStore
 {
     // Stores context state for active designer sessions.
     private readonly Dictionary<string, DesignerContextState> _states = new(StringComparer.Ordinal);
@@ -23,6 +25,15 @@ internal sealed class DesignerContextStateStore
             _states[sessionKey] = state;
 
             return state;
+        }
+    }
+
+    // Removes state belonging to a released designer session.
+    internal bool Remove(string sessionKey)
+    {
+        lock (_states)
+        {
+            return _states.Remove(sessionKey);
         }
     }
 }

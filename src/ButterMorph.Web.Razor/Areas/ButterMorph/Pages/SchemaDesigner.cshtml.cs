@@ -3,7 +3,6 @@ namespace ButterMorph.Web.Razor;
 using ButterMorph.Abstractions;
 using ButterMorph.Design;
 using ButterMorph.SchemaDesign;
-using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
@@ -25,8 +24,11 @@ public sealed class SchemaDesignerModel : PageModel
     // Provides optional host integration.
     private readonly IEnumerable<IButterMorphSchemaDesignerHost> hosts;
 
-    // Keeps host visibility preferences by context key.
-    private static readonly ConcurrentDictionary<string, bool> ManualActionStates = new(StringComparer.OrdinalIgnoreCase);
+    // Coordinates isolated workspaces and their lifecycle.
+    private readonly IButterMorphDesignerSessionManager designerSessions;
+
+    // Stores web-only state for schema designer workspaces.
+    private readonly DesignerContextStateStore contextStates;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SchemaDesignerModel"/> class.
@@ -35,16 +37,22 @@ public sealed class SchemaDesignerModel : PageModel
     /// <param name="schemaExplorer">The schema explorer.</param>
     /// <param name="options">The Razor designer options.</param>
     /// <param name="hosts">The optional host integrations.</param>
+    /// <param name="designerSessions">The designer lifecycle coordinator.</param>
+    /// <param name="contextStates">The web-only context state store.</param>
     public SchemaDesignerModel(
         ISchemaDesignSessionStore sessionStore,
         ISchemaExplorer schemaExplorer,
         IOptions<ButterMorphRazorDesignerOptions> options,
-        IEnumerable<IButterMorphSchemaDesignerHost> hosts)
+        IEnumerable<IButterMorphSchemaDesignerHost> hosts,
+        IButterMorphDesignerSessionManager designerSessions,
+        DesignerContextStateStore contextStates)
     {
         this.sessionStore = sessionStore;
         this.schemaExplorer = schemaExplorer;
         this.options = options.Value;
         this.hosts = hosts;
+        this.designerSessions = designerSessions;
+        this.contextStates = contextStates;
     }
 
     /// <summary>
@@ -147,6 +155,12 @@ public sealed class SchemaDesignerModel : PageModel
     /// <returns>The page result.</returns>
     public async Task<IActionResult> OnGet()
     {
+        if (DesignerSessionKeyResolver.TryCreateEditorSessionRedirect(this, options, out string sessionUrl))
+        {
+            return Redirect(sessionUrl);
+        }
+
+        designerSessions.Acquire(SessionHandle);
         await ApplyHostPreload();
         RefreshView();
 
@@ -161,6 +175,7 @@ public sealed class SchemaDesignerModel : PageModel
     {
         ISchemaDesignSession session = CurrentSession();
         ISchemaDesignOperationResult result = session.AddNode(ParentPath, NodeName, ParseKind(NodeKind), DataType);
+        MarkDirtyWhenSucceeded(result);
         Message = CreateMessage(result, "Node added.");
         SelectedPath = ParentPath;
         RefreshView();
@@ -193,6 +208,8 @@ public sealed class SchemaDesignerModel : PageModel
             result = session.SetMetadata(SelectedPath, "description", MetadataValue);
         }
 
+        MarkDirtyWhenSucceeded(result);
+
         Message = CreateMessage(result, "Node updated.");
         RefreshView();
 
@@ -207,6 +224,7 @@ public sealed class SchemaDesignerModel : PageModel
     {
         ISchemaDesignSession session = CurrentSession();
         ISchemaDesignOperationResult result = session.RemoveNode(SelectedPath);
+        MarkDirtyWhenSucceeded(result);
         Message = CreateMessage(result, "Node removed.");
         SelectedPath = "$root";
         RefreshView();
@@ -222,6 +240,7 @@ public sealed class SchemaDesignerModel : PageModel
     {
         ISchemaDesignSession session = CurrentSession();
         ISchemaDesignOperationResult result = session.SetMetadata(SelectedPath, MetadataKey, MetadataValue);
+        MarkDirtyWhenSucceeded(result);
         Message = CreateMessage(result, "Metadata updated.");
         RefreshView();
 
@@ -236,6 +255,7 @@ public sealed class SchemaDesignerModel : PageModel
     {
         ISchemaDesignSession session = CurrentSession();
         ISchemaDesignOperationResult result = session.ImportJsonSchema("Schema", JsonSchemaText);
+        MarkDirtyWhenSucceeded(result);
         Message = CreateMessage(result, "JSON Schema imported.");
         SelectedPath = "$root";
         RefreshView();
@@ -251,7 +271,8 @@ public sealed class SchemaDesignerModel : PageModel
     {
         ISchemaDesignSession session = CurrentSession();
         JsonSchemaText = session.ExportJsonSchema();
-        string contextKey = DesignerSessionKeyResolver.ResolveContextKey(this, options);
+        string contextKey = ContextKey;
+        ButterMorphDesignerSessionSnapshot snapshot = designerSessions.GetSnapshot(SessionHandle);
         ButterMorphSchemaDesignerSaveResult saveResult = new()
         {
             Succeeded = true,
@@ -264,7 +285,9 @@ public sealed class SchemaDesignerModel : PageModel
             {
                 ContextKey = contextKey,
                 Schema = session.Schema,
-                JsonSchema = JsonSchemaText
+                JsonSchema = JsonSchemaText,
+                SessionId = SessionHandle.SessionId,
+                ExpectedSchemaRevision = snapshot?.SchemaRevision ?? string.Empty
             });
             break;
         }
@@ -273,8 +296,21 @@ public sealed class SchemaDesignerModel : PageModel
 
         if (saveResult.Succeeded)
         {
+            designerSessions.MarkSaved(SessionHandle, saveResult.SchemaRevision, saveResult.SchemaRevision);
             HostSaveCompleted = IsPopupRequest();
             SafeReturnUrl = ResolveSafeReturnUrl();
+        }
+        else
+        {
+            if (saveResult.IsConflict && !string.IsNullOrWhiteSpace(saveResult.SchemaRevision))
+            {
+                designerSessions.ObserveHostSnapshot(SessionHandle, saveResult.SchemaRevision, saveResult.SchemaRevision);
+            }
+
+            if (saveResult.IsConflict && string.IsNullOrWhiteSpace(saveResult.Message))
+            {
+                Message = "Schema could not be saved because the host document changed. Reopen the context to compare the current schema.";
+            }
         }
 
         RefreshView();
@@ -290,7 +326,7 @@ public sealed class SchemaDesignerModel : PageModel
             return;
         }
 
-        string contextKey = DesignerSessionKeyResolver.ResolveContextKey(this, options);
+        string contextKey = ContextKey;
 
         if (string.IsNullOrWhiteSpace(contextKey))
         {
@@ -301,18 +337,27 @@ public sealed class SchemaDesignerModel : PageModel
         {
             ButterMorphSchemaDesignerLoadResult result = await host.Load(new ButterMorphSchemaDesignerLoadRequest
             {
-                ContextKey = contextKey
+                ContextKey = contextKey,
+                SessionId = SessionHandle.SessionId
             });
 
             ShowManualActions = result.ShowManualActions;
-            ManualActionStates[contextKey] = result.ShowManualActions;
+            ContextState.ShowSchemaActions = result.ShowManualActions;
 
-            if (result.Schema != null)
+            ButterMorphDesignerSessionRefreshResult refresh = designerSessions.ObserveHostSnapshot(SessionHandle, result.SchemaRevision, result.SchemaRevision);
+            if (result.Schema != null && (refresh.Disposition is ButterMorphDesignerSessionRefreshDisposition.Initial or ButterMorphDesignerSessionRefreshDisposition.Reload))
             {
                 CurrentSession().Load(result.Schema);
             }
 
-            Message = result.Message;
+            if (refresh.Disposition == ButterMorphDesignerSessionRefreshDisposition.PreserveLocalChanges)
+            {
+                Message = "The host schema changed. Your unsaved edits were kept; reopen after saving to load the remote version.";
+            }
+            else
+            {
+                Message = result.Message;
+            }
             break;
         }
     }
@@ -320,7 +365,8 @@ public sealed class SchemaDesignerModel : PageModel
     // Gets the current schema design session.
     private ISchemaDesignSession CurrentSession()
     {
-        return sessionStore.GetOrCreate(DesignerSessionKeyResolver.Resolve(this, options));
+        designerSessions.Acquire(SessionHandle);
+        return sessionStore.GetOrCreate(SessionHandle.StorageKey);
     }
 
     // Refreshes properties used by Razor.
@@ -352,19 +398,56 @@ public sealed class SchemaDesignerModel : PageModel
     // Resolves manual action visibility for the current context.
     private bool ResolveManualActions()
     {
-        string contextKey = DesignerSessionKeyResolver.ResolveContextKey(this, options);
+        return ContextState.ShowSchemaActions;
+    }
 
-        if (string.IsNullOrWhiteSpace(contextKey))
+    /// <summary>
+    /// Marks the browser workspace as active without mutating its schema.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostTouchSession()
+    {
+        designerSessions.Touch(SessionHandle);
+        return new EmptyResult();
+    }
+
+    /// <summary>
+    /// Closes the browser workspace and releases all server-side state.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostCloseSession()
+    {
+        designerSessions.Close(SessionHandle);
+        return new EmptyResult();
+    }
+
+    private ButterMorphDesignerSessionHandle SessionHandle => new()
+    {
+        Kind = ButterMorphDesignerSessionKind.Schema,
+        ContextKey = ContextKey,
+        SessionId = DesignerSessionKeyResolver.ResolveEditorSessionId(this, options)
+    };
+
+    private string ContextKey => DesignerSessionKeyResolver.ResolveContextKey(this, options);
+
+    private DesignerContextState ContextState => contextStates.GetOrCreate(SessionHandle.StorageKey, options);
+
+    private void MarkDirtyWhenSucceeded(ISchemaDesignOperationResult result)
+    {
+        if (result.Succeeded)
         {
-            return options.ShowSchemaActions;
+            designerSessions.MarkDirty(SessionHandle);
         }
+    }
 
-        if (ManualActionStates.TryGetValue(contextKey, out bool showManualActions))
-        {
-            return showManualActions;
-        }
-
-        return options.ShowSchemaActions;
+    /// <summary>
+    /// Builds a form action that preserves the host context and isolated editor session.
+    /// </summary>
+    /// <param name="handler">The Razor Page handler.</param>
+    /// <returns>The handler URL.</returns>
+    public string BuildHandlerUrl(string handler)
+    {
+        return Request.PathBase + Request.Path + Request.QueryString.Add("handler", handler);
     }
 
     // Finds a tree node by path.

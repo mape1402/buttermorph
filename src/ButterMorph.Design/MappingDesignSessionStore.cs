@@ -11,6 +11,9 @@ public sealed class MappingDesignSessionStore : IMappingDesignSessionStore
     // Stores sessions for the reusable web designer.
     private readonly Dictionary<string, IMappingDesignSession> _sessions = new(StringComparer.Ordinal);
 
+    // Synchronizes access because Razor requests can run concurrently.
+    private readonly object _gate = new();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="MappingDesignSessionStore"/> class.
     /// </summary>
@@ -27,14 +30,30 @@ public sealed class MappingDesignSessionStore : IMappingDesignSessionStore
     /// <returns>The mapping design session.</returns>
     public IMappingDesignSession GetOrCreate(string key)
     {
-        if (_sessions.TryGetValue(key, out IMappingDesignSession session))
+        lock (_gate)
         {
+            if (_sessions.TryGetValue(key, out IMappingDesignSession session))
+            {
+                return session;
+            }
+
+            session = _factory.Create();
+            _sessions[key] = session;
+
             return session;
         }
+    }
 
-        session = _factory.Create();
-        _sessions[key] = session;
-
-        return session;
+    /// <summary>
+    /// Removes a session and releases its in-memory state.
+    /// </summary>
+    /// <param name="key">The session key.</param>
+    /// <returns><see langword="true"/> when a session was removed.</returns>
+    public bool Remove(string key)
+    {
+        lock (_gate)
+        {
+            return _sessions.Remove(key);
+        }
     }
 }

@@ -148,6 +148,30 @@ public sealed class DesignSessionTests
         Assert.True(result.Succeeded);
     }
 
+    /// <summary>
+    /// Confirms that a host schema refresh replaces removed sources without removing mappings.
+    /// </summary>
+    [Fact]
+    public void SessionReplacesSchemasWithoutDiscardingMappings()
+    {
+        IMappingDesignSession session = CreateSession();
+        session.LoadSourceSchema("old", CreateSchema("Old"));
+        session.LoadTargetSchema(CreateSchema("Target"));
+        session.AddPathMapping("$old.Customer.Name", "Customer.Name");
+
+        IMappingOperationResult result = session.ReplaceSchemas(
+            new Dictionary<string, IStructureSchema>
+            {
+                ["current"] = CreateSchema("Current")
+            },
+            CreateSchema("CurrentTarget"));
+
+        Assert.True(result.Succeeded);
+        Assert.DoesNotContain("old", session.Document.SourceSchemas.Keys);
+        Assert.Contains("current", session.Document.SourceSchemas.Keys);
+        Assert.Single(session.Document.Mappings);
+    }
+
     // Creates a test session.
     private static IMappingDesignSession CreateSession()
     {

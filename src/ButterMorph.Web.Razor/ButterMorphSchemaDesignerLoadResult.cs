@@ -21,4 +21,7 @@ public sealed class ButterMorphSchemaDesignerLoadResult
     /// Gets or sets the optional load message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the host revision for the persisted schema document.</summary>
+    public string SchemaRevision { get; set; } = string.Empty;
 }

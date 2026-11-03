@@ -35,8 +35,11 @@ public sealed class DesignerModel : PageModel
     // Provides optional host application integration.
     private readonly IEnumerable<IButterMorphDesignerHost> _designerHosts;
 
-    // Stores web-only state for designer contexts.
-    private static readonly DesignerContextStateStore ContextStates = new();
+    // Coordinates isolated workspaces and their lifecycle.
+    private readonly IButterMorphDesignerSessionManager _designerSessions;
+
+    // Stores web-only state for designer workspaces.
+    private readonly DesignerContextStateStore _contextStates;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DesignerModel"/> class.
@@ -48,6 +51,8 @@ public sealed class DesignerModel : PageModel
     /// <param name="capabilityExplorer">The capability explorer.</param>
     /// <param name="options">The Razor designer options.</param>
     /// <param name="designerHosts">The optional designer host integrations.</param>
+    /// <param name="designerSessions">The designer lifecycle coordinator.</param>
+    /// <param name="contextStates">The web-only context state store.</param>
     public DesignerModel(
         IMappingDesignSessionStore sessionStore,
         ISchemaExplorer schemaExplorer,
@@ -55,7 +60,9 @@ public sealed class DesignerModel : PageModel
         IJsonSchemaImporter schemaImporter,
         ICapabilityExplorer capabilityExplorer,
         IOptions<ButterMorphRazorDesignerOptions> options,
-        IEnumerable<IButterMorphDesignerHost> designerHosts)
+        IEnumerable<IButterMorphDesignerHost> designerHosts,
+        IButterMorphDesignerSessionManager designerSessions,
+        DesignerContextStateStore contextStates)
     {
         _sessionStore = sessionStore;
         _schemaExplorer = schemaExplorer;
@@ -64,6 +71,8 @@ public sealed class DesignerModel : PageModel
         _capabilityExplorer = capabilityExplorer;
         _options = options.Value;
         _designerHosts = designerHosts;
+        _designerSessions = designerSessions;
+        _contextStates = contextStates;
     }
 
     /// <summary>
@@ -307,10 +316,17 @@ public sealed class DesignerModel : PageModel
     /// Displays the designer.
     /// </summary>
     /// <returns>The asynchronous page task.</returns>
-    public async Task OnGet()
+    public async Task<IActionResult> OnGet()
     {
+        if (DesignerSessionKeyResolver.TryCreateEditorSessionRedirect(this, _options, out string sessionUrl))
+        {
+            return Redirect(sessionUrl);
+        }
+
+        _designerSessions.Acquire(SessionHandle);
         await PreloadHostState();
         LoadViewState();
+        return Page();
     }
 
     /// <summary>
@@ -320,6 +336,10 @@ public sealed class DesignerModel : PageModel
     public IActionResult OnPostAddMapping()
     {
         IMappingOperationResult result = Session.AddPathMapping(SourcePath, TargetPath);
+        if (result.Succeeded)
+        {
+            _designerSessions.MarkDirty(SessionHandle);
+        }
         Message = CreateMessage(result, "Mapping added.");
         LoadViewState();
 
@@ -376,6 +396,7 @@ public sealed class DesignerModel : PageModel
 
             if (loadResult.Succeeded)
             {
+                _designerSessions.MarkDirty(SessionHandle);
                 RunSemanticDiagnostics();
             }
             else
@@ -418,6 +439,7 @@ public sealed class DesignerModel : PageModel
         if (result.Succeeded)
         {
             Session.LoadTargetSchema(result.Schema);
+            _designerSessions.MarkDirty(SessionHandle);
             Message = "Target schema loaded.";
             OutputSchemaText = string.Empty;
             RunSemanticDiagnostics();
@@ -443,6 +465,7 @@ public sealed class DesignerModel : PageModel
 
         if (diagnostics.Count == 0)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             Message = string.Empty;
             RunSemanticDiagnostics();
             return new JsonResult(CreateSyncResponse(true, Message));
@@ -463,6 +486,7 @@ public sealed class DesignerModel : PageModel
 
         if (result.Succeeded)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             Message = string.Empty;
             RunSemanticDiagnostics();
             return new JsonResult(CreateSyncResponse(true, Message));
@@ -480,6 +504,7 @@ public sealed class DesignerModel : PageModel
     public IActionResult OnPostRemoveMapping()
     {
         Session.RemoveMapping(TargetPath);
+        _designerSessions.MarkDirty(SessionHandle);
         Message = "Mapping removed.";
         LoadViewState();
 
@@ -500,6 +525,7 @@ public sealed class DesignerModel : PageModel
 
             if (Diagnostics.Count == 0)
             {
+                _designerSessions.MarkDirty(SessionHandle);
                 bool hostSaved = await SaveHostState();
 
                 if (hostSaved)
@@ -535,6 +561,7 @@ public sealed class DesignerModel : PageModel
 
         if (result.Succeeded)
         {
+            _designerSessions.MarkDirty(SessionHandle);
             RunSemanticDiagnostics();
         }
         else
@@ -577,7 +604,15 @@ public sealed class DesignerModel : PageModel
     }
 
     // Gets the current design session.
-    private string SessionKey => DesignerSessionKeyResolver.Resolve(this, _options);
+    private ButterMorphDesignerSessionHandle SessionHandle => new()
+    {
+        Kind = ButterMorphDesignerSessionKind.Mapping,
+        ContextKey = ContextKey,
+        SessionId = DesignerSessionKeyResolver.ResolveEditorSessionId(this, _options)
+    };
+
+    // Gets the internal isolated workspace key for the current request.
+    private string SessionKey => SessionHandle.StorageKey;
 
     // Gets the host context key for the current request.
     private string ContextKey => DesignerSessionKeyResolver.ResolveContextKey(this, _options);
@@ -589,10 +624,17 @@ public sealed class DesignerModel : PageModel
         StringComparison.OrdinalIgnoreCase);
 
     // Gets web-only state for the current designer context.
-    private DesignerContextState ContextState => ContextStates.GetOrCreate(SessionKey, _options);
+    private DesignerContextState ContextState => _contextStates.GetOrCreate(SessionKey, _options);
 
     // Gets the current design session.
-    private IMappingDesignSession Session => _sessionStore.GetOrCreate(SessionKey);
+    private IMappingDesignSession Session
+    {
+        get
+        {
+            _designerSessions.Acquire(SessionHandle);
+            return _sessionStore.GetOrCreate(SessionKey);
+        }
+    }
 
     // Applies host-provided state to the current session when available.
     private async Task PreloadHostState()
@@ -600,7 +642,7 @@ public sealed class DesignerModel : PageModel
         DesignerContextState state = ContextState;
         ShowSchemaActions = state.ShowSchemaActions;
 
-        if (!_options.UseHostPreload || state.HostPreloadApplied)
+        if (!_options.UseHostPreload)
         {
             return;
         }
@@ -609,25 +651,33 @@ public sealed class DesignerModel : PageModel
 
         if (host == null)
         {
-            state.HostPreloadApplied = true;
             return;
         }
 
         ButterMorphDesignerLoadResult result = await host.Load(new ButterMorphDesignerLoadRequest
         {
-            ContextKey = ContextKey
+            ContextKey = ContextKey,
+            SessionId = SessionHandle.SessionId
         });
 
         state.ShowSchemaActions = result.ShowSchemaActions;
         ShowSchemaActions = result.ShowSchemaActions;
-        ApplyHostLoadResult(result);
+        ButterMorphDesignerSessionRefreshResult refresh = _designerSessions.ObserveHostSnapshot(SessionHandle, result.SchemaRevision, result.DesignRevision);
+        if (refresh.Disposition is ButterMorphDesignerSessionRefreshDisposition.Initial or ButterMorphDesignerSessionRefreshDisposition.Reload)
+        {
+            ApplyHostLoadResult(result, true);
+        }
+        else if (refresh.Disposition == ButterMorphDesignerSessionRefreshDisposition.PreserveLocalChanges)
+        {
+            ApplyHostLoadResult(result, false);
+            Message = "The host context changed. Your unsaved mappings were kept and are now checked against the current schemas.";
+        }
 
-        if (!string.IsNullOrWhiteSpace(result.Message))
+        if (!string.IsNullOrWhiteSpace(result.Message) && refresh.Disposition != ButterMorphDesignerSessionRefreshDisposition.PreserveLocalChanges)
         {
             Message = result.Message;
         }
 
-        state.HostPreloadApplied = true;
     }
 
     // Saves the current session through the optional host integration.
@@ -637,26 +687,38 @@ public sealed class DesignerModel : PageModel
 
         if (host == null)
         {
+            ButterMorphDesignerSessionSnapshot localSnapshot = _designerSessions.GetSnapshot(SessionHandle);
+            _designerSessions.MarkSaved(SessionHandle, localSnapshot?.SchemaRevision, localSnapshot?.DesignRevision);
             Message = "Mappings saved.";
             return true;
         }
 
+        ButterMorphDesignerSessionSnapshot snapshot = _designerSessions.GetSnapshot(SessionHandle);
         ButterMorphDesignerSaveResult result = await host.Save(new ButterMorphDesignerSaveRequest
         {
             ContextKey = ContextKey,
             Document = Session.Document,
             SourceMetadata = CreateSourceMetadataSnapshot(Session.Document.SourceSchemas, ContextState.SourceMetadata),
-            DslContent = Session.ExportDsl()
+            DslContent = Session.ExportDsl(),
+            SessionId = SessionHandle.SessionId,
+            ExpectedSchemaRevision = snapshot?.SchemaRevision ?? string.Empty,
+            ExpectedDesignRevision = snapshot?.DesignRevision ?? string.Empty
         });
 
         if (result.Succeeded)
         {
+            _designerSessions.MarkSaved(SessionHandle, result.SchemaRevision, result.DesignRevision);
             Message = ResolveMessage(result.Message, "Mappings saved.");
             return true;
         }
 
+        if (result.IsConflict && (!string.IsNullOrWhiteSpace(result.SchemaRevision) || !string.IsNullOrWhiteSpace(result.DesignRevision)))
+        {
+            _designerSessions.ObserveHostSnapshot(SessionHandle, result.SchemaRevision, result.DesignRevision);
+        }
+
         Diagnostics = result.Diagnostics;
-        Message = ResolveMessage(result.Message, "Mappings could not be saved.");
+        Message = ResolveMessage(result.Message, result.IsConflict ? "Mappings could not be saved because the host document changed. Refresh the context and resolve the diagnostics." : "Mappings could not be saved.");
         return false;
     }
 
@@ -703,22 +765,23 @@ public sealed class DesignerModel : PageModel
     }
 
     // Applies schemas and document content returned by the host.
-    private void ApplyHostLoadResult(ButterMorphDesignerLoadResult result)
+    private void ApplyHostLoadResult(ButterMorphDesignerLoadResult result, bool loadPersistedDesign)
     {
-        if (result.InitialDocument != null)
+        if (loadPersistedDesign && result.InitialDocument != null)
         {
             Session.LoadDocument(result.InitialDocument);
         }
-        else if (!string.IsNullOrWhiteSpace(result.InitialDslContent))
+        else if (loadPersistedDesign && !string.IsNullOrWhiteSpace(result.InitialDslContent))
         {
             Session.ImportDsl(result.InitialDslContent);
         }
 
-        foreach (KeyValuePair<string, IStructureSchema> schema in result.SourceSchemas)
+        if (result.HasSchemaSnapshot || result.SourceSchemas.Count > 0 || result.TargetSchema != null)
         {
-            Session.LoadSourceSchema(schema.Key, schema.Value);
+            Session.ReplaceSchemas(result.SourceSchemas, result.TargetSchema ?? Session.Document.TargetSchema);
         }
 
+        ContextState.SourceMetadata.Clear();
         if (result.SourceMetadata != null)
         {
             foreach (KeyValuePair<string, ButterMorphDesignerSourceMetadata> metadata in result.SourceMetadata)
@@ -732,12 +795,27 @@ public sealed class DesignerModel : PageModel
             }
         }
 
-        if (result.TargetSchema != null)
-        {
-            Session.LoadTargetSchema(result.TargetSchema);
-        }
-
         RunSemanticDiagnostics();
+    }
+
+    /// <summary>
+    /// Marks the browser workspace as active without mutating its document.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostTouchSession()
+    {
+        _designerSessions.Touch(SessionHandle);
+        return new EmptyResult();
+    }
+
+    /// <summary>
+    /// Closes the browser workspace and releases all server-side state.
+    /// </summary>
+    /// <returns>An empty response.</returns>
+    public IActionResult OnPostCloseSession()
+    {
+        _designerSessions.Close(SessionHandle);
+        return new EmptyResult();
     }
 
     // Gets the last registered host integration so consuming apps can override defaults.

@@ -94,6 +94,19 @@
             })();
         </script>
     }
+    <script>
+        (function () {
+            var token = document.querySelector("input[name='__RequestVerificationToken']");
+            if (!token) return;
+            window.setInterval(function () {
+                var url = new URL(window.location.href);
+                url.searchParams.set("handler", "TouchSession");
+                var body = new URLSearchParams();
+                body.set("__RequestVerificationToken", token.value);
+                fetch(url.toString(), { method: "POST", body: body, credentials: "same-origin", keepalive: true });
+            }, 60000);
+        }());
+    </script>
 </body>
 </html>
 
@@ -107,13 +120,13 @@
         string nestedHtml = RenderNested(node, depth);
         string html =
             "<div class=\"schema-field bm-schema-legacy-field\" style=\"margin-left:" + indent + "px\">" +
-            "<form method=\"post\" class=\"schema-field-main bm-schema-legacy-field-main\" action=\"?handler=UpdateNode\">" +
+            "<form method=\"post\" class=\"schema-field-main bm-schema-legacy-field-main\" action=\"" + Model.BuildHandlerUrl("UpdateNode") + "\">" +
             "<input type=\"hidden\" name=\"SelectedPath\" value=\"" + node.Path + "\" />" +
             "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-name\"><label class=\"form-label\">Field</label><input class=\"form-control\" name=\"NodeName\" value=\"" + DisplayName(node) + "\" /></div>" +
             "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-type\"><label class=\"form-label\">Type</label><select class=\"form-control\" name=\"NodeKind\">" + RenderOptions(node.Kind) + "</select></div>" +
             "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-description\"><label class=\"form-label\">Description</label><input class=\"form-control\" name=\"MetadataValue\" value=\"" + description + "\" placeholder=\"Short field description\" /></div>" +
             "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-required\"><label class=\"form-label\">Required</label><label class=\"bm-schema-legacy-check\"><input name=\"IsRequired\" type=\"checkbox\" value=\"true\"" + checkedText + " /> Yes</label></div>" +
-            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-actions\"><label class=\"form-label\">Actions</label><div class=\"bm-schema-legacy-action-row\"><button class=\"btn btn-secondary btn-sm\" type=\"submit\">Apply</button><button class=\"btn btn-outline-danger btn-sm\" formaction=\"?handler=RemoveNode\" type=\"submit\">Remove</button></div></div>" +
+            "<div class=\"bm-schema-legacy-field-col bm-schema-legacy-field-actions\"><label class=\"form-label\">Actions</label><div class=\"bm-schema-legacy-action-row\"><button class=\"btn btn-secondary btn-sm\" type=\"submit\">Apply</button><button class=\"btn btn-outline-danger btn-sm\" formaction=\"" + Model.BuildHandlerUrl("RemoveNode") + "\" type=\"submit\">Remove</button></div></div>" +
             "<input name=\"DataType\" type=\"hidden\" value=\"" + fieldType + "\" />" +
             "</form>" +
             nestedHtml +
@@ -130,7 +143,7 @@
         }
 
         string addForm =
-            "<form class=\"schema-add-row bm-schema-legacy-nested-add\" method=\"post\" action=\"?handler=AddNode\">" +
+            "<form class=\"schema-add-row bm-schema-legacy-nested-add\" method=\"post\" action=\"" + Model.BuildHandlerUrl("AddNode") + "\">" +
             "<input type=\"hidden\" name=\"ParentPath\" value=\"" + node.Path + "\" />" +
             "<input class=\"form-control\" name=\"NodeName\" placeholder=\"propertyName\" />" +
             "<select class=\"form-control\" name=\"NodeKind\"><option>Scalar</option><option>Object</option><option>Array</option></select>" +

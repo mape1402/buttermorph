@@ -437,5 +437,18 @@
             </div>
         </div>
     </main>
+    <script>
+        (function () {
+            var token = document.querySelector("input[name='__RequestVerificationToken']");
+            if (!token) return;
+            window.setInterval(function () {
+                var url = new URL(window.location.href);
+                url.searchParams.set("handler", "TouchSession");
+                var body = new URLSearchParams();
+                body.set("__RequestVerificationToken", token.value);
+                fetch(url.toString(), { method: "POST", body: body, credentials: "same-origin", keepalive: true });
+            }, 60000);
+        }());
+    </script>
 </body>
 </html>

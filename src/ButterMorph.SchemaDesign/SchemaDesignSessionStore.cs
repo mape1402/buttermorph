@@ -37,4 +37,14 @@ public sealed class SchemaDesignSessionStore : ISchemaDesignSessionStore
     {
         return sessions.GetOrAdd(key, _ => new SchemaDesignSession(importer, exporter));
     }
+
+    /// <summary>
+    /// Removes a session and releases its in-memory state.
+    /// </summary>
+    /// <param name="key">The session key.</param>
+    /// <returns><see langword="true"/> when a session was removed.</returns>
+    public bool Remove(string key)
+    {
+        return sessions.TryRemove(key, out _);
+    }
 }

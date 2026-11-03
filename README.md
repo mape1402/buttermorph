@@ -67,27 +67,27 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="2.1.1" />
-<PackageReference Include="ButterMorph.Json" Version="2.1.1" />
+<PackageReference Include="ButterMorph" Version="2.1.4" />
+<PackageReference Include="ButterMorph.Json" Version="2.1.4" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.1" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.4" />
 ```
 
 Language adapters and code generation:
 
 ```xml
-<PackageReference Include="ButterMorph.Language" Version="2.1.1" />
-<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.1" />
+<PackageReference Include="ButterMorph.Language" Version="2.1.4" />
+<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.4" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.1" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.4" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -209,6 +209,56 @@ Example:
 ```text
 /buttermorph/payload-schema/designer?context=schema-123&mode=edit&popup=true
 ```
+
+## Interactive Designer Session Lifecycle
+
+The mapping, validation, and generic schema designers keep an isolated in-memory workspace for each browser editor. `context` remains the stable, host-owned document identity; ButterMorph adds an opaque `session` value to the initial designer URL so two tabs editing the same context never share mutable state. The payload schema designer has a separate lifecycle and is intentionally not covered by this policy.
+
+On every open or reopen, ButterMorph calls the host `Load(...)` integration again. Hosts should return the current schemas, persisted document, and optional revisions:
+
+- `SchemaRevision` identifies the input/output schemas supplied by the host.
+- `DesignRevision` identifies the saved mapping or validation document. The generic schema designer uses `SchemaRevision` for its document revision.
+- `SessionId` is provided for diagnostics and correlation only; it is never a host persistence key.
+- Mapping hosts set `HasSchemaSnapshot = true` when their source and target schemas are a complete catalog. This also lets an intentionally empty source list remove stale source schemas from an existing workspace.
+
+For a clean workspace, a changed host revision reloads the host document and schemas. For synchronized unsaved changes, ButterMorph preserves the local document, replaces only the current schema catalog, and presents diagnostics for now-incompatible mapping or validation references. Generic schema edits are likewise preserved rather than overwritten. A host save receives `ExpectedSchemaRevision` and `ExpectedDesignRevision`; reject a stale write with `IsConflict = true` and diagnostics. ButterMorph retains the local work on a conflict.
+
+The host can explicitly invalidate already-open workspaces without minting a new context key:
+
+```csharp
+using ButterMorph.Web.Razor;
+
+public sealed class CustomerSchemaChangedHandler
+{
+    private readonly IButterMorphDesignerSessionManager sessions;
+
+    public CustomerSchemaChangedHandler(IButterMorphDesignerSessionManager sessions)
+    {
+        this.sessions = sessions;
+    }
+
+    public void Handle(string contextKey)
+    {
+        sessions.InvalidateContext(contextKey, ButterMorphDesignerSessionKind.Mapping);
+        sessions.InvalidateContext(contextKey, ButterMorphDesignerSessionKind.Validation);
+    }
+}
+```
+
+`Close(...)` immediately releases a workspace and its associated designer state. The browser keeps an active editor alive with a heartbeat; abandoned inactive sessions and idle active sessions are released by the configured policy. Configure the policy during registration:
+
+```csharp
+builder.Services.AddButterMorphRazorDesigner(options =>
+{
+    options.Sessions.InactiveTimeout = TimeSpan.FromMinutes(20);
+    options.Sessions.ActiveTimeout = TimeSpan.FromHours(8);
+    options.Sessions.SweepInterval = TimeSpan.FromMinutes(2);
+    options.Sessions.MaximumSessions = 256;
+    options.Sessions.MaximumSessionsPerContext = 16;
+});
+```
+
+The default coordinator is intentionally process-local. In a multi-replica deployment, use sticky affinity for active designer requests. ButterMorph does not silently distribute mutable in-memory workspaces or require a particular database; hosts that need cross-replica workspace coordination must provide it at their application boundary and continue to enforce the optimistic host revisions above.
 
 ## Host Save Flow
 

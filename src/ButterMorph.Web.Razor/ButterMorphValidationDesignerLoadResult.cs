@@ -31,4 +31,10 @@ public sealed class ButterMorphValidationDesignerLoadResult
     /// Gets or sets the optional load message.
     /// </summary>
     public string Message { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the host revision for the source schemas.</summary>
+    public string SchemaRevision { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the host revision for the persisted validation document.</summary>
+    public string DesignRevision { get; set; } = string.Empty;
 }

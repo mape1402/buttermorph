@@ -107,6 +107,34 @@ public sealed class MappingDesignSession : IMappingDesignSession
     }
 
     /// <summary>
+    /// Replaces the source and target schemas while preserving the editable mappings.
+    /// </summary>
+    /// <param name="sourceSchemas">The current source schemas keyed by alias.</param>
+    /// <param name="targetSchema">The current target schema, when provided.</param>
+    /// <returns>The operation result.</returns>
+    public IMappingOperationResult ReplaceSchemas(IReadOnlyDictionary<string, IStructureSchema> sourceSchemas, IStructureSchema targetSchema)
+    {
+        sourceSchemas ??= new Dictionary<string, IStructureSchema>();
+
+        List<DiagnosticEntry> diagnostics = [];
+        foreach (KeyValuePair<string, IStructureSchema> schema in sourceSchemas)
+        {
+            AddSchemaIdentityDiagnostics(diagnostics, schema.Key, schema.Value);
+        }
+
+        AddDuplicateSchemaKeyDiagnostics(diagnostics, sourceSchemas);
+
+        if (targetSchema != null)
+        {
+            AddTargetSchemaIdentityDiagnostics(diagnostics, targetSchema);
+            _document.TargetSchema = targetSchema;
+        }
+
+        _document.SourceSchemas = new Dictionary<string, IStructureSchema>(sourceSchemas, StringComparer.Ordinal);
+        return ResultFromDiagnostics(diagnostics);
+    }
+
+    /// <summary>
     /// Adds a path mapping.
     /// </summary>
     /// <param name="sourcePath">The source path.</param>
