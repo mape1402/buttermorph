@@ -126,7 +126,10 @@
 .bm-schema-code-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
@@ -143,9 +146,20 @@
 
 .bm-schema-json-toolbar {
   justify-content: flex-end;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
-.bm-schema-json-toolbar > button,
+.bm-schema-json-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.45rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.bm-schema-json-actions > button,
 .bm-schema-code-toolbar > button {
   background: transparent;
   border-color: var(--bm-border);
@@ -156,7 +170,7 @@
   padding: 0.18rem 0.6rem;
 }
 
-.bm-schema-json-toolbar > button:hover,
+.bm-schema-json-actions > button:hover,
 .bm-schema-code-toolbar > button:hover {
   background: var(--bm-primary);
   border-color: var(--bm-primary);

@@ -131,6 +131,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("data-schema-json-source=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-export=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-copy=\"true\"", html, StringComparison.Ordinal);
+        Assert.Contains("bm-schema-json-actions", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-json-toast=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-node-list=\"true\"", html, StringComparison.Ordinal);
         Assert.Contains("data-schema-detail-dialog=\"true\"", html, StringComparison.Ordinal);
