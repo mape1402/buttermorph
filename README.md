@@ -6,6 +6,8 @@
 [![Coverage](https://img.shields.io/badge/Coverage-78%25-yellowgreen)](https://github.com/mape1402/buttermorph/actions/workflows/build-and-release.yml)
 [![License](https://img.shields.io/github/license/mape1402/buttermorph.svg)](LICENSE)
 
+![ButterMorph data transformation flow](assets/buttermorph-hero-v2.png)
+
 ButterMorph is a modular .NET toolkit for designing, storing, validating, and executing shape-neutral data transformations.
 
 It provides the core transformation and validation models, schema definition services, JSON adapters, textual DSLs, and reusable Razor designers that can be embedded into any host application. The host owns persistence and business rules; ButterMorph owns the modeling, schema/mapping/validation designers, rehydration, DSL import/export, and runtime execution.
