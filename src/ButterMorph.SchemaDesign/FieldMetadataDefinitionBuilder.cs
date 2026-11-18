@@ -148,7 +148,7 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
 
         if (string.Equals(input.DataType, "object", StringComparison.OrdinalIgnoreCase))
         {
-            ValidateJsonDefinition(input.ChildrenDefinitionJson, diagnostics, "ChildrenDefinitionJson", "Object metadata fields are required.");
+            ValidateOptionalJsonDefinition(input.ChildrenDefinitionJson, diagnostics, "ChildrenDefinitionJson");
         }
 
         if (string.Equals(input.DataType, "array", StringComparison.OrdinalIgnoreCase))
@@ -160,7 +160,7 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
 
             if (string.Equals(input.ArrayItemDataType, "object", StringComparison.OrdinalIgnoreCase))
             {
-                ValidateJsonDefinition(input.ArrayItemDefinitionJson, diagnostics, "ArrayItemDefinitionJson", "Array object item fields are required.");
+                ValidateOptionalJsonDefinition(input.ArrayItemDefinitionJson, diagnostics, "ArrayItemDefinitionJson");
             }
         }
 
@@ -168,11 +168,10 @@ public sealed class FieldMetadataDefinitionBuilder : IFieldMetadataDefinitionBui
     }
 
     // Validates JSON schema fragments used by complex metadata fields.
-    private static void ValidateJsonDefinition(string json, List<DiagnosticEntry> diagnostics, string path, string emptyMessage)
+    private static void ValidateOptionalJsonDefinition(string json, List<DiagnosticEntry> diagnostics, string path)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
-            diagnostics.Add(CreateDiagnostic("BMSD205", emptyMessage, path));
             return;
         }
 

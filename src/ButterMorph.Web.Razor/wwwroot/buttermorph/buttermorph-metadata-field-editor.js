@@ -440,7 +440,7 @@
         if (type === "integer") {
             return ["minimum", "maximum"];
         }
-        if (type === "array") {
+        if (dataTypeSelect.value === "array") {
             return ["minItems", "maxItems"];
         }
         if (type === "date" || type === "datetime") {
@@ -598,18 +598,10 @@
         validateScope(errors);
         validateConstraintRanges(errors);
 
-        const type = dataTypeSelect.value;
-        if (type === "object" && !hasDefinitionRows(objectFields)) {
-            errors.push("Object custom field must define at least one nested field.");
-        }
-
-        if (type === "array") {
+        if (dataTypeSelect.value === "array") {
             const itemType = arrayItemType?.value || "";
             if (!itemType) {
                 errors.push("Array custom field must define an item type.");
-            }
-            if (itemType === "object" && !hasDefinitionRows(arrayObjectFields)) {
-                errors.push("Array object custom field must define at least one item field.");
             }
         }
 
@@ -677,13 +669,6 @@
         if (minInput.value > maxInput.value) {
             errors.push(minLabel + " cannot be greater than " + maxLabel + ".");
         }
-    }
-
-    function hasDefinitionRows(host) {
-        return !!host && Array.from(host.children).some(function (child) {
-            return child.classList && child.classList.contains("metadata-definition-row") &&
-                String(child.querySelector(".metadata-definition-name")?.value || "").trim();
-        });
     }
 
     function showDesignerMessage(message, details) {

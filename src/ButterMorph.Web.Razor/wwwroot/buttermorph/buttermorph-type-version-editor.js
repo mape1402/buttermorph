@@ -211,17 +211,9 @@
         validateConstraintRanges(errors);
 
         const baseType = baseSelect.value;
-        if (baseType === "object" && !hasSchemaFields(document.getElementById("schema-root-fields"))) {
-            errors.push("Object custom type must define at least one field.");
-        }
-
         const selectedItemType = arrayItemSelect?.selectedOptions?.[0]?.dataset?.baseType || arrayItemSelect?.value || "";
         if (baseType === "array" && !selectedItemType) {
             errors.push("Array custom type must define an item type.");
-        }
-
-        if (baseType === "array" && selectedItemType === "object" && !hasSchemaFields(document.getElementById("schema-root-fields"))) {
-            errors.push("Array object custom type must define at least one item field.");
         }
 
         if (errors.length > 0) {
@@ -266,13 +258,6 @@
         if (Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue) {
             errors.push(minLabel + " cannot be greater than " + maxLabel + ".");
         }
-    }
-
-    function hasSchemaFields(list) {
-        return !!list && Array.from(list.children).some(function (child) {
-            return child.classList && child.classList.contains("schema-field") &&
-                String(child.querySelector(".field-name-input")?.value || "").trim();
-        });
     }
 
     function showDesignerMessage(message, details) {

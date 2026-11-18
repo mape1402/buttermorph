@@ -7,6 +7,14 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.6] - 2026-11-17
+
+### Fixed
+- Allowed empty `object` definitions in payload schemas, custom data types, custom fields, and object array items so they can model open or polymorphic values without inventing placeholder fields.
+- Preserved validation of declared object properties while allowing an object with no declared properties to accept arbitrary object content.
+
+---
+
 ## [v2.1.5] - 2026-11-03
 
 ### Fixed
