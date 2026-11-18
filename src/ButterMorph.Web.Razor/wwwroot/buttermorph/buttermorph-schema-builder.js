@@ -1269,12 +1269,9 @@
         const type = getSelectedBaseType(field.querySelector(".field-type-select"));
         if (type === "object") {
             const children = field.querySelector(".child-fields-list");
-            if (!hasSchemaFields(children)) {
-                errors.push(path + " must define at least one object field.");
-                return;
+            if (hasSchemaFields(children)) {
+                validateFieldList(children, path, errors);
             }
-
-            validateFieldList(children, path, errors);
             return;
         }
 
@@ -1289,12 +1286,9 @@
 
         if (itemType === "object") {
             const itemChildren = field.querySelector(".array-object-fields-list");
-            if (!hasSchemaFields(itemChildren)) {
-                errors.push(path + " array item must define at least one object field.");
-                return;
+            if (hasSchemaFields(itemChildren)) {
+                validateFieldList(itemChildren, path + "[]", errors);
             }
-
-            validateFieldList(itemChildren, path + "[]", errors);
             return;
         }
 

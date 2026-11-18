@@ -69,27 +69,27 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="2.1.4" />
-<PackageReference Include="ButterMorph.Json" Version="2.1.4" />
+<PackageReference Include="ButterMorph" Version="2.1.6" />
+<PackageReference Include="ButterMorph.Json" Version="2.1.6" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.4" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.6" />
 ```
 
 Language adapters and code generation:
 
 ```xml
-<PackageReference Include="ButterMorph.Language" Version="2.1.4" />
-<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.4" />
+<PackageReference Include="ButterMorph.Language" Version="2.1.6" />
+<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.6" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.4" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.6" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.
@@ -362,6 +362,8 @@ ButterMorph schema design has three reusable concepts.
 ### Custom Data Types
 
 Custom data types define reusable type constraints and structures. For example, a `CustomerCode` type can define string length and pattern constraints. An `Address` type can define an object structure.
+
+An `object` type may intentionally have no declared properties. ButterMorph treats it as an open, generic object suitable for polymorphic or extension data. The same rule applies to object custom fields and object array items; when properties are declared, their validations still apply.
 
 The designer returns a clean `SchemaTypeDefinition`:
 

@@ -94,6 +94,26 @@ public sealed class SchemaDesignSessionTests
     }
 
     /// <summary>
+    /// Confirms that custom object types can intentionally remain open.
+    /// </summary>
+    [Fact]
+    public void SchemaTypeBuilderAllowsOpenObjectTypes()
+    {
+        SchemaTypeSchemaBuilder builder = new();
+
+        SchemaTypeDesignResult result = builder.Build(new SchemaTypeDesignInput
+        {
+            Key = "extension-data",
+            Name = "Extension Data",
+            BaseType = "object",
+            VersionNumber = "1.0.0"
+        }, []);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("{\"type\":\"object\"}", result.JsonSchema);
+    }
+
+    /// <summary>
     /// Confirms that schema type builder emits custom array item references.
     /// </summary>
     [Fact]
@@ -154,6 +174,51 @@ public sealed class SchemaDesignSessionTests
         Assert.Contains("Schema", result.Definition.AppliesTo);
         Assert.Contains("Field", result.Definition.AppliesTo);
         Assert.Contains("\"Schema\"", result.AppliesToJson, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Confirms that object metadata fields can intentionally accept an open object.
+    /// </summary>
+    [Fact]
+    public void FieldMetadataBuilderAllowsOpenObjectValues()
+    {
+        FieldMetadataDefinitionBuilder builder = new();
+
+        FieldMetadataDesignResult result = builder.Build(new FieldMetadataDesignInput
+        {
+            Name = "Extension Data",
+            Key = "extensionData",
+            DataType = "object",
+            AppliesTo = "Field"
+        });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(JsonValueKind.Undefined, result.Definition.ChildrenDefinition.ValueKind);
+    }
+
+    /// <summary>
+    /// Confirms that payload fields can represent generic objects without nested fields.
+    /// </summary>
+    [Fact]
+    public void PayloadSchemaDefinitionBuilderAllowsOpenObjectFields()
+    {
+        PayloadSchemaDefinitionBuilder builder = new(new PayloadSchemaBuilder());
+
+        PayloadSchemaDesignResult result = builder.Build(new PayloadSchemaDesignInput
+        {
+            Key = "event",
+            Name = "Event"
+        },
+        [
+            new PayloadSchemaField
+            {
+                Name = "ExtensionData",
+                DataType = "object"
+            }
+        ], [], []);
+
+        Assert.True(result.Succeeded);
+        Assert.Contains("\"ExtensionData\":{\"type\":\"object\",\"properties\":{}}", result.JsonSchema, StringComparison.Ordinal);
     }
 
     /// <summary>
