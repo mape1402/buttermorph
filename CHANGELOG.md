@@ -7,6 +7,13 @@ and this project follows semantic versioning.
 
 ---
 
+## [v2.1.7] - 2026-11-17
+
+### Fixed
+- Versioned schema-designer scripts after enabling open object fields so browsers load the updated client validation instead of reusing the prior cached requirement for nested fields.
+
+---
+
 ## [v2.1.6] - 2026-11-17
 
 ### Fixed
