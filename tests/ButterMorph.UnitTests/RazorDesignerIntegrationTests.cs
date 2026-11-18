@@ -1878,6 +1878,8 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("type-constraints-string", html, StringComparison.Ordinal);
         Assert.Contains("type-constraints-" + "obj" + "ect", html, StringComparison.Ordinal);
         Assert.Contains("schema-root-fields", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-builder.js?v=schema-open-object-1", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-type-version-editor.js?v=schema-open-object-1", html, StringComparison.Ordinal);
         Assert.Contains("Save Type", html, StringComparison.Ordinal);
         Assert.DoesNotContain("JSON Schema result", html, StringComparison.Ordinal);
         Assert.DoesNotContain("atlas-tools-nav", html, StringComparison.Ordinal);
@@ -1911,6 +1913,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         Assert.Contains("metadata-validation-section", html, StringComparison.Ordinal);
         Assert.Contains("metadata-allowed-values-section", html, StringComparison.Ordinal);
         Assert.Contains("metadata-availability-option", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-metadata-field-editor.js?v=schema-open-object-1", html, StringComparison.Ordinal);
         Assert.Contains("Metadata must be captured", html, StringComparison.Ordinal);
         Assert.Contains("Metadata field is available", html, StringComparison.Ordinal);
         Assert.Contains("Save Custom Field", html, StringComparison.Ordinal);
@@ -1932,7 +1935,7 @@ public sealed class RazorDesignerIntegrationTests : IClassFixture<WebApplication
         string html = await client.GetStringAsync("/buttermorph/payload-schema/designer" + QueryMarker() + "context=payload-customer-profile&popup=true");
 
         Assert.Contains("buttermorph-schema.css?v=schema-import-1", html, StringComparison.Ordinal);
-        Assert.Contains("buttermorph-schema-builder.js?v=schema-import-1", html, StringComparison.Ordinal);
+        Assert.Contains("buttermorph-schema-builder.js?v=schema-open-object-1", html, StringComparison.Ordinal);
         Assert.Contains("id=\"schema-import-button\"", html, StringComparison.Ordinal);
         Assert.Contains("context=payload-customer-profile", html, StringComparison.Ordinal);
         Assert.Contains("popup=true", html, StringComparison.Ordinal);
