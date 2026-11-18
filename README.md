@@ -69,27 +69,27 @@ Reference only the packages your host needs.
 Runtime-only mapping execution:
 
 ```xml
-<PackageReference Include="ButterMorph" Version="2.1.6" />
-<PackageReference Include="ButterMorph.Json" Version="2.1.6" />
+<PackageReference Include="ButterMorph" Version="2.1.7" />
+<PackageReference Include="ButterMorph.Json" Version="2.1.7" />
 ```
 
 JSON Schema import/export:
 
 ```xml
-<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.6" />
+<PackageReference Include="ButterMorph.Json.Schema" Version="2.1.7" />
 ```
 
 Language adapters and code generation:
 
 ```xml
-<PackageReference Include="ButterMorph.Language" Version="2.1.6" />
-<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.6" />
+<PackageReference Include="ButterMorph.Language" Version="2.1.7" />
+<PackageReference Include="ButterMorph.Language.CSharp" Version="2.1.7" />
 ```
 
 Full reusable Razor designer experience:
 
 ```xml
-<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.6" />
+<PackageReference Include="ButterMorph.Web.Razor" Version="2.1.7" />
 ```
 
 `ButterMorph.Web.Razor` depends on the design packages it needs.

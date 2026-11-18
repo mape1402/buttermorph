@@ -440,7 +440,7 @@
         if (type === "integer") {
             return ["minimum", "maximum"];
         }
-        if (dataTypeSelect.value === "array") {
+        if (type === "array") {
             return ["minItems", "maxItems"];
         }
         if (type === "date" || type === "datetime") {
